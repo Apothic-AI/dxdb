@@ -45,6 +45,10 @@ pub enum PlanKey {
     String(String),
     /// A finite numeric bound. Non-finite is unrepresentable on purpose.
     Number(f64),
+    /// A boolean bound. Booleans appear as plan keys because `_deleted` is the first
+    /// field of every index, so an equality on it becomes a `startKeys`/`endKeys`
+    /// pair of booleans.
+    Boolean(bool),
     /// The "no bound" case that upstream represents as `undefined`, which is how
     /// a plan survives a JSON round-trip.
     Unbounded,
@@ -70,6 +74,7 @@ impl PlanKey {
             PlanKey::Number(n) => serde_json::Number::from_f64(*n)
                 .map(Value::Number)
                 .unwrap_or(Value::Null),
+            PlanKey::Boolean(flag) => Value::Bool(*flag),
             PlanKey::Unbounded => Value::Null,
         }
     }
@@ -80,6 +85,7 @@ impl PlanKey {
         match value {
             Value::String(s) => Some(PlanKey::String(s.clone())),
             Value::Number(n) => n.as_f64().filter(|n| n.is_finite()).map(PlanKey::Number),
+            Value::Bool(flag) => Some(PlanKey::Boolean(*flag)),
             Value::Null => Some(PlanKey::Unbounded),
             _ => None,
         }
@@ -92,7 +98,7 @@ impl PlanKey {
         match self {
             PlanKey::Number(n) => *n == INDEX_MIN,
             PlanKey::String(s) => s.as_str() == INDEX_MAX.to_string().as_str(),
-            PlanKey::Unbounded => false,
+            PlanKey::Boolean(_) | PlanKey::Unbounded => false,
         }
     }
 }

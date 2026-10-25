@@ -23,3 +23,6 @@ dxdb-query = { path = "../../dxdb-query" }
 # The index-string and behaviour oracles read committed vector files.
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+# The conformance test builds prepared queries the way core does, so it needs the
+# schema index list and the normaliser rather than hand-built plans.
+dxdb-schema = { path = "../../dxdb-schema" }
