@@ -58,16 +58,25 @@
 //!   upstream's behaviour, and the memory storage's "should be able to jump more
 //!   than 1 revision height in a single write operation" test depends on it.
 //!
-//! # One deliberate divergence
+//! # Three upstream behaviours that are not the obvious rule
 //!
-//! An attachment whose digest changed **without** a payload is a `510` here.
-//! Upstream only requires a payload for an attachment that is *new*; for an
-//! existing id it writes the new digest into the stub and leaves whatever bytes
-//! it had, so the stored data no longer matches its own digest. Silently
-//! corrupting an attachment to match a quirk is not a behaviour worth porting,
-//! and the divergence is only reachable by a caller that constructs that write by
-//! hand — core never does, because it always sends the payload when the digest
-//! moves.
+//! All three were found by the differential oracle
+//! (`tests/categorize_oracle.rs`: 600 cases recorded from upstream at the pinned
+//! commit), by the port disagreeing with upstream and upstream winning:
+//!
+//! 1. **A resurrection event carries no previous document.** When
+//!    `previous._deleted && !document._deleted` the event is `INSERT` with
+//!    `previousDocumentData: null`, not the tombstone that was supplied. An
+//!    `INSERT` that also claimed a previous document makes event-reduce
+//!    misbehave.
+//! 2. **A row that fails its attachment check still emits its event.** Only the
+//!    `409` conflict branch `continue`s; a `510` falls through to the event push
+//!    and the attachment loops. Suppressing the event looks correct and makes a
+//!    live query disagree with a re-run of the same query.
+//! 3. **The payload-presence rule is narrower than it looks.** Only a *new*
+//!    attachment needs `data`. A changed digest on an existing id with no payload
+//!    is accepted, and the stored bytes keep their old content — upstream prefers
+//!    a write it can apply over rejecting one.
 
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -331,17 +340,19 @@ impl Rules<'_> {
         let stored = docs_in_db.get(&doc_id);
         let previous = write_row.previous.as_ref();
 
+        // Upstream's shape, reproduced branch for branch, including the part that
+        // is easy to get wrong: an attachment error does **not** suppress the
+        // event or the attachment side effects, because only the 409 conflict
+        // branch `continue`s. The oracle corpus pins this (cases 58 and 60: a row
+        // that 510s still emits its INSERT).
         let decision = match stored {
-            None => {
-                if let Some(error) = self.insert_attachment_error(write_row, &doc_id) {
-                    RowDecision::Reject(error)
-                } else {
-                    RowDecision::Insert(BulkWriteRowProcessed::new(
-                        write_row.previous.clone(),
-                        document.clone(),
-                    ))
-                }
-            }
+            None => match self.insert_attachment_error(write_row, &doc_id) {
+                Some(error) => RowDecision::Reject(error),
+                None => RowDecision::Insert(BulkWriteRowProcessed::new(
+                    write_row.previous.clone(),
+                    document.clone(),
+                )),
+            },
             Some(document_in_db) => {
                 // Conflict unless `previous` provably is the stored revision.
                 // A missing `previous` conflicts even against a tombstone: that
@@ -363,22 +374,38 @@ impl Rules<'_> {
                         document_in_db: Some(document_in_db.clone()),
                         context: self.context.to_string(),
                     })
-                } else if let Some(error) =
-                    self.update_attachment_error(write_row, document_in_db, &doc_id)
-                {
-                    RowDecision::Reject(error)
                 } else {
-                    RowDecision::Update(BulkWriteRowProcessed::new(
-                        write_row.previous.clone(),
-                        document.clone(),
-                    ))
+                    match self.update_attachment_error(write_row, document_in_db, &doc_id) {
+                        Some(error) => RowDecision::Reject(error),
+                        None => RowDecision::Update(BulkWriteRowProcessed::new(
+                            write_row.previous.clone(),
+                            document.clone(),
+                        )),
+                    }
                 }
             }
         };
 
+        // Upstream's control flow, exactly:
+        //
+        //   * a 409 conflict `continue`s -> no event, no attachment work;
+        //   * a 510 attachment error skips the attachment side effects (`if
+        //     (!attachmentError)` wraps every push) but still pushes its event;
+        //   * a written row does both.
+        //
+        // So "does this row emit an event?" and "does this row touch attachments?"
+        // are two different questions, and answering them with one boolean is the
+        // bug the oracle corpus catches (case 519).
         let side_effects = match &decision {
-            RowDecision::Insert(_) => self.collect_insert(write_row, &doc_id),
-            RowDecision::Update(_) => self.collect_update(write_row, &doc_id),
+            RowDecision::Insert(_) => self.collect_insert(write_row, &doc_id, true),
+            RowDecision::Update(_) => self.collect_update(write_row, &doc_id, true),
+            RowDecision::Reject(WriteError::Attachment { .. }) => {
+                if stored.is_some() {
+                    self.collect_update(write_row, &doc_id, false)
+                } else {
+                    self.collect_insert(write_row, &doc_id, false)
+                }
+            }
             RowDecision::Reject(_) => SideEffects::default(),
         };
         (decision, side_effects)
@@ -417,27 +444,24 @@ impl Rules<'_> {
         let document_attachments = document.attachments().unwrap_or(&empty);
         let previous_attachments = previous.attachments().unwrap_or(&empty);
 
-        document_attachments
-            .iter()
-            .find_map(|(attachment_id, stub)| {
-                let new_digest = stub.get(DIGEST).and_then(Value::as_str);
-                let needs_payload = match previous_attachments.get(attachment_id) {
-                    None => true,
-                    Some(previous_stub) => {
-                        previous_stub.get(DIGEST).and_then(Value::as_str) != new_digest
-                    }
-                };
-                (needs_payload && !write_row.document.has_attachment_payload(attachment_id)).then(
-                    || {
-                        self.attachment_error(
-                            write_row,
-                            doc_id,
-                            attachment_id,
-                            Some(document_in_db.clone()),
-                        )
-                    },
+        // Upstream's rule, exactly: a payload is required only for an attachment
+        // that is **new relative to `previous`**. A changed digest on an existing
+        // id with no payload is accepted upstream (the stub's digest moves and the
+        // stored bytes stay), so it is accepted here too. This used to be stricter
+        // in this port; the oracle corpus showed the divergence (case 397), and
+        // matching upstream wins because a storage must not reject a write the
+        // reference storage accepts.
+        document_attachments.keys().find_map(|attachment_id| {
+            let is_new = !previous_attachments.contains_key(attachment_id);
+            (is_new && !write_row.document.has_attachment_payload(attachment_id)).then(|| {
+                self.attachment_error(
+                    write_row,
+                    doc_id,
+                    attachment_id,
+                    Some(document_in_db.clone()),
                 )
             })
+        })
     }
 
     fn attachment_error(
@@ -456,11 +480,20 @@ impl Rules<'_> {
         }
     }
 
-    fn collect_insert(&self, write_row: &BulkWriteRow, doc_id: &str) -> SideEffects {
+    /// Attachment side effects and the event for an insert.
+    ///
+    /// `attachment_ok` is false for a row whose attachment check failed: upstream
+    /// then pushes the event but skips its attachment work.
+    fn collect_insert(
+        &self,
+        write_row: &BulkWriteRow,
+        doc_id: &str,
+        attachment_ok: bool,
+    ) -> SideEffects {
         let document = write_row.document.document();
         let mut side_effects = SideEffects::default();
 
-        if self.has_attachments {
+        if self.has_attachments && attachment_ok {
             if let Some(attachments) = document.attachments() {
                 for attachment_id in attachments.keys() {
                     if let Some(payload) = write_row.document.attachment_payload(attachment_id) {
@@ -487,18 +520,35 @@ impl Rules<'_> {
         side_effects
     }
 
-    fn collect_update(&self, write_row: &BulkWriteRow, doc_id: &str) -> SideEffects {
+    /// Attachment side effects and the event for an update.
+    ///
+    /// `attachment_ok` is false for a row whose attachment check failed: upstream
+    /// then pushes the event but skips every attachment push, including the
+    /// removals for attachments the write dropped.
+    fn collect_update(
+        &self,
+        write_row: &BulkWriteRow,
+        doc_id: &str,
+        attachment_ok: bool,
+    ) -> SideEffects {
         let document = write_row.document.document();
         let previous = write_row.previous.as_ref();
         let mut side_effects = SideEffects::default();
 
-        if self.has_attachments {
+        if self.has_attachments && attachment_ok {
             let empty = serde_json::Map::new();
             let previous_attachments = previous
                 .and_then(DocumentData::attachments)
                 .unwrap_or(&empty);
             if document.is_deleted() {
-                // A tombstone drops every attachment it had.
+                // A tombstone drops every attachment it had. Upstream's delete
+                // branch pushes one `attachmentsRemove` per attachment in
+                // `previous._attachments` (rx-storage-helper.ts:369), which is what
+                // makes the conformance suite's "_deleted documents must loose all
+                // attachments" pass on a persistent storage that keeps payloads
+                // outside the document. The rows are deduplicated per document by
+                // the caller, not here (oracle case 519 has two delete rows for one
+                // document and upstream reports one removal per row's view).
                 for attachment_id in previous_attachments.keys() {
                     side_effects.remove.push(AttachmentRemove {
                         document_id: doc_id.to_string(),
@@ -555,21 +605,30 @@ impl Rules<'_> {
 
         let previous_deleted = previous.map(DocumentData::is_deleted).unwrap_or(false);
         let document_deleted = document.is_deleted();
-        // Resurrection is an INSERT: event-reduce above drops an UPDATE for a
-        // document the live query does not currently hold.
-        let operation = if previous_deleted && !document_deleted {
-            Operation::Insert
+
+        // Upstream's branch order, and the reason each carries the previous state
+        // it carries (rx-storage-helper.ts:466):
+        //
+        //   previousDeleted && !documentDeleted  -> INSERT, previous: **null**
+        //   !previousDeleted && !documentDeleted -> UPDATE, previous: previous
+        //   documentDeleted                      -> DELETE, previous: previous
+        //
+        // The resurrection case genuinely has no previous state to report: it is
+        // an insert as far as every consumer above is concerned, and event-reduce
+        // would misinterpret an INSERT that also claimed a previous document.
+        let (operation, previous_document_data) = if previous_deleted && !document_deleted {
+            (Operation::Insert, None)
         } else if document_deleted {
-            Operation::Delete
+            (Operation::Delete, previous.cloned())
         } else {
-            Operation::Update
+            (Operation::Update, previous.cloned())
         };
 
         side_effects.events.push(ChangeEvent {
             document_id: doc_id.to_string(),
             operation,
             document_data: document.clone(),
-            previous_document_data: previous.cloned(),
+            previous_document_data,
         });
         side_effects
     }
@@ -772,6 +831,9 @@ mod tests {
         );
         assert_eq!(out.events.len(), 1);
         assert_eq!(out.events[0].operation, Operation::Insert);
+        // Upstream reports no previous document for a resurrection, even though
+        // the tombstone was supplied; the oracle corpus pins this.
+        assert_eq!(out.events[0].previous_document_data, None);
     }
 
     #[test]
