@@ -25,10 +25,10 @@ BUSY := 'ps -eo comm= | grep -qxE "rustc|cargo" && echo BUSY || echo IDLE'
 # worktrees do not thrash the shared box's 4 build jobs. See docs/WORKTREES.md.
 LOCK := /tmp/dxdb-remote-build.lock
 
-.PHONY: help check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size
+.PHONY: help check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size audit
 
 help:
-	@echo "check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size"
+	@echo "check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size audit"
 
 check:
 	@flock $(LOCK) $(CARGO) check --workspace --all-targets
@@ -92,6 +92,12 @@ RXDB_UPSTREAM ?= $(HOME)/Code/rxdb
 
 status:
 	@RXDB_UPSTREAM="$(RXDB_UPSTREAM)" python3 xtask/status.py
+
+# The PLAN.md section 10 completion audit. Every item maps to evidence that is
+# present or absent; nothing is inferred. --strict exits nonzero if anything is
+# unmet or partial, which is what makes "port complete" falsifiable.
+audit:
+	@python3 xtask/audit.py
 
 # Enforce a WASM size budget from PLAN.md 5.3, e.g.
 #   make size BUDGET_WASM=target/wasm32-unknown-unknown/release/dxdb_js.wasm BUDGET_KIB=250
