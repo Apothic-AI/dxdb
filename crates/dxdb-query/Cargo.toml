@@ -1,0 +1,23 @@
+[package]
+name = "dxdb-query"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb query: index strings, Mango matcher, normalisation, query planner"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+# PLAN.md section 9: ECMAScript regex semantics for Mango `$regex`. Section 8
+# verified it builds for wasm32-unknown-unknown on the pinned 1.95.0 and that
+# flags are a `Flags` struct rather than inline `(?i)`.
+regress.workspace = true
+dxdb-json = { path = "../dxdb-json" }
+dxdb-jsnum = { path = "../dxdb-jsnum" }
+dxdb-jsstr = { path = "../dxdb-jsstr" }
+dxdb-schema = { path = "../dxdb-schema" }
+
+[dev-dependencies]
+proptest.workspace = true

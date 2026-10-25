@@ -1,0 +1,25 @@
+{
+  "//": "Type-checks the authored surface and its consumers. Nothing is emitted: this is a check, not a build. `strict` is on because a .d.ts that only type-checks loosely has not been checked.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "ESNext.Disposable"],
+    "strict": true,
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": true,
+    "isolatedModules": true,
+    "skipLibCheck": false,
+    "types": [],
+    "paths": {
+      "dxdb": ["./dxdb.d.ts"],
+      "../pkg/dxdb_js": ["../pkg/dxdb_js.d.ts"]
+    },
+    "baseUrl": "."
+  },
+  "include": ["dxdb.d.ts", "consumer.ts", "assignability.ts"]
+}
