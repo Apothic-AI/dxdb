@@ -6,8 +6,10 @@
   "node": "v22.23.3",
   "format": "schema+index+document->indexString",
   "caseCount": 900,
-  "droppedCaseCount": 2920,
-  "skipped": [
+  "producedCaseCount": 896,
+  "rejectionCaseCount": 4,
+  "droppedCaseCount": 2924,
+  "rejections": [
     {
       "schema": "compoundIndexNoString",
       "index": [
@@ -16,8 +18,9 @@
         "passportCountry",
         "passportId"
       ],
-      "reason": "monad failed: usePath.replace is not a function",
-      "expected": "index contains the literal number 10, not a field path"
+      "class": "upstream-rejects-non-string-index-entry",
+      "errorCode": null,
+      "errorName": "TypeError"
     },
     {
       "schema": "noStringIndex",
@@ -25,8 +28,9 @@
         "_deleted",
         "passportId"
       ],
-      "reason": "monad failed: Cannot read properties of undefined (reading 'minimum')",
-      "expected": "indexed numeric field declares no minimum/maximum, so no digit budget"
+      "class": "upstream-requires-numeric-index-bounds",
+      "errorCode": null,
+      "errorName": "TypeError"
     },
     {
       "schema": "noStringIndex",
@@ -34,8 +38,9 @@
         "_meta.lwt",
         "passportId"
       ],
-      "reason": "monad failed: Cannot read properties of undefined (reading 'minimum')",
-      "expected": "indexed numeric field declares no minimum/maximum, so no digit budget"
+      "class": "upstream-requires-numeric-index-bounds",
+      "errorCode": null,
+      "errorName": "TypeError"
     },
     {
       "schema": "notExistingIndex",
@@ -44,10 +49,12 @@
         "address.apartment",
         "passportId"
       ],
-      "reason": "monad failed: \n\n        RxDB Error-Code: CI1.\n        Hint: Error messages are not included in RxDB core to reduce build size.\n        To show the full error messages and to ensure that you do not make any mistakes when using RxDB,\n        use the dev-mode plugin when you are in development mode: https://rxdb.info/dev-mode.html?console=error\n        \nFind out more about this error here: https://rxdb.info/errors.html?console=errors#CI1 \nStill stuck? Ask in the RxDB Discord: https://rxdb.info/chat \n\n--------------------\nParameters:\nfieldName: \"address.apartment\"\n",
-      "expected": "index names a field that is not in properties"
+      "class": "upstream-rejects-missing-indexed-field",
+      "errorCode": "CI1",
+      "errorName": "RxError"
     }
   ],
+  "unexpectedRejections": [],
   "cases": [
     {
       "schema": "bigHuman",
@@ -12692,60 +12699,117 @@
       "upperBoundString": "0\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
     },
     {
-      "schema": "primaryHuman",
+      "schema": "compoundIndexNoString",
       "index": [
         "_deleted",
+        10,
+        "passportCountry",
         "passportId"
       ],
-      "field": "passportId",
-      "kind": "index-string",
-      "why": "passportId:trailing-space-inside",
-      "document": {
-        "_deleted": false,
-        "passportId": "ab c"
+      "kind": "rejection",
+      "why": "upstream-rejects-non-string-index-entry",
+      "entryPointsTried": [
+        "getIndexableStringMonad",
+        "getIndexStringLength",
+        "getSchemaByObjectPath"
+      ],
+      "rejected": true,
+      "errorName": "TypeError",
+      "errorCode": null,
+      "rxdbError": false,
+      "errorUrl": null,
+      "parameters": null,
+      "rawMessage": "usePath.replace is not a function",
+      "atConstructor": "getIndexableStringMonad",
+      "upstreamBehaviour": {
+        "class": "upstream-rejects-non-string-index-entry",
+        "detail": "The index array contains a non-string entry (a literal number). `getIndexMeta` treats each entry as a field path and calls a string method on it, so it throws before any schema lookup happens."
       },
-      "indexString": "0ab c                                                                                                "
+      "rustExpectation": "reject at schema/index validation with a typed error, not a panic"
     },
     {
-      "schema": "primaryHumanLiteral",
+      "schema": "noStringIndex",
       "index": [
         "_deleted",
         "passportId"
       ],
-      "field": "passportId",
-      "kind": "bounds",
-      "why": "lower-INDEX_MIN",
-      "bound": -9007199254740991,
-      "lowerBoundString": "0\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
-      "upperBoundString": "0\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
-    },
-    {
-      "schema": "primaryHumanLiteral",
-      "index": [
-        "_deleted",
-        "passportId"
+      "kind": "rejection",
+      "why": "upstream-requires-numeric-index-bounds",
+      "entryPointsTried": [
+        "getIndexableStringMonad",
+        "getIndexStringLength",
+        "getSchemaByObjectPath"
       ],
-      "field": "passportId",
-      "kind": "index-string",
-      "why": "passportId:trailing-space-inside",
-      "document": {
-        "_deleted": false,
-        "passportId": "ab c"
+      "rejected": true,
+      "errorName": "TypeError",
+      "errorCode": null,
+      "rxdbError": false,
+      "errorUrl": null,
+      "parameters": null,
+      "rawMessage": "Cannot read properties of undefined (reading 'minimum')",
+      "atConstructor": "getIndexableStringMonad",
+      "upstreamBehaviour": {
+        "class": "upstream-requires-numeric-index-bounds",
+        "detail": "A numeric or object-typed field is used in an index without declaring `minimum` and `maximum`. Those two numbers are what sizes the fixed-width digit budget, so there is no valid index string to produce and upstream dereferences the absent bounds instead of validating them."
       },
-      "indexString": "0ab c                                                                                                "
+      "rustExpectation": "reject at schema validation with a typed error naming the field"
     },
     {
-      "schema": "refHuman",
+      "schema": "noStringIndex",
+      "index": [
+        "_meta.lwt",
+        "passportId"
+      ],
+      "kind": "rejection",
+      "why": "upstream-requires-numeric-index-bounds",
+      "entryPointsTried": [
+        "getIndexableStringMonad",
+        "getIndexStringLength",
+        "getSchemaByObjectPath"
+      ],
+      "rejected": true,
+      "errorName": "TypeError",
+      "errorCode": null,
+      "rxdbError": false,
+      "errorUrl": null,
+      "parameters": null,
+      "rawMessage": "Cannot read properties of undefined (reading 'minimum')",
+      "atConstructor": "getIndexableStringMonad",
+      "upstreamBehaviour": {
+        "class": "upstream-requires-numeric-index-bounds",
+        "detail": "A numeric or object-typed field is used in an index without declaring `minimum` and `maximum`. Those two numbers are what sizes the fixed-width digit budget, so there is no valid index string to produce and upstream dereferences the absent bounds instead of validating them."
+      },
+      "rustExpectation": "reject at schema validation with a typed error naming the field"
+    },
+    {
+      "schema": "notExistingIndex",
       "index": [
         "_deleted",
-        "name"
+        "address.apartment",
+        "passportId"
       ],
-      "field": "name",
-      "kind": "bounds",
-      "why": "lower-INDEX_MIN",
-      "bound": -9007199254740991,
-      "lowerBoundString": "0\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000",
-      "upperBoundString": "0\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+      "kind": "rejection",
+      "why": "upstream-rejects-missing-indexed-field",
+      "entryPointsTried": [
+        "getIndexableStringMonad",
+        "getIndexStringLength",
+        "getSchemaByObjectPath"
+      ],
+      "rejected": true,
+      "errorName": "RxError",
+      "errorCode": "CI1",
+      "rxdbError": true,
+      "errorUrl": "https://rxdb.info/errors.html?console=errors#CI1",
+      "parameters": {
+        "fieldName": "address.apartment"
+      },
+      "rawMessage": "RxDB Error-Code: CI1. Hint: Error messages are not included in RxDB core to reduce build size. To show the full error messages and to ensure that you do not make any mistakes when using RxDB, use the dev-mode plugin when you are in development mode: https://rxdb.info/dev-mode.html?console=error Find out more about this error here: https://rxdb.info/errors.html?console=errors#CI1 Still stuck? Ask in the RxDB Discord: https://rxdb.info/chat -------------------- Parameters: fieldName: \"address.apartment\"",
+      "atConstructor": "getIndexableStringMonad",
+      "upstreamBehaviour": {
+        "class": "upstream-rejects-missing-indexed-field",
+        "detail": "An index names a field path the schema does not declare. Upstream raises RxDB error CI1 with the offending path in `parameters.fieldName`."
+      },
+      "rustExpectation": "must be a typed CI1-equivalent error, never a panic"
     }
   ]
 }

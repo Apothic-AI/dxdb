@@ -104,16 +104,84 @@ function booleanProbes() {
 }
 
 /**
- * Fixtures upstream ships that cannot produce an index string at all. They are
- * kept in the record rather than silently skipped: a Rust port hitting the same
- * schema must fail the same way, and a reader needs to know these inputs exist.
+ * Upstream refuses four fixture indexes. These are not gaps in coverage: they are
+ * upstream's validation behaviour, and PLAN.md 4.3 makes schema/index validation
+ * part of the contract. A port that accepts any of these silently is wrong, so
+ * each refusal is recorded as a first-class case carrying its observable error
+ * identity (the RxDB error code where there is one, the thrown class where the
+ * failure is an unguarded property access) plus the raw message.
+ *
+ * Note that each of these fixtures still produces *some* valid indexes: the
+ * `_meta.lwt` index is always well formed. So a refusal is per-index, not
+ * per-schema, and is recorded as such.
  */
-const EXPECTED_FAILURES = {
-  compoundIndexNoString: 'index contains the literal number 10, not a field path',
-  noStringIndex: 'indexed numeric field declares no minimum/maximum, so no digit budget',
-  humanMinimalBroken: 'indexed numeric field declares no minimum/maximum, so no digit budget',
-  notExistingIndex: 'index names a field that is not in properties',
+const REFUSAL_CLASSES = {
+  /** `getIndexMeta` calls `.replace()` on the index entry, which must be a string. */
+  nonStringIndexEntry: {
+    class: 'upstream-rejects-non-string-index-entry',
+    detail:
+      'The index array contains a non-string entry (a literal number). ' +
+      '`getIndexMeta` treats each entry as a field path and calls a string ' +
+      'method on it, so it throws before any schema lookup happens.',
+    rustExpectation:
+      'reject at schema/index validation with a typed error, not a panic',
+  },
+  /** `getStringLengthOfIndexNumber` reads `schemaPart.minimum` unconditionally. */
+  missingNumericBounds: {
+    class: 'upstream-requires-numeric-index-bounds',
+    detail:
+      'A numeric or object-typed field is used in an index without declaring ' +
+      '`minimum` and `maximum`. Those two numbers are what sizes the fixed-width ' +
+      'digit budget, so there is no valid index string to produce and upstream ' +
+      'dereferences the absent bounds instead of validating them.',
+    rustExpectation:
+      'reject at schema validation with a typed error naming the field',
+  },
+  /** The one refusal that is already a proper typed RxDB error. */
+  missingIndexedField: {
+    class: 'upstream-rejects-missing-indexed-field',
+    detail:
+      'An index names a field path the schema does not declare. Upstream raises ' +
+      'RxDB error CI1 with the offending path in `parameters.fieldName`.',
+    rustExpectation: 'must be a typed CI1-equivalent error, never a panic',
+  },
 };
+
+/**
+ * Which refusal a given (schema, index) is expected to hit. A `null` means the
+ * index is expected to work, so an unexpected throw is a generator bug and is
+ * reported as such instead of being filed as upstream behaviour.
+ */
+function expectedRefusal(name, index) {
+  const hasNonString = index.some((entry) => typeof entry !== 'string');
+  if (hasNonString) return REFUSAL_CLASSES.nonStringIndexEntry;
+  if (name === 'noStringIndex') return REFUSAL_CLASSES.missingNumericBounds;
+  if (name === 'notExistingIndex') return REFUSAL_CLASSES.missingIndexedField;
+  return null;
+}
+
+/**
+ * Turn a caught error into the observable identity a Rust test can assert on.
+ * `code` is only present when upstream raised a real RxDB error; a bare
+ * `TypeError` is still observable behaviour and is recorded as its class.
+ */
+function describeError(err) {
+  const errorName = err && err.constructor ? err.constructor.name : typeof err;
+  return {
+    errorName,
+    errorCode: err && typeof err.code === 'string' ? err.code : null,
+    rxdbError: !!(err && err.rxdb),
+    errorUrl: err && typeof err.url === 'string' ? err.url : null,
+    parameters: err && err.parameters ? { ...err.parameters } : null,
+    // The raw message is kept because for the untyped cases it is the only hint
+    // about which property access failed.
+    rawMessage: String((err && err.message) || err)
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join(' '),
+  };
+}
 
 /** Ask the oracle for the leaf schema part of a dotted path, as upstream does. */
 function schemaPartAt(schema, path) {
@@ -172,15 +240,32 @@ export async function run({ check, repo }) {
    * silently drops whole schemas, which reads as "covered" when it is not.
    */
   const groups = [];
-  const skipped = [];
+  const rejectionGroups = [];
   let currentGroup = null;
+  /** Refusals, split so an unexpected one cannot hide among the expected ones. */
+  const rejections = [];
+  const unexpectedRejections = [];
 
   for (const [name, literal] of fixtureSchemas) {
     let schema;
     try {
       schema = rxSchema.createRxSchema(literal, utilsHash.defaultHashSha256).jsonSchema;
     } catch (err) {
-      skipped.push({ schema: name, reason: `not creatable as-is: ${err && err.message}` });
+      rejectionGroups.push({
+        schema: name,
+        index: null,
+        cases: [
+          {
+            schema: name,
+            index: null,
+            kind: 'rejection',
+            why: 'upstream-rejects-schema',
+            rejected: true,
+            ...describeError(err),
+          },
+        ],
+      });
+      unexpectedRejections.push({ schema: name, index: null, ...describeError(err) });
       continue;
     }
 
@@ -194,32 +279,48 @@ export async function run({ check, repo }) {
       // for each field, but kept small by probing one field at a time against
       // neutral fillers. That is the shape a Rust test wants: hold everything
       // else fixed, move one field, compare the whole index string.
+      /**
+       * Probe every entry point upstream offers for this index. A refusal at any
+       * of them is recorded as a case rather than skipped: "upstream threw here"
+       * is behaviour the port has to match, and it is the only evidence we have
+       * that upstream rejects the shape at all.
+       */
       let monad;
+      let infos;
+      let refusal = null;
       try {
         monad = customIndex.getIndexableStringMonad(schema, index);
-      } catch (err) {
-        // Kept as an explicit unsupported record: a port must fail the same way.
-        skipped.push({
-          schema: name,
-          index,
-          reason: `monad failed: ${err && err.message}`,
-          expected: EXPECTED_FAILURES[name] || null,
-        });
-        groups.pop();
-        continue;
-      }
-
-      let infos;
-      try {
+        // `getIndexStringLength` is a separate entry point with its own failure
+        // mode (it is what reads `.minimum` for the digit budget), so it is
+        // probed explicitly rather than inferred from the monad succeeding.
+        customIndex.getIndexStringLength(schema, index);
         infos = index.map((path) => indexFieldInfo(oracle, schema, path));
       } catch (err) {
-        skipped.push({
+        refusal = { ...describeError(err), atConstructor: monad ? 'getIndexStringLength' : 'getIndexableStringMonad' };
+      }
+
+      if (refusal) {
+        const expected = expectedRefusal(name, index);
+        currentGroup.cases.push({
           schema: name,
           index,
-          reason: err && err.message,
-          expected: EXPECTED_FAILURES[name] || null,
+          kind: 'rejection',
+          why: expected ? expected.class : 'UNEXPECTED-REJECTION',
+          // The full list of entry points that were tried, so the case says what
+          // was attempted and not only what failed.
+          entryPointsTried: ['getIndexableStringMonad', 'getIndexStringLength', 'getSchemaByObjectPath'],
+          rejected: true,
+          ...refusal,
+          upstreamBehaviour: expected
+            ? { class: expected.class, detail: expected.detail }
+            : null,
+          rustExpectation: expected ? expected.rustExpectation : 'investigate: this index was expected to work',
         });
-        groups.pop();
+        if (!expected) {
+          unexpectedRejections.push({ schema: name, index, ...refusal });
+        } else {
+          rejections.push({ schema: name, index, class: expected.class, errorCode: refusal.errorCode, errorName: refusal.errorName });
+        }
         continue;
       }
       const neutral = infos.map((info) => {
@@ -387,9 +488,15 @@ export async function run({ check, repo }) {
    * and look complete). So: stratify by (kind, schema) first, then round-robin
    * across the strata.
    */
-  const totalCases = groups.reduce((n, g) => n + g.cases.length, 0);
+  /**
+   * Rejection cases are never subject to the cap. They are few, they are the only
+   * evidence of upstream's validation behaviour, and dropping one would silently
+   * turn "upstream rejects this" into "we never checked".
+   */
+  const allGroups = [...groups, ...rejectionGroups];
+  const totalCases = allGroups.reduce((n, g) => n + g.cases.length, 0);
   const strata = new Map();
-  for (const group of groups) {
+  for (const group of allGroups) {
     for (const one of group.cases) {
       const key = `${group.schema}\u0000${one.kind}`;
       if (!strata.has(key)) strata.set(key, []);
@@ -399,17 +506,27 @@ export async function run({ check, repo }) {
   const strataList = [...strata.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([, list]) => list);
+  const rejectionCases = strataList
+    .flat()
+    .filter((one) => one.kind === 'rejection');
+  const producibleStrata = strataList
+    .map((list) => list.filter((one) => one.kind !== 'rejection'))
+    .filter((list) => list.length > 0);
+  const budget = MAX_CASES - rejectionCases.length;
   const kept = [];
-  for (let round = 0; kept.length < MAX_CASES; round++) {
+  for (let round = 0; kept.length < budget; round++) {
     let added = 0;
-    for (const list of strataList) {
-      if (round < list.length && kept.length < MAX_CASES) {
+    for (const list of producibleStrata) {
+      if (round < list.length && kept.length < budget) {
         kept.push(list[round]);
         added += 1;
       }
     }
     if (added === 0) break;
   }
+  // Emit in a stable order: producible cases then rejections, each already
+  // ordered by (schema, kind) strata, so the file diff is readable.
+  kept.push(...rejectionCases);
   const dropped = totalCases - kept.length;
 
   const doc = {
@@ -423,9 +540,24 @@ export async function run({ check, repo }) {
     ),
     format: 'schema+index+document->indexString',
     determinism: oracle.determinism,
+    /**
+     * `caseCount` counts every case in `cases`, including `kind: "rejection"`
+     * entries. Those are not missing coverage: they are upstream refusing an
+     * index (a non-string index entry, a numeric index field with no declared
+     * bounds, an index naming a field the schema does not have). PLAN.md 4.3
+     * makes that validation part of the contract, so each refusal is recorded
+     * with its observable error identity: the RxDB code (`CI1`) where upstream
+     * raises a typed error, and the thrown class plus raw message where it does
+     * not (`TypeError` from an unguarded property access).
+     */
     caseCount: kept.length,
+    producedCaseCount: kept.length - rejectionCases.length,
+    rejectionCaseCount: rejectionCases.length,
     droppedCaseCount: dropped,
-    skipped,
+    /** Roll-up of the `kind: "rejection"` cases, by refusal class. */
+    rejections,
+    /** Empty means every refusal was the expected one. */
+    unexpectedRejections,
     cases: kept,
   };
 
