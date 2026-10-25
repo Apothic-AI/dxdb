@@ -14,26 +14,27 @@ mod fake;
 use std::sync::Arc;
 
 use dxdb_logger::{
-    Checkpoint, InstanceParams, LoggedStorage, LoggedStorageInstance, LoggerSettings,
-    OperationName, OperationToggles, PreparedQuery, RawWriteRow, SentrySpan, SpanIds, SpanStatus,
-    Phase,
+    Checkpoint, LoggedStorageInstance, LoggerSettings, OperationName, OperationToggles, Phase,
+    PreparedQuery, RawWriteRow, SentrySpan, SpanIds, SpanStatus,
 };
 use fake::{FakeStorage, Outcome, RecordingHooks, SteppingClock, FAIL_MESSAGE};
 
 /// Drives every documented operation once, in the documented order.
-fn drive_all(instance: &dxdb_logger::LoggerInstance<fake::FakeInstance>) -> Vec<Result<(), dxdb_logger::StorageError>> {
+fn drive_all(
+    instance: &dxdb_logger::LoggerInstance<fake::FakeInstance>,
+) -> Vec<Result<(), dxdb_logger::StorageError>> {
     let mut results = Vec::new();
     for operation in OperationName::ALL {
         results.push(futures::executor::block_on(async {
             match operation {
                 OperationName::BulkWrite => instance
                     .bulk_write(
-                        vec![RawWriteRow {
-                            document: dxdb_logger::RawDocument::from_value(
+                        vec![RawWriteRow::new(
+                            "doc-1",
+                            dxdb_logger::RawDocument::from_value(
                                 serde_json::json!({ "id": "doc-1" }),
                             ),
-                            previous: None,
-                        }],
+                        )],
                         "test-context".into(),
                     )
                     .await
@@ -42,9 +43,7 @@ fn drive_all(instance: &dxdb_logger::LoggerInstance<fake::FakeInstance>) -> Vec<
                     .find_documents_by_id(vec!["doc-1".into()], false)
                     .await
                     .map(|_| ()),
-                OperationName::Query => {
-                    instance.query(PreparedQuery::default()).await.map(|_| ())
-                }
+                OperationName::Query => instance.query(PreparedQuery::default()).await.map(|_| ()),
                 OperationName::Count => instance.count(PreparedQuery::default()).await.map(|_| ()),
                 OperationName::Info => instance.info().await.map(|_| ()),
                 OperationName::GetAttachmentData => instance
@@ -113,7 +112,11 @@ fn inv_01_transparency_is_total() {
             }
         }
     }
-    assert_eq!(combinations, 1024 * 2 * 2 * 2, "every combination exercised");
+    assert_eq!(
+        combinations,
+        1024 * 2 * 2 * 2,
+        "every combination exercised"
+    );
 }
 
 /// INV-2: exactly one start record and exactly one terminal record per logged
@@ -157,7 +160,8 @@ fn inv_02_start_and_terminal_are_paired() {
                 operation.as_str()
             );
             assert_eq!(
-                starts[0].log_id, terminals[0].log_id,
+                starts[0].log_id,
+                terminals[0].log_id,
                 "{} start and terminal share a log id",
                 operation.as_str()
             );
@@ -182,8 +186,8 @@ fn inv_02_start_and_terminal_are_paired() {
 /// call) and then dropped, which is what `select!` and a timeout wrapper do.
 #[test]
 fn inv_02_cancellation_is_terminal() {
-    use std::task::{Context, Wake, Waker};
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::task::{Context, Wake, Waker};
 
     #[derive(Debug)]
     struct CountingWake(AtomicUsize);
@@ -209,7 +213,11 @@ fn inv_02_cancellation_is_terminal() {
     let mut future = Box::pin(instance.query(PreparedQuery::default()));
     let first = std::future::Future::poll(future.as_mut(), &mut context);
     assert!(first.is_pending(), "the yielding inner call is pending");
-    assert_eq!(hooks.records_for(OperationName::Query).len(), 1, "start emitted");
+    assert_eq!(
+        hooks.records_for(OperationName::Query).len(),
+        1,
+        "start emitted"
+    );
     drop(future);
 
     let records = hooks.records_for(OperationName::Query);
@@ -217,7 +225,10 @@ fn inv_02_cancellation_is_terminal() {
     assert_eq!(records[0].phase, Phase::Start);
     assert_eq!(records[1].phase, Phase::Cancelled);
     assert_eq!(records[0].log_id, records[1].log_id);
-    assert_eq!(records[1].duration_ns, None, "a cancelled call has no duration");
+    assert_eq!(
+        records[1].duration_ns, None,
+        "a cancelled call has no duration"
+    );
     assert_eq!(hooks.fired()[3], 1, "the cancelled hook fired once");
     assert_eq!(hooks.fired()[1], 0, "the end hook did not fire");
     assert_eq!(hooks.fired()[2], 0, "the error hook did not fire");
@@ -241,7 +252,10 @@ fn inv_03_filtered_operations_are_silent_and_cheap() {
         results.iter().all(Result::is_ok),
         "a filtered operation still executes"
     );
-    assert!(hooks.records().is_empty(), "no records when everything is off");
+    assert!(
+        hooks.records().is_empty(),
+        "no records when everything is off"
+    );
     assert_eq!(clock.reads(), 0, "no clock reads when nothing is logged");
     assert_eq!(
         storage.calls().len(),
@@ -270,7 +284,11 @@ fn inv_03_filtered_operations_are_silent_and_cheap() {
         hooks.records().is_empty(),
         "no records for a filtered meta instance"
     );
-    assert_eq!(clock.reads(), 0, "no clock reads for a filtered meta instance");
+    assert_eq!(
+        clock.reads(),
+        0,
+        "no clock reads for a filtered meta instance"
+    );
 
     // (c) an ordinary collection is still logged under the same setting.
     let hooks = RecordingHooks::new();
@@ -324,7 +342,10 @@ fn inv_04_log_ids_are_unique_and_paired() {
     );
     let mut sorted_terminals = terminals.clone();
     sorted_terminals.sort_unstable();
-    assert_eq!(sorted_terminals, unique, "every start id is closed by one terminal");
+    assert_eq!(
+        sorted_terminals, unique,
+        "every start id is closed by one terminal"
+    );
 }
 
 /// INV-5: durations are exact, present iff timing is enabled and the call
@@ -385,7 +406,10 @@ fn inv_05_durations_are_exact_and_present_iff_timing_enabled() {
                     }
                     (true, Phase::Start) => {
                         assert_eq!(record.duration_ns, None, "a start record has no duration");
-                        assert!(record.wall_clock_ns.is_some(), "a start record has wall time");
+                        assert!(
+                            record.wall_clock_ns.is_some(),
+                            "a start record has wall time"
+                        );
                     }
                 }
             }
@@ -412,15 +436,14 @@ fn inv_06_sentry_spans_are_valid() {
     assert_eq!(pairs.len(), OperationName::ALL.len());
     for pair in pairs {
         let (start, terminal) = (&pair[0], &pair[1]);
-        let span = SentrySpan::from_records(
-            start,
-            terminal,
-            SpanIds::deterministic(start.log_id.get()),
-        )
-        .expect("a timed pair converts");
+        let span =
+            SentrySpan::from_records(start, terminal, SpanIds::deterministic(start.log_id.get()))
+                .expect("a timed pair converts");
         assert_eq!(span.span_id.len(), 16, "span_id is 16 characters");
         assert!(
-            span.span_id.chars().all(|character| character.is_ascii_hexdigit()),
+            span.span_id
+                .chars()
+                .all(|character| character.is_ascii_hexdigit()),
             "span_id is hex"
         );
         assert_eq!(span.trace_id.len(), 32, "trace_id is 32 characters");
@@ -437,10 +460,9 @@ fn inv_06_sentry_spans_are_valid() {
         assert!(!span.description.is_empty(), "description is set");
         for key in span.data.keys() {
             assert!(
-                key.chars()
-                    .all(|character| character.is_ascii_lowercase()
-                        || character == '_'
-                        || character == '.'),
+                key.chars().all(|character| character.is_ascii_lowercase()
+                    || character == '_'
+                    || character == '.'),
                 "data key {key} is lower-case with underscores"
             );
         }

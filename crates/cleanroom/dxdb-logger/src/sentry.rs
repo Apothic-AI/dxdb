@@ -212,7 +212,10 @@ impl SentrySpan {
             return Err(LogError::NonMonotonicTimestamps);
         }
 
-        let status = match (terminal.phase, terminal.error.as_ref().map(|error| error.kind)) {
+        let status = match (
+            terminal.phase,
+            terminal.error.as_ref().map(|error| error.kind),
+        ) {
             (Phase::End, _) => SpanStatus::Ok,
             (_, Some(StorageErrorKind::NotFound)) => SpanStatus::NotFound,
             (_, Some(StorageErrorKind::Conflict)) => SpanStatus::AlreadyExists,
@@ -313,7 +316,7 @@ fn nanos_to_seconds(nanos: u64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{nanos_to_seconds, hex16, SpanIds};
+    use super::{hex16, nanos_to_seconds, SpanIds};
 
     #[test]
     fn span_ids_have_the_documented_lengths() {

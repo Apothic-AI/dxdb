@@ -76,12 +76,37 @@ impl RawDocument {
 }
 
 /// One row of a `bulkWrite` call.
+///
+/// The row carries its own primary key rather than the wrapper digging it out of
+/// the document: the primary key field name is schema-defined, and a logger that
+/// inspects documents to find it would be reading payloads it must not read
+/// (`INV-1`, `specs/logger.md` section 6). The caller already knows the id, so it
+/// supplies it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawWriteRow {
+    /// The primary key of the document being written.
+    pub document_id: String,
     /// The document to write.
     pub document: RawDocument,
     /// The previously stored revision, when the caller supplied one.
     pub previous: Option<RawDocument>,
+}
+
+impl RawWriteRow {
+    /// A row for `document_id` with no previous revision.
+    pub fn new(document_id: impl Into<String>, document: RawDocument) -> Self {
+        Self {
+            document_id: document_id.into(),
+            document,
+            previous: None,
+        }
+    }
+
+    /// Sets the previously stored revision.
+    pub fn with_previous(mut self, previous: RawDocument) -> Self {
+        self.previous = Some(previous);
+        self
+    }
 }
 
 /// A per-document write failure reported by a successful `bulkWrite`.

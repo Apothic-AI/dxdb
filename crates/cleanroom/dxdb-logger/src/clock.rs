@@ -132,7 +132,10 @@ impl ManualClock {
 
     /// How many times this clock has been read.
     pub fn reads(&self) -> usize {
-        self.state.lock().expect("manual clock mutex poisoned").reads
+        self.state
+            .lock()
+            .expect("manual clock mutex poisoned")
+            .reads
     }
 }
 

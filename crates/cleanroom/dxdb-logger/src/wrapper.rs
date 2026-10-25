@@ -203,9 +203,11 @@ impl<I> LoggerInstance<I> {
             Err(error) => (Phase::Error, Some(error.clone())),
         };
         let duration_ns = match (phase, reading) {
-            (Phase::End, Some(reading)) => {
-                Some(reading.monotonic_ns.saturating_sub(frame.start_monotonic_ns))
-            }
+            (Phase::End, Some(reading)) => Some(
+                reading
+                    .monotonic_ns
+                    .saturating_sub(frame.start_monotonic_ns),
+            ),
             _ => None,
         };
         let record = LogRecord {
@@ -342,11 +344,14 @@ impl<I: LoggedStorageInstance> LoggedStorageInstance for LoggerInstance<I> {
         rows: Vec<RawWriteRow>,
         context: String,
     ) -> BoxFuture<'_, Result<BulkWriteResponse, StorageError>> {
-        let details = OperationDetails {
-            document_count: Some(rows.len()),
+        let mut details = OperationDetails {
             context: Some(context.clone()),
             ..OperationDetails::default()
         };
+        // Capped at `OperationDetails::MAX_LOGGED_IDS`, with the true count kept
+        // separately, so a large batch write cannot make a record proportionally
+        // large.
+        details.set_document_ids(rows.iter().map(|row| row.document_id.clone()));
         Box::pin(async move {
             let mut guard = TerminalGuard::new(
                 self,
@@ -426,12 +431,21 @@ impl<I: LoggedStorageInstance> LoggedStorageInstance for LoggerInstance<I> {
     }
 
     fn info(&self) -> BoxFuture<'_, Result<InfoReport, StorageError>> {
+        // `info` is documented but absent from the open storage interface, so it
+        // is an extension point with the same not-supported contract as above
+        // (`docs/CLEANROOM-GAPS.md` G-005).
+        let supported = self.inner.supports_info();
         Box::pin(async move {
             let mut guard = TerminalGuard::new(
                 self,
                 OperationName::Info,
                 self.open(OperationName::Info, OperationDetails::default()),
             );
+            if !supported {
+                return guard.complete(Err(StorageError::not_supported(
+                    OperationName::Info.as_str(),
+                )));
+            }
             let result = self.inner.info().await;
             if let (Some(frame), Ok(report)) = (guard.frame_mut(), result.as_ref()) {
                 frame.details.document_count = report.document_count;
@@ -478,21 +492,33 @@ impl<I: LoggedStorageInstance> LoggedStorageInstance for LoggerInstance<I> {
             checkpoint_present: Some(checkpoint.is_some()),
             ..OperationDetails::default()
         };
+        // The operation is optional upstream, so the wrapper asks the inner
+        // storage whether it implements it and reports not-supported instead of
+        // forwarding into a method the storage does not have. The documented
+        // fallback above us reads this answer and runs its own query
+        // (`docs/CLEANROOM-GAPS.md` G-023). The attempt is still logged, because a
+        // user debugging a slow replication wants to see it.
+        let supported = self.inner.supports_get_changed_documents_since();
         Box::pin(async move {
             let guard = TerminalGuard::new(
                 self,
                 OperationName::GetChangedDocumentsSince,
                 self.open(OperationName::GetChangedDocumentsSince, details),
             );
-            let result = self.inner.get_changed_documents_since(limit, checkpoint).await;
+            if !supported {
+                return guard.complete(Err(StorageError::not_supported(
+                    OperationName::GetChangedDocumentsSince.as_str(),
+                )));
+            }
+            let result = self
+                .inner
+                .get_changed_documents_since(limit, checkpoint)
+                .await;
             guard.complete(result)
         })
     }
 
-    fn cleanup(
-        &self,
-        minimum_deleted_time_ms: u64,
-    ) -> BoxFuture<'_, Result<bool, StorageError>> {
+    fn cleanup(&self, minimum_deleted_time_ms: u64) -> BoxFuture<'_, Result<bool, StorageError>> {
         let details = OperationDetails {
             minimum_deleted_time_ms: Some(minimum_deleted_time_ms),
             ..OperationDetails::default()

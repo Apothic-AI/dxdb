@@ -30,14 +30,30 @@ pub enum Outcome {
 /// Calls the fake storage observed, in order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Call {
-    BulkWrite { rows: usize, context: String },
-    FindDocumentsById { ids: Vec<String>, with_deleted: bool },
-    Query { limit: Option<usize> },
+    BulkWrite {
+        rows: usize,
+        context: String,
+    },
+    FindDocumentsById {
+        ids: Vec<String>,
+        with_deleted: bool,
+    },
+    Query {
+        limit: Option<usize>,
+    },
     Count,
     Info,
-    GetAttachmentData { document_id: String, attachment_id: String },
-    GetChangedDocumentsSince { limit: usize, checkpoint: bool },
-    Cleanup { minimum_deleted_time_ms: u64 },
+    GetAttachmentData {
+        document_id: String,
+        attachment_id: String,
+    },
+    GetChangedDocumentsSince {
+        limit: usize,
+        checkpoint: bool,
+    },
+    Cleanup {
+        minimum_deleted_time_ms: u64,
+    },
     Close,
     Remove,
 }
@@ -246,7 +262,9 @@ impl LoggedStorageInstance for FakeInstance {
             }
             recorded?;
             Ok(QueryResult {
-                documents: vec![RawDocument::from_value(serde_json::json!({ "id": "doc-1" }))],
+                documents: vec![RawDocument::from_value(
+                    serde_json::json!({ "id": "doc-1" }),
+                )],
             })
         })
     }
@@ -268,6 +286,10 @@ impl LoggedStorageInstance for FakeInstance {
     }
 
     fn info(&self) -> BoxFuture<'_, Result<InfoReport, StorageError>> {
+        if !self.supports_info {
+            // Honour the declared support flag, like a real storage would.
+            return Box::pin(async { Err(StorageError::not_supported("info")) });
+        }
         let recorded = self.record(Call::Info);
         let yielding = self.yield_once;
         Box::pin(async move {
@@ -313,6 +335,12 @@ impl LoggedStorageInstance for FakeInstance {
         limit: usize,
         checkpoint: Option<Checkpoint>,
     ) -> BoxFuture<'_, Result<ChangedDocuments, StorageError>> {
+        if !self.supports_changed {
+            // Honour the declared support flag, like a real storage would.
+            return Box::pin(async {
+                Err(StorageError::not_supported("getChangedDocumentsSince"))
+            });
+        }
         let recorded = self.record(Call::GetChangedDocumentsSince {
             limit,
             checkpoint: checkpoint.is_some(),
@@ -324,7 +352,9 @@ impl LoggedStorageInstance for FakeInstance {
             }
             recorded?;
             Ok(ChangedDocuments {
-                documents: vec![RawDocument::from_value(serde_json::json!({ "id": "changed" }))],
+                documents: vec![RawDocument::from_value(
+                    serde_json::json!({ "id": "changed" }),
+                )],
                 checkpoint: Checkpoint::from_value(serde_json::json!({ "seq": 1 })),
             })
         })
@@ -424,6 +454,120 @@ impl OperationHooks for RecordingHooks {
 
     fn on_operation_cancelled(&self, record: &LogRecord) {
         self.push(3, record);
+    }
+}
+
+/// A process-wide `tracing` capture, installed once.
+///
+/// A global subscriber plus an explicit interest-cache rebuild is the only
+/// arrangement that is deterministic here: `tracing` caches the interest of each
+/// callsite, and every other test in this binary emits records before any
+/// subscriber exists. A thread-local subscriber installed afterwards can miss
+/// events whose callsite was already cached as uninteresting. Installing globally
+/// and rebuilding makes the capture independent of test order, which is what
+/// acceptance 14 asserts against.
+pub mod tracing_capture {
+    use std::sync::{Arc, Mutex, OnceLock};
+
+    static CAPTURE: OnceLock<Capture> = OnceLock::new();
+    static INSTALLED: OnceLock<()> = OnceLock::new();
+
+    /// One captured event: its fields rendered as `name=value;`.
+    pub type Events = Arc<Mutex<Vec<String>>>;
+
+    /// Installs the capture if needed and returns the event log.
+    pub fn install() -> Events {
+        let capture = CAPTURE.get_or_init(Capture::default);
+        INSTALLED.get_or_init(|| {
+            // A global subscriber is process-wide; ignoring the error means
+            // another test binary already installed one, which cannot happen
+            // because each integration test file is its own process.
+            let _ = tracing::subscriber::set_global_default(capture.clone());
+            // The callsite interest cache was populated while no subscriber was
+            // installed. Rebuild it so this subscriber is consulted.
+            tracing::callsite::rebuild_interest_cache();
+        });
+        Arc::clone(&capture.events)
+    }
+
+    #[derive(Clone, Default)]
+    struct Capture {
+        events: Events,
+    }
+
+    impl tracing::Subscriber for Capture {
+        fn enabled(&self, _metadata: &tracing::Metadata<'_>) -> bool {
+            true
+        }
+
+        fn new_span(&self, _span: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+            tracing::span::Id::from_u64(1)
+        }
+
+        fn record(&self, _span: &tracing::span::Id, _values: &tracing::span::Record<'_>) {}
+
+        fn record_follows_from(&self, _span: &tracing::span::Id, _follows: &tracing::span::Id) {}
+
+        fn event(&self, event: &tracing::Event<'_>) {
+            let mut visitor = FieldVisitor::default();
+            event.record(&mut visitor);
+            self.events
+                .lock()
+                .expect("capture poisoned")
+                .push(visitor.0);
+        }
+
+        fn enter(&self, _span: &tracing::span::Id) {}
+
+        fn exit(&self, _span: &tracing::span::Id) {}
+    }
+
+    /// Renders every field an event can carry, by name, so the test asserts the
+    /// documented names rather than one formatting path.
+    #[derive(Default)]
+    struct FieldVisitor(String);
+
+    impl FieldVisitor {
+        fn note(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+            self.0.push_str(field.name());
+            self.0.push('=');
+            self.0.push_str(&format!("{value:?}"));
+            self.0.push(';');
+        }
+    }
+
+    impl tracing::field::Visit for FieldVisitor {
+        fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+            self.note(field, value);
+        }
+
+        fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+            self.note(field, &value);
+        }
+
+        fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
+            self.note(field, &value);
+        }
+
+        fn record_f64(&mut self, field: &tracing::field::Field, value: f64) {
+            self.note(field, &value);
+        }
+
+        fn record_bool(&mut self, field: &tracing::field::Field, value: bool) {
+            self.note(field, &value);
+        }
+
+        fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+            self.note(field, &value);
+        }
+
+        fn record_error(
+            &mut self,
+            field: &tracing::field::Field,
+            value: &(dyn std::error::Error + 'static),
+        ) {
+            self.note(field, &value.to_string());
+        }
     }
 }
 

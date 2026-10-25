@@ -45,9 +45,9 @@ pub mod settings;
 pub mod storage;
 mod wrapper;
 
-pub use clock::{Clock, ClockReading, ManualClock};
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub use clock::MonotonicClock;
+pub use clock::{Clock, ClockReading, ManualClock};
 pub use hooks::{NoopHooks, OperationHooks};
 pub use record::{LogId, LogRecord, OperationDetails, OperationName, Phase};
 pub use sentry::{LogError, SentrySpan, SpanIds, SpanStatus};
