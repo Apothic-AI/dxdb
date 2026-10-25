@@ -8,3 +8,36 @@ repository.workspace = true
 description = "dxdb replication protocol: checkpoint stack, downstream, upstream, meta instance, conflict handlers"
 
 [dependencies]
+# The conformance suite compares checkpoints and document states as ordered JSON
+# with JavaScript number formatting (PLAN.md 4.3, DECISIONS.md D4), so it needs the
+# same encoder the protocol will. See docs/lanes/m3-port-plan.md section 8.1.
+#
+# Path dependencies rather than `workspace = true`: docs/WORKTREES.md reserves
+# `[workspace.dependencies]` edits for the leader, and a lane declares its own
+# dependencies in its own manifest. These two are already-published workspace crates.
+dxdb-json = { path = "../dxdb-json" }
+# The trait surface this crate is written against: RxStorageInstance, the document
+# type, revisions, checkpoints, Clock and Spawner. D1 puts the document type in
+# dxdb-storage precisely so a lane above it can name the type it replicates.
+dxdb-storage = { path = "../dxdb-storage" }
+# Checkpoint keys and default attachment digests are SHA-256 (upstream's
+# defaultHashSha256). A dependency of the library, not only of the throwaway double,
+# because the default hash function ships.
+sha2 = "0.11.1"
+# `ReplicationHandler::master_change_stream` returns `futures::Stream` (D2).
+futures = "0.3.34"
+# `StorageError` and the checkpoint errors are typed errors.
+thiserror = "2"
+
+# The document type is `serde_json::Value` (dxdb-storage re-uses it). `dxdb-json`
+# keeps its own `Value` private and re-exports only the functions, so a crate that
+# needs the type names `serde_json` directly. `preserve_order` is required for
+# checkpoint key order to survive (PLAN.md 3.1).
+serde_json = "1.0.154"
+# Primary-key and string ordering is UTF-16 code unit order (DECISIONS.md D5).
+dxdb-jsstr = { path = "../dxdb-jsstr" }
+
+[dev-dependencies]
+# The conformance suite and the throwaway double need no extra crates: the double uses
+# the library's own SHA-256 and ordered-JSON paths, so a fixture bug cannot hide behind
+# a different implementation.

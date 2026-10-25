@@ -1015,3 +1015,97 @@ plus:
 - `testdata/vectors/replication-transcripts.json` consumed and byte-equal;
 - a written answer to "which ported cases depend on a JS-only facility, and how
   was it handled" (the table in 10.1 is the draft answer).
+
+---
+
+## 13. Trait-surface review, after `dxdb-storage` landed
+
+Lane D published `crates/dxdb-storage` (traits, document type, revisions,
+checkpoints, `categorize_bulk_write_rows` as a pure function, `Spawner`, `Clock`).
+This section records the review against the requirements in section 9.2, because a
+review done from the source is the only kind worth writing down.
+
+### 13.1 Fit, method by method
+
+| Requirement (9.2) | `dxdb-storage` | Verdict |
+| --- | --- | --- |
+| `bulk_write` per-row atomic, errors only | `bulk_write(Vec<BulkWriteRow>, String) -> BulkWriteResponse`, `WriteError::Conflict` carries `document_in_db` | matches |
+| the context round-trips onto change events | `EventBulk.context` | matches |
+| `find_documents_by_id(ids, with_deleted)` | present, `with_deleted: bool` | matches |
+| `change_stream()` push delivery | `ChangeStream = Pin<Box<dyn Stream<Item = EventBulk>>>` | matches D2 |
+| `get_changed_documents_since` optional with fallback | default body *implements* the upstream fallback, exact rather than approximate | better than required; use the default |
+| `get_attachment_data(doc, att, digest)` | returns `Vec<u8>`, digest verified, mismatch is `StorageError::MissingAttachment` | matches |
+| schema projection | `StorageSchema { primary_path, version, has_attachments, raw, .. }` | matches; `raw` gives the meta-schema arithmetic its `maxLength` |
+| `close` / `remove` / `cleanup -> bool` | present with the upstream contracts documented | matches |
+| documents are ordered JSON | `DocumentData(Value)` with `preserve_order`, `to_js_json`, `canonical_bytes` | matches |
+| `_meta` open for plugin keys | `DocumentData::meta()`, `set_lwt` leaves other keys | matches |
+| execution injected (D3) | `Spawner`, `SequentialSpawner`, `spawns_concurrently()` | matches, and the assertion hook is there |
+| time injected (D4) | `Clock`, `MonotonicClock`, `lwt_from_parts` with upstream's expression order | matches |
+
+Async form: the methods are `-> impl Future`, so a call site written against a
+concrete `&impl RxStorageInstance` awaits them directly. The dynosaur mirror is
+needed only where a `Box<dyn _>` is unavoidable — here, exactly one place:
+`underlying_persistent_storage()` returns `Option<&DynRxStorageInstance<'_>>`, so
+following the memory-tier indirection is the only dyn call in the crate. No
+`dynosaur` dependency is added; it is a transitive type, not something this lane
+names.
+
+### 13.2 The one mismatch: `Checkpoint` is typed, the protocol's is opaque
+
+`dxdb-storage` defines
+
+```rust
+pub struct Checkpoint { pub id: String, pub lwt: f64 }
+```
+
+with `to_json()` → `{"id", "lwt"}` and a strict `from_json`.
+
+That is correct for *the storage's own* change feed, and its `to_json` does satisfy
+the round-trip requirement: `lwt` is an `f64` carried in a JSON number, and
+`dxdb_json::to_js_json` formats it with JavaScript number semantics. As the
+**storage's native checkpoint** it is right, and this lane uses it as exactly that.
+
+It cannot be the *protocol's* checkpoint type, and the reason is upstream's own:
+
+> "Instead of just storing the new checkpoint, we have to stack up the checkpoint
+> with the previous one. This is required for plugins like the sharding RxStorage
+> where the changeStream events only contain a Partial of the checkpoint."
+> — `checkpoint.ts:92-97`
+
+Upstream's `CheckpointType` is a type parameter, `stackCheckpoints` is
+`Object.assign` over arbitrary objects, and a checkpoint is only ever passed back
+to the caller's own `masterChangesSince`. A sharding checkpoint is not `{id, lwt}`;
+a transport may use `{seq}` or `{cursor, region}`. Stacking two `Checkpoint`s would
+silently drop every key that is not `id` or `lwt`, which is the data-loss case the
+stacking exists to prevent.
+
+**Resolution, without editing lane D's crate:** the protocol's checkpoint is
+generic and opaque (`C: JsonCheckpoint`, i.e. any ordered-JSON object), and
+`stack_checkpoints` is the `Object.assign` merge over it. `dxdb_storage::Checkpoint`
+is one concrete `C` a caller may use — via `Checkpoint::to_json()` / `from_json()`
+as its encoding — and that is how the storage-to-storage adapter is written. So
+nothing in `dxdb-storage` needs to change; the mismatch is resolved by this lane not
+*constraining* the protocol to the storage's convenience type. Recorded here rather
+than in `docs/DECISIONS.md` because it does not change a decision: it keeps the
+protocol faithful to upstream and leaves the storage type alone.
+
+What the protocol does require of `C`, and asserts in one place (`stack_checkpoints`):
+
+1. `C` encodes to a JSON **object** (not a scalar or an array);
+2. its key order survives a round-trip (so `dxdb_json` on both sides);
+3. merging is shallow, left-to-right, later-wins, first-insertion key order.
+
+### 13.3 Behaviours the conformance suite needs that are *not* in the traits
+
+Two, both deliberately out of the storage layer:
+
+- **`find()` projection** — upstream's suite calls `collection.find()` and diffs
+  `toJSON()`. That is a query plus a projection, i.e. `dxdb-query` + `dxdb-core`.
+  Until those exist, the adapter trait in `conformance.rs` asks the endpoint for
+  `fork_documents()` instead. When `dxdb-core` lands, an adapter over a real
+  collection answers it with a query, and no case body changes.
+- **`incrementalPatch` / `incrementalWriteQueue`** — a collection-layer serialisation
+  (section 10.1), expressed here as read-modify-write against the current state.
+
+Neither is a gap in `dxdb-storage`; both are above it by design.
+

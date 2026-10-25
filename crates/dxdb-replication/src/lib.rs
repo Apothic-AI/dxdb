@@ -43,3 +43,10 @@
 //! deliberately holds no protocol code until those traits are real.
 
 #![forbid(unsafe_code)]
+
+pub mod checkpoint;
+pub mod conflict;
+pub mod conformance;
+pub mod convert;
+pub mod meta_instance;
+pub mod state;
