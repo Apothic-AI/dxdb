@@ -8,3 +8,14 @@ repository.workspace = true
 description = "dxdb reference in-memory storage; the parity oracle for every other storage"
 
 [dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+dxdb-jsnum = { path = "../../dxdb-jsnum" }
+dxdb-jsstr = { path = "../../dxdb-jsstr" }
+dxdb-storage = { path = "../../dxdb-storage" }
+
+[dev-dependencies]
+# The index-string and behaviour oracles read committed vector files.
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
