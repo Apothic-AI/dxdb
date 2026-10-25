@@ -143,3 +143,49 @@ burden, and we are not the licensor of those features.
 
 **Consequence:** these are marked `not ported (intentional)` in `docs/STATUS.md` and are
 not parity gaps. A reviewer comparing against upstream must not "fix" this.
+
+---
+
+## D7: The protocol's checkpoint is generic and opaque; the storage's is concrete
+
+**Decided:** 2026-10-25. **Raised by:** lane E, reviewing the merged `dxdb-storage`.
+
+`dxdb-storage` defines `Checkpoint { id: String, lwt: f64 }`. That is the right type
+for *a storage's own change feed*, and its `to_json()` satisfies the round-trip
+requirement (`lwt` goes through `dxdb_json`, so it is formatted with JavaScript number
+semantics).
+
+It is **not** the protocol's checkpoint type, and the replication protocol must not be
+constrained to it. Upstream is explicit about why
+(`src/replication-protocol/checkpoint.ts:92`):
+
+> Instead of just storing the new checkpoint, we have to stack up the checkpoint with
+> the previous one. This is required for plugins like the sharding RxStorage where the
+> changeStream events only contain a Partial of the checkpoint.
+
+Upstream's `CheckpointType` is a type parameter; `stackCheckpoints` is `Object.assign`
+over arbitrary objects; a checkpoint is only ever handed back to the caller's own
+`masterChangesSince`. A sharding checkpoint is not `{id, lwt}`, and a transport may use
+`{seq}` or `{cursor, region}`. Stacking two `Checkpoint` structs would silently drop
+every key that is not `id` or `lwt` — data loss in the one operation the stacking exists
+to make safe.
+
+**Decision:** the replication protocol is generic over `C: JsonCheckpoint` (any
+ordered-JSON object), with `stack_checkpoints` as a shallow left-to-right merge where
+later wins and key order is first-insertion. `dxdb_storage::Checkpoint` is one concrete
+`C` that a caller may use, and the storage-to-storage adapter does exactly that. Nothing
+in `dxdb-storage` changes.
+
+**What `C` must satisfy**, asserted in one place:
+
+1. It encodes to a JSON object, not a scalar or an array.
+2. Its key order survives a round-trip, so ordered-JSON encoding is used on both sides.
+3. Merging is shallow, left-to-right, later-wins, first-insertion key order.
+
+**Rejected:** widening `dxdb_storage::Checkpoint` into a map, and making every storage
+carry an opaque checkpoint. Both push the protocol's generality into a layer that does
+not need it, and the storage's typed checkpoint is genuinely more useful to storage
+implementors.
+
+**Consequence:** a lane that finds `Checkpoint` inconvenient for the protocol has found
+a real constraint, not a bug. The generic parameter is the answer.
