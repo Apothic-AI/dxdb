@@ -27,10 +27,10 @@
  * (`startKeys`, `endKeys`, inclusiveness, `sortSatisfiedByIndex`,
  * `selectorSatisfiedByIndex`) so a port can be checked level by level.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
+import { determinismHeader, emitFamily } from '../harness.mjs';
 
 const FAMILY = 'normalised-queries';
 
@@ -314,7 +314,7 @@ export async function run({ check, repo }) {
         'survives JSON, which is why INDEX_MIN is MIN_SAFE_INTEGER and not -Infinity.'
     ),
     format: 'schema+query->{normalizedQuery, plan}',
-    determinism: oracle.determinism,
+    determinism: determinismHeader(),
     sentinels,
     caseCount: cases.length,
     failures,
@@ -323,32 +323,5 @@ export async function run({ check, repo }) {
     matchers,
   };
 
-  const json = JSON.stringify(doc, null, 2) + '\n';
-
-  if (check) {
-    let committed;
-    try {
-      committed = readFileSync(outFile, 'utf8');
-    } catch {
-      console.error(`${FAMILY} vectors missing at ${outFile}; run \`make vectors\``);
-      return { ok: false, cases: cases.length };
-    }
-    const strip = (text) => {
-      const parsed = JSON.parse(text);
-      delete parsed.node;
-      return JSON.stringify(parsed);
-    };
-    if (strip(committed) !== strip(json)) {
-      console.error(`${FAMILY} vectors drifted from the current Node output:`);
-      console.error(`  regenerate with \`make vectors\` and review the diff at ${outFile}`);
-      return { ok: false, cases: cases.length };
-    }
-    console.log(`${FAMILY} vectors OK (${cases.length} cases)`);
-    return { ok: true, cases: cases.length };
-  }
-
-  mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, json);
-  console.log(`wrote ${outFile} (${cases.length} cases, node ${process.version})`);
-  return { ok: true, cases: cases.length, bytes: json.length };
+  return emitFamily({ outFile, doc, check, label: FAMILY, caseCount: cases.length });
 }

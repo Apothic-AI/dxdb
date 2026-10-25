@@ -24,10 +24,10 @@
  * the input, the fully defaulted schema, and the hash, so a Rust port can be
  * checked at whichever of those three levels it disagrees on.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
+import { determinismHeader, emitFamily } from '../harness.mjs';
 
 const FAMILY = 'schema-hashes';
 
@@ -290,7 +290,7 @@ export async function run({ check, repo }) {
         'attributed to schema defaulting or to hashing instead of just "hash differs".'
     ),
     format: 'schema->{defaultedSchema, sha256}',
-    determinism: oracle.determinism,
+    determinism: determinismHeader(),
     algorithm: 'sha256 hex of JSON.stringify(defaultedSchema)',
     caseCount: cases.length,
     failedSchemas: failures,
@@ -299,32 +299,5 @@ export async function run({ check, repo }) {
     hashStringCases,
   };
 
-  const json = JSON.stringify(doc, null, 2) + '\n';
-
-  if (check) {
-    let committed;
-    try {
-      committed = readFileSync(outFile, 'utf8');
-    } catch {
-      console.error(`${FAMILY} vectors missing at ${outFile}; run \`make vectors\``);
-      return { ok: false, cases: cases.length };
-    }
-    const strip = (text) => {
-      const parsed = JSON.parse(text);
-      delete parsed.node;
-      return JSON.stringify(parsed);
-    };
-    if (strip(committed) !== strip(json)) {
-      console.error(`${FAMILY} vectors drifted from the current Node output:`);
-      console.error(`  regenerate with \`make vectors\` and review the diff at ${outFile}`);
-      return { ok: false, cases: cases.length };
-    }
-    console.log(`${FAMILY} vectors OK (${cases.length} cases)`);
-    return { ok: true, cases: cases.length };
-  }
-
-  mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, json);
-  console.log(`wrote ${outFile} (${cases.length} cases, node ${process.version})`);
-  return { ok: true, cases: cases.length, bytes: json.length };
+  return emitFamily({ outFile, doc, check, label: FAMILY, caseCount: cases.length });
 }

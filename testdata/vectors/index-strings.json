@@ -5,6 +5,10 @@
   "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
   "node": "v22.23.3",
   "format": "schema+index+document->indexString",
+  "determinism": {
+    "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+    "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call"
+  },
   "caseCount": 900,
   "producedCaseCount": 896,
   "rejectionCaseCount": 4,

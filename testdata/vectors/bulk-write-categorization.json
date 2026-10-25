@@ -6,6 +6,8 @@
   "node": "v22.23.3",
   "format": "docsInDb+writeRows->{bulkInsertDocs, bulkUpdateDocs, errors, events}",
   "determinism": {
+    "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+    "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call",
     "eventBulkId": "randomToken(10) output, deterministic because Math.random is seeded",
     "context": "echoed from the caller, not generated"
   },

@@ -26,10 +26,10 @@
  * and missing fields (absent, not `undefined`), because "field is absent" versus
  * "field is null" is the classic divergence.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
+import { determinismHeader, emitFamily } from '../harness.mjs';
 
 const FAMILY = 'selector-matching';
 
@@ -330,7 +330,7 @@ export async function run({ check, repo }) {
     ),
     format: 'documents+selector->matchingIds',
     determinism: {
-      ...oracle.determinism,
+      ...determinismHeader(),
       corpus: 'generated from xorshift128 seeded with 0x5e1ec7, 64 documents',
     },
     /** The closed operator set from src/rx-query-mingo.ts, readable at a glance. */
@@ -350,32 +350,5 @@ export async function run({ check, repo }) {
     cases,
   };
 
-  const json = JSON.stringify(doc, null, 2) + '\n';
-
-  if (check) {
-    let committed;
-    try {
-      committed = readFileSync(outFile, 'utf8');
-    } catch {
-      console.error(`${FAMILY} vectors missing at ${outFile}; run \`make vectors\``);
-      return { ok: false, cases: cases.length };
-    }
-    const strip = (text) => {
-      const parsed = JSON.parse(text);
-      delete parsed.node;
-      return JSON.stringify(parsed);
-    };
-    if (strip(committed) !== strip(json)) {
-      console.error(`${FAMILY} vectors drifted from the current Node output:`);
-      console.error(`  regenerate with \`make vectors\` and review the diff at ${outFile}`);
-      return { ok: false, cases: cases.length };
-    }
-    console.log(`${FAMILY} vectors OK (${cases.length} cases)`);
-    return { ok: true, cases: cases.length };
-  }
-
-  mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, json);
-  console.log(`wrote ${outFile} (${cases.length} cases, node ${process.version})`);
-  return { ok: true, cases: cases.length, bytes: json.length };
+  return emitFamily({ outFile, doc, check, label: FAMILY, caseCount: cases.length });
 }

@@ -26,10 +26,10 @@
  * the `docsInDb` map and the `schema.attachments` flag are the ones a storage
  * would have, not a hand-built stub.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
+import { determinismHeader, emitFamily } from '../harness.mjs';
 
 const FAMILY = 'bulk-write-categorization';
 
@@ -565,7 +565,7 @@ export async function run({ check, repo }) {
     ),
     format: 'docsInDb+writeRows->{bulkInsertDocs, bulkUpdateDocs, errors, events}',
     determinism: {
-      ...oracle.determinism,
+      ...determinismHeader(),
       eventBulkId: 'randomToken(10) output, deterministic because Math.random is seeded',
       context: 'echoed from the caller, not generated',
     },
@@ -574,32 +574,5 @@ export async function run({ check, repo }) {
     cases,
   };
 
-  const json = JSON.stringify(doc, null, 2) + '\n';
-
-  if (check) {
-    let committed;
-    try {
-      committed = readFileSync(outFile, 'utf8');
-    } catch {
-      console.error(`${FAMILY} vectors missing at ${outFile}; run \`make vectors\``);
-      return { ok: false, cases: cases.length };
-    }
-    const strip = (text) => {
-      const parsed = JSON.parse(text);
-      delete parsed.node;
-      return JSON.stringify(parsed);
-    };
-    if (strip(committed) !== strip(json)) {
-      console.error(`${FAMILY} vectors drifted from the current Node output:`);
-      console.error(`  regenerate with \`make vectors\` and review the diff at ${outFile}`);
-      return { ok: false, cases: cases.length };
-    }
-    console.log(`${FAMILY} vectors OK (${cases.length} cases)`);
-    return { ok: true, cases: cases.length };
-  }
-
-  mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, json);
-  console.log(`wrote ${outFile} (${cases.length} cases, node ${process.version})`);
-  return { ok: true, cases: cases.length, bytes: json.length };
+  return emitFamily({ outFile, doc, check, label: FAMILY, caseCount: cases.length });
 }

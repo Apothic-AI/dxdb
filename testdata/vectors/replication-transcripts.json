@@ -6,6 +6,8 @@
   "node": "v22.23.3",
   "format": "scripted-steps->{fork, master, meta} snapshots",
   "determinism": {
+    "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+    "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call",
     "note": "now() is frozen so _meta.lwt and checkpoint revisions are reproducible; document revisions are derived from the database instance token, which is fixed per instance here rather than randomToken-ed."
   },
   "transactionCount": 6,

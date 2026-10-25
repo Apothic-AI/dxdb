@@ -22,10 +22,10 @@
  * bound helpers for each index, plus compound indexes so concatenation order is
  * pinned.
  */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
+import { determinismHeader, emitFamily } from '../harness.mjs';
 
 const FAMILY = 'index-strings';
 const MAX_CASES = 900;
@@ -539,7 +539,7 @@ export async function run({ check, repo }) {
         'string; a `{ "threw": ... }` value means upstream threw for that input.'
     ),
     format: 'schema+index+document->indexString',
-    determinism: oracle.determinism,
+    determinism: determinismHeader(),
     /**
      * `caseCount` counts every case in `cases`, including `kind: "rejection"`
      * entries. Those are not missing coverage: they are upstream refusing an
@@ -561,31 +561,5 @@ export async function run({ check, repo }) {
     cases: kept,
   };
 
-  if (check) {
-    let committed;
-    try {
-      committed = readFileSync(outFile, 'utf8');
-    } catch {
-      console.error(`${FAMILY} vectors missing at ${outFile}; run \`make vectors\``);
-      return { ok: false, cases: kept.length };
-    }
-    const strip = (text) => {
-      const parsed = JSON.parse(text);
-      delete parsed.node;
-      return JSON.stringify(parsed);
-    };
-    if (strip(committed) !== strip(JSON.stringify(doc))) {
-      console.error(`${FAMILY} vectors drifted from the current Node output:`);
-      console.error(`  regenerate with \`make vectors\` and review the diff at ${outFile}`);
-      return { ok: false, cases: kept.length };
-    }
-    console.log(`${FAMILY} vectors OK (${kept.length} cases)`);
-    return { ok: true, cases: kept.length };
-  }
-
-  const json = JSON.stringify(doc, null, 2) + '\n';
-  mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, json);
-  console.log(`wrote ${outFile} (${kept.length} cases, node ${process.version})`);
-  return { ok: true, cases: kept.length, bytes: json.length };
+  return emitFamily({ outFile, doc, check, label: FAMILY, caseCount: kept.length });
 }

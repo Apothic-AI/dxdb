@@ -6,6 +6,8 @@
   "node": "v22.23.3",
   "format": "documents+selector->matchingIds",
   "determinism": {
+    "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+    "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call",
     "corpus": "generated from xorshift128 seeded with 0x5e1ec7, 64 documents"
   },
   "registeredOperators": [
