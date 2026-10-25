@@ -1,0 +1,5681 @@
+{
+  "$comment": "Schema hashes from upstream src/rx-schema.ts for every upstream fixture schema and a set of synthetic schemas that isolate one defaulting step each (PLAN.md 7.2, GATES tier 2). `hash` is the value of `RxSchema.hash`; `defaultedSchema` is the exact object that was JSON.stringify-ed and hashed, so a mismatch can be attributed to schema defaulting or to hashing instead of just \"hash differs\".",
+  "generator": "xtask/vectors/generate.mjs",
+  "rxdbVersion": "17.6.0",
+  "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
+  "node": "v22.23.3",
+  "format": "schema->{defaultedSchema, sha256}",
+  "algorithm": "sha256 hex of JSON.stringify(defaultedSchema)",
+  "caseCount": 51,
+  "failedSchemas": [],
+  "cases": [
+    {
+      "name": "bigHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "description": "describes a human being with 2 indexes",
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "dnaHash": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "age": {
+            "description": "Age in years",
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ],
+        "indexes": [
+          "firstName",
+          "dnaHash"
+        ]
+      },
+      "hash": "899093229188823e36b901bf69ee8df77bdef16fb97960675f2bd83a55e5c6ac",
+      "hashInputLength": 921,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being with 2 indexes",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "firstName",
+            "passportId"
+          ],
+          [
+            "_deleted",
+            "dnaHash",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "Age in years",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "dnaHash": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "compoundIndex",
+      "origin": "fixture",
+      "input": {
+        "title": "compound index",
+        "version": 0,
+        "description": "this schema has a compoundIndex",
+        "primaryKey": "passportId",
+        "type": "object",
+        "keyCompression": false,
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "passportCountry": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "passportId"
+        ],
+        "indexes": [
+          [
+            "age",
+            "passportCountry"
+          ]
+        ]
+      },
+      "hash": "3feab0880524d5aacad5e930937c07daae50663164e5c29e24e45788d35dfa0c",
+      "hashInputLength": 802,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "this schema has a compoundIndex",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "age",
+            "passportCountry",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "passportCountry": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "compound index",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "compoundIndexNoString",
+      "origin": "fixture",
+      "input": {
+        "title": "compound index",
+        "version": 0,
+        "description": "this schema has a compoundIndex",
+        "primaryKey": "passportId",
+        "keyCompression": false,
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "passportCountry": {
+            "type": "object"
+          },
+          "age": {
+            "type": "integer"
+          }
+        },
+        "indexes": [
+          [
+            10,
+            "passportCountry"
+          ]
+        ]
+      },
+      "hash": "9b77d52cfa369eef9cec0a6982391f1ba24e831d1b2662a7a4b5019e9970756b",
+      "hashInputLength": 742,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "this schema has a compoundIndex",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            10,
+            "passportCountry",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "type": "integer"
+          },
+          "passportCountry": {
+            "type": "object"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "compound index",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "deepNestedHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "deep human nested",
+        "version": 0,
+        "keyCompression": false,
+        "description": "describes a human being with a nested field",
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "mainSkill": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "attack": {
+                "type": "object",
+                "properties": {
+                  "good": {
+                    "type": "boolean"
+                  },
+                  "count": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "indexes": [],
+        "required": [
+          "mainSkill"
+        ]
+      },
+      "hash": "3c591078a221f113d632ff98d7acc699ddf14776a35348691de2eb74ff9706d9",
+      "hashInputLength": 871,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being with a nested field",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "mainSkill": {
+            "properties": {
+              "attack": {
+                "properties": {
+                  "count": {
+                    "type": "number"
+                  },
+                  "good": {
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "type": "object"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "mainSkill",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "deep human nested",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "empty",
+      "origin": "fixture",
+      "input": {
+        "title": "empty schema",
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "hash": "f30e3caa83e9c3b2c45ed884ac52d44beedaa59017c3c9697ba7bc2876e01674",
+      "hashInputLength": 570,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "empty schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "encryptedDeepHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human encrypted",
+        "version": 0,
+        "keyCompression": false,
+        "description": "uses an encrypted field",
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "firstLevelPassword": {
+            "type": "string"
+          },
+          "secretData": {
+            "type": "object",
+            "properties": {
+              "pw": {
+                "type": "string"
+              }
+            }
+          },
+          "deepSecret": {
+            "type": "object",
+            "properties": {
+              "darkhole": {
+                "type": "object",
+                "properties": {
+                  "pw": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "nestedSecret": {
+            "type": "object",
+            "properties": {
+              "darkhole": {
+                "type": "object",
+                "properties": {
+                  "pw": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "indexes": [],
+        "required": [
+          "firstName",
+          "secretData"
+        ],
+        "encrypted": [
+          "firstLevelPassword",
+          "secretData",
+          "deepSecret.darkhole.pw",
+          "nestedSecret.darkhole.pw"
+        ]
+      },
+      "hash": "64cbda6861764f92b36ea3b371cb1163e8cbd24754400527e355fdd784b94014",
+      "hashInputLength": 1129,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "uses an encrypted field",
+        "encrypted": [
+          "firstLevelPassword",
+          "secretData",
+          "deepSecret.darkhole.pw",
+          "nestedSecret.darkhole.pw"
+        ],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "deepSecret": {
+            "properties": {
+              "darkhole": {
+                "properties": {
+                  "pw": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "firstLevelPassword": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "nestedSecret": {
+            "properties": {
+              "darkhole": {
+                "properties": {
+                  "pw": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "secretData": {
+            "properties": {
+              "pw": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "firstName",
+          "secretData",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "human encrypted",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "encryptedHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human encrypted",
+        "version": 0,
+        "description": "uses an encrypted field",
+        "primaryKey": "passportId",
+        "type": "object",
+        "keyCompression": false,
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "indexes": [],
+        "required": [
+          "firstName",
+          "secret"
+        ],
+        "encrypted": [
+          "secret"
+        ]
+      },
+      "hash": "0ec99c0e9fc33828e5e6b97e8f076067d720a4355ab86ab4d5eb420654a88e74",
+      "hashInputLength": 739,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "uses an encrypted field",
+        "encrypted": [
+          "secret"
+        ],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "secret",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "human encrypted",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "encryptedObjectHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human encrypted",
+        "version": 0,
+        "keyCompression": false,
+        "description": "uses an encrypted field",
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "subname": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "indexes": [],
+        "required": [
+          "firstName",
+          "secret"
+        ],
+        "encrypted": [
+          "secret"
+        ]
+      },
+      "hash": "e75351bd44f005fec25e06d50be57adbb303d6a8a3620f2921f4f40f2c69685f",
+      "hashInputLength": 807,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "uses an encrypted field",
+        "encrypted": [
+          "secret"
+        ],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "secret": {
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "subname": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "firstName",
+          "secret",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "human encrypted",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "heroArray",
+      "origin": "fixture",
+      "input": {
+        "title": "hero schema",
+        "version": 0,
+        "keyCompression": false,
+        "description": "describes a hero with an array-field",
+        "primaryKey": "name",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "skills": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "damage": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "hash": "b2c91ea043e570a05583fc27e1cecb391db16c1478980c3ea4e204f1d86eb773",
+      "hashInputLength": 783,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a hero with an array-field",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "name"
+          ],
+          [
+            "_meta.lwt",
+            "name"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "name",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "properties": {
+                "damage": {
+                  "type": "number"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "maxItems": 5,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "name",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "hero schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "human",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "description": "describes a human being",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "description": "age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "passportId"
+        ],
+        "indexes": [
+          "firstName"
+        ]
+      },
+      "hash": "e1db93378e0a3a31dfb44b89b834ed1fe7279e59b9d48ef6455999f00a4aebe8",
+      "hashInputLength": 871,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "firstName",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanAgeIndex",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "keyCompression": false,
+        "description": "describes a human being",
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "age": {
+            "description": "Age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "age"
+        ],
+        "indexes": [
+          "age"
+        ]
+      },
+      "hash": "0f30be92b150f085cdd90262c5f787ab21284b4f9f4860f37079fe45aefd79cc",
+      "hashInputLength": 839,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "age",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "Age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "age",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanCompositePrimary",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "description": "describes a human being",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": {
+          "key": "id",
+          "fields": [
+            "firstName",
+            "info.age"
+          ],
+          "separator": "|"
+        },
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "info": {
+            "type": "object",
+            "properties": {
+              "age": {
+                "description": "age in years",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 150
+              }
+            },
+            "required": [
+              "age"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "info"
+        ],
+        "indexes": [
+          "firstName"
+        ]
+      },
+      "hash": "7abc3b7875ca9b30fea07408e9559d35f4bd0b19ab58228237c6aaeb2fd5df28",
+      "hashInputLength": 924,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "firstName",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": {
+          "fields": [
+            "firstName",
+            "info.age"
+          ],
+          "key": "id",
+          "separator": "|"
+        },
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "info": {
+            "properties": {
+              "age": {
+                "description": "age in years",
+                "maximum": 150,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "age"
+            ],
+            "type": "object"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "info",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanCompositePrimarySchemaLiteral",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "description": "describes a human being",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": {
+          "key": "id",
+          "fields": [
+            "firstName",
+            "info.age"
+          ],
+          "separator": "|"
+        },
+        "encrypted": [],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "info": {
+            "type": "object",
+            "properties": {
+              "age": {
+                "description": "age in years",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 150
+              }
+            },
+            "required": [
+              "age"
+            ]
+          },
+          "readonlyProps": {
+            "allOf": [],
+            "anyOf": [],
+            "oneOf": [],
+            "type": [],
+            "dependencies": {
+              "someDep": [
+                "asd"
+              ]
+            },
+            "items": [],
+            "required": [],
+            "enum": []
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "info"
+        ],
+        "indexes": [
+          "firstName"
+        ]
+      },
+      "hash": "39ad7c3fbdac6a7c19118648c714a40d89a07b5f2869907f8151ede3a9187074",
+      "hashInputLength": 1055,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "firstName",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": {
+          "fields": [
+            "firstName",
+            "info.age"
+          ],
+          "key": "id",
+          "separator": "|"
+        },
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "info": {
+            "properties": {
+              "age": {
+                "description": "age in years",
+                "maximum": 150,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "age"
+            ],
+            "type": "object"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "readonlyProps": {
+            "allOf": [],
+            "anyOf": [],
+            "dependencies": {
+              "someDep": [
+                "asd"
+              ]
+            },
+            "enum": [],
+            "items": [],
+            "oneOf": [],
+            "required": [],
+            "type": []
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "info",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanDefault",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "description": "describes a human being",
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "description": "age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "default": 20
+          }
+        },
+        "indexes": [],
+        "required": [
+          "passportId"
+        ]
+      },
+      "hash": "5bf29f0b38a921d50d8aff9ba63f713c501aa53da5624ce788e626b5f5225c89",
+      "hashInputLength": 834,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "default": 20,
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanFinal",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema with age set final",
+        "version": 0,
+        "keyCompression": false,
+        "type": "object",
+        "primaryKey": "passportId",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "final": true
+          }
+        },
+        "required": [
+          "passportId"
+        ]
+      },
+      "hash": "b8b68e26c2de2afa48b7ddc6ebe67587ce1922cd7827206405559c095840993f",
+      "hashInputLength": 752,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "final": true,
+            "maximum": 150,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema with age set final",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanIdAndAgeIndex",
+      "origin": "fixture",
+      "input": {
+        "version": 0,
+        "description": "uses a compound index with id as lowest level",
+        "primaryKey": "id",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string"
+          },
+          "age": {
+            "description": "Age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "age"
+        ],
+        "indexes": [
+          [
+            "age",
+            "id"
+          ]
+        ]
+      },
+      "hash": "6262cec0e98fc52bd3a7a2f8a276bbd140c4e09dc8f2d8faa057f3f73270e074",
+      "hashInputLength": 748,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "uses a compound index with id as lowest level",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "age",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "Age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "age",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanMinimal",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "description": "describes a human being",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "type": "integer"
+          },
+          "oneOptional": {
+            "type": "string"
+          }
+        },
+        "indexes": [],
+        "required": [
+          "passportId",
+          "age"
+        ]
+      },
+      "hash": "a87e1f912ff6890cf669265063e69661f02ce26017f821e79c9f31554fcff409",
+      "hashInputLength": 713,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "type": "integer"
+          },
+          "oneOptional": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "age",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanMinimalBroken",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "description": "describes a human being",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "broken": {
+            "type": "integer"
+          }
+        },
+        "indexes": [],
+        "required": [
+          "passportId",
+          "broken"
+        ]
+      },
+      "hash": "47f9e5db3d75c2513f5fb85db17ae33248ec87250214cef7addcba0ee488b911",
+      "hashInputLength": 687,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "broken": {
+            "type": "integer"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "broken",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanNormalizeSchema1",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "keyCompression": false,
+        "description": "describes a human being",
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 100
+          },
+          "age": {
+            "description": "age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "age",
+          "passportId"
+        ]
+      },
+      "hash": "872d2bb94fdaf20fd275bd9a228e6e01ca4dedfe4771083e0cc8ec171f3fe819",
+      "hashInputLength": 765,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "minLength": 4,
+            "type": "string"
+          }
+        },
+        "required": [
+          "age",
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanNormalizeSchema1Literal",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "keyCompression": false,
+        "description": "describes a human being",
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 100
+          },
+          "age": {
+            "description": "age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "age",
+          "passportId"
+        ]
+      },
+      "hash": "872d2bb94fdaf20fd275bd9a228e6e01ca4dedfe4771083e0cc8ec171f3fe819",
+      "hashInputLength": 765,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "minLength": 4,
+            "type": "string"
+          }
+        },
+        "required": [
+          "age",
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanNormalizeSchema2",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 100
+          },
+          "age": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "age in years",
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "description": "describes a human being",
+        "required": [
+          "age",
+          "passportId"
+        ]
+      },
+      "hash": "872d2bb94fdaf20fd275bd9a228e6e01ca4dedfe4771083e0cc8ec171f3fe819",
+      "hashInputLength": 765,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "minLength": 4,
+            "type": "string"
+          }
+        },
+        "required": [
+          "age",
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanSchemaLiteral",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "description": "describes a human being",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "description": "age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "passportId"
+        ],
+        "indexes": [
+          "firstName"
+        ]
+      },
+      "hash": "e1db93378e0a3a31dfb44b89b834ed1fe7279e59b9d48ef6455999f00a4aebe8",
+      "hashInputLength": 871,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "firstName",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanSubIndex",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "description": "describes a human being where other.age is index",
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "other": {
+            "type": "object",
+            "properties": {
+              "age": {
+                "description": "Age in years",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 150,
+                "multipleOf": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "passportId"
+        ],
+        "indexes": [
+          "other.age"
+        ]
+      },
+      "hash": "70bc37cb4e60c2bd4ffae0b459f599371f83eadbdae70c992d9a64293b0ab916",
+      "hashInputLength": 823,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being where other.age is index",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "other.age",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "other": {
+            "properties": {
+              "age": {
+                "description": "Age in years",
+                "maximum": 150,
+                "minimum": 0,
+                "multipleOf": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanWithAllIndex",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "description": "describes a human being",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "description": "age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "indexes": [
+          "firstName",
+          "lastName",
+          "age"
+        ],
+        "required": [
+          "firstName",
+          "lastName"
+        ]
+      },
+      "hash": "ce39472ddaa8ad45df3310d779c3a1109c4c876504e345e9d0fcf7e11ac11cff",
+      "hashInputLength": 940,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "firstName",
+            "passportId"
+          ],
+          [
+            "_deleted",
+            "lastName",
+            "passportId"
+          ],
+          [
+            "_deleted",
+            "age",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanWithDeepNestedIndexes",
+      "origin": "fixture",
+      "input": {
+        "version": 0,
+        "primaryKey": "id",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "job": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "manager": {
+                "type": "object",
+                "properties": {
+                  "fullName": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "previousJobs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "maxLength": 100
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "indexes": [
+          "name",
+          "job.name",
+          "job.manager.fullName"
+        ]
+      },
+      "hash": "af5c4c4e1c9342afa33dba645b6f44118b8fa88531236cc410bf2a8a1c206d48",
+      "hashInputLength": 947,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "name",
+            "id"
+          ],
+          [
+            "_deleted",
+            "job.name",
+            "id"
+          ],
+          [
+            "_deleted",
+            "job.manager.fullName",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "job": {
+            "properties": {
+              "manager": {
+                "properties": {
+                  "fullName": {
+                    "maxLength": 100,
+                    "type": "string"
+                  },
+                  "previousJobs": {
+                    "items": {
+                      "properties": {
+                        "name": {
+                          "maxLength": 100,
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              },
+              "name": {
+                "maxLength": 100,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanWithOwnership",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "description": "describes a human being",
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "description": "age in years",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "default": 20
+          },
+          "owner": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "indexes": [],
+        "required": [
+          "passportId"
+        ]
+      },
+      "hash": "b1f8d90442cdfab545bf92c79c2d360edb44dc41ed218565525cac6ad512c3a7",
+      "hashInputLength": 876,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "default": 20,
+            "description": "age in years",
+            "maximum": 150,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanWithSimpleAndCompoundIndexes",
+      "origin": "fixture",
+      "input": {
+        "version": 0,
+        "primaryKey": "id",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1500,
+            "multipleOf": 1
+          },
+          "createdAt": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000,
+            "multipleOf": 1
+          },
+          "updatedAt": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000,
+            "multipleOf": 1
+          }
+        },
+        "indexes": [
+          [
+            "name",
+            "id"
+          ],
+          [
+            "age",
+            "id"
+          ],
+          [
+            "createdAt",
+            "updatedAt",
+            "id"
+          ]
+        ],
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt"
+        ]
+      },
+      "hash": "14eba91f42a9094cf5b03a79b59de5ead8b711a9321c123c887595685296241f",
+      "hashInputLength": 920,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "name",
+            "id"
+          ],
+          [
+            "_deleted",
+            "age",
+            "id"
+          ],
+          [
+            "_deleted",
+            "createdAt",
+            "updatedAt",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maximum": 1500,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          },
+          "createdAt": {
+            "maximum": 1000000000000000,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "updatedAt": {
+            "maximum": 1000000000000000,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanWithTimestamp",
+      "origin": "fixture",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "age": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000,
+            "multipleOf": 1
+          },
+          "deletedAt": {
+            "type": "number"
+          }
+        },
+        "indexes": [
+          "updatedAt"
+        ],
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt"
+        ]
+      },
+      "hash": "31646cde59db7c3226aa9c5a184fbfd0acb424e88f3b5822be9302d8041b8526",
+      "hashInputLength": 764,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "updatedAt",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "type": "number"
+          },
+          "deletedAt": {
+            "type": "number"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "updatedAt": {
+            "maximum": 1000000000000000,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanWithTimestampAllIndex",
+      "origin": "fixture",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1500,
+            "multipleOf": 1
+          },
+          "updatedAt": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000,
+            "multipleOf": 1
+          },
+          "deletedAt": {
+            "type": "number"
+          }
+        },
+        "indexes": [
+          "name",
+          "age",
+          "updatedAt"
+        ],
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt"
+        ]
+      },
+      "hash": "9a372b71a0b98b61bc24d0ee3dd1480c28efe622dad22fdfc82eebeb32b725c5",
+      "hashInputLength": 854,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "name",
+            "id"
+          ],
+          [
+            "_deleted",
+            "age",
+            "id"
+          ],
+          [
+            "_deleted",
+            "updatedAt",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maximum": 1500,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          },
+          "deletedAt": {
+            "type": "number"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "updatedAt": {
+            "maximum": 1000000000000000,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "humanWithTimestampNested",
+      "origin": "fixture",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "age": {
+            "type": "number"
+          },
+          "updatedAt": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000000000000000,
+            "multipleOf": 1
+          },
+          "deletedAt": {
+            "type": "number"
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "suite": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "zipcode": {
+                "type": "string"
+              },
+              "geo": {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "string"
+                  },
+                  "lng": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "indexes": [
+          "updatedAt"
+        ],
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt"
+        ]
+      },
+      "hash": "0ca4a9947e3e3f7090dc10b678696183161c105ce7de37dc47c70fc622dcddc1",
+      "hashInputLength": 1000,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "updatedAt",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "address": {
+            "properties": {
+              "city": {
+                "type": "string"
+              },
+              "geo": {
+                "properties": {
+                  "lat": {
+                    "type": "string"
+                  },
+                  "lng": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "street": {
+                "type": "string"
+              },
+              "suite": {
+                "type": "string"
+              },
+              "zipcode": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "age": {
+            "type": "number"
+          },
+          "deletedAt": {
+            "type": "number"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "updatedAt": {
+            "maximum": 1000000000000000,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "age",
+          "updatedAt",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "nestedHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human nested",
+        "version": 0,
+        "description": "describes a human being with a nested field",
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "mainSkill": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 10
+              },
+              "level": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10,
+                "multipleOf": 1
+              }
+            },
+            "required": [
+              "name",
+              "level"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "firstName"
+        ],
+        "indexes": []
+      },
+      "hash": "2270b79584a1500a87870039f7fa7f3992f3ef547f888af21ef861eef3e40bf9",
+      "hashInputLength": 936,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being with a nested field",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "mainSkill": {
+            "additionalProperties": false,
+            "properties": {
+              "level": {
+                "maximum": 10,
+                "minimum": 0,
+                "multipleOf": 1,
+                "type": "number"
+              },
+              "name": {
+                "maxLength": 10,
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "level"
+            ],
+            "type": "object"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "passportId"
+        ],
+        "title": "human nested",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "noIndexHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "description": "this schema has no index",
+        "keyCompression": false,
+        "primaryKey": "firstName",
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lastName"
+        ]
+      },
+      "hash": "fdd44a4b36611c8b11d6510d5751ce838b6ee2f830c1c7a9fc1bfa9e77f65389",
+      "hashInputLength": 686,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "this schema has no index",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "firstName"
+          ],
+          [
+            "_meta.lwt",
+            "firstName"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "firstName",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "lastName",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "firstName"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "noStringIndex",
+      "origin": "fixture",
+      "input": {
+        "description": "the index has no type:string",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "object",
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "passportId"
+        ],
+        "indexes": []
+      },
+      "hash": "f4b081ab4e16d9f5bb43ca29ce304031f759f2c558d6a5df120b30e71b473a4d",
+      "hashInputLength": 674,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "the index has no type:string",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "object"
+          }
+        },
+        "required": [
+          "firstName",
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "notExistingIndex",
+      "origin": "fixture",
+      "input": {
+        "title": "index",
+        "version": 0,
+        "description": "this schema has a specified index which does not exists",
+        "primaryKey": "passportId",
+        "type": "object",
+        "keyCompression": false,
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "passportId"
+        ],
+        "indexes": [
+          "address.apartment"
+        ]
+      },
+      "hash": "fdc52126f2bac640947229a03011143df2ca79fc6a57a7cea44b70808431c47f",
+      "hashInputLength": 765,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "this schema has a specified index which does not exists",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "address.apartment",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "address": {
+            "properties": {
+              "street": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "index",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "point",
+      "origin": "fixture",
+      "input": {
+        "title": "point schema",
+        "version": 0,
+        "description": "describes coordinates in 2d space",
+        "primaryKey": "id",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ]
+      },
+      "hash": "14d2eb7505486e44573d78a78422c7f08092d9bfbf85c82fc056ed336988cb32",
+      "hashInputLength": 672,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes coordinates in 2d space",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "id"
+        ],
+        "title": "point schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "primaryHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema with primary",
+        "version": 0,
+        "description": "describes a human being with passportID as primary",
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "passportId",
+          "firstName",
+          "lastName"
+        ]
+      },
+      "hash": "96f2e7ef4308da85464b5dc39c05d601f0aa6bbd7860bd89abd36c16615b8bf1",
+      "hashInputLength": 884,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being with passportID as primary",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "minLength": 4,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "firstName",
+          "lastName",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema with primary",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "primaryHumanLiteral",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema with primary",
+        "version": 0,
+        "description": "describes a human being with passportID as primary",
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 100
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 150,
+            "multipleOf": 1
+          }
+        },
+        "required": [
+          "passportId",
+          "firstName",
+          "lastName"
+        ]
+      },
+      "hash": "96f2e7ef4308da85464b5dc39c05d601f0aa6bbd7860bd89abd36c16615b8bf1",
+      "hashInputLength": 884,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a human being with passportID as primary",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "minLength": 4,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "firstName",
+          "lastName",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema with primary",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "refHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human related to other human",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "name",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "bestFriend": {
+            "ref": "human",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "hash": "288addac47a15da32eaf85615d913b11bd84dc36aae6dcaccfe464283dd90e68",
+      "hashInputLength": 641,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "name"
+          ],
+          [
+            "_meta.lwt",
+            "name"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "name",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "bestFriend": {
+            "ref": "human",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human related to other human",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "refHumanNested",
+      "origin": "fixture",
+      "input": {
+        "title": "human related to other human",
+        "version": 0,
+        "keyCompression": false,
+        "primaryKey": "name",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "foo": {
+            "type": "object",
+            "properties": {
+              "bestFriend": {
+                "ref": "human",
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "hash": "f08755e322bb0efa52d901f132ac90661053dab1c36dc1f68e157125a469d2b9",
+      "hashInputLength": 680,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "name"
+          ],
+          [
+            "_meta.lwt",
+            "name"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "name",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "foo": {
+            "properties": {
+              "bestFriend": {
+                "ref": "human",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human related to other human",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "simpleArrayHero",
+      "origin": "fixture",
+      "input": {
+        "title": "hero schema",
+        "version": 0,
+        "description": "describes a hero with a string-array-field",
+        "keyCompression": false,
+        "primaryKey": "name",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "skills": {
+            "type": "array",
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "hash": "4bff9fa1b60bc1319435250450e6731bae8ff70ca96598d638fe229f2e70bec5",
+      "hashInputLength": 722,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a hero with a string-array-field",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "name"
+          ],
+          [
+            "_meta.lwt",
+            "name"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "name",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "name",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "hero schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "simpleHuman",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 0,
+        "keyCompression": false,
+        "description": "describes a simple human being",
+        "primaryKey": "passportId",
+        "type": "object",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "oneOptional": {
+            "type": "string"
+          }
+        },
+        "indexes": [
+          "age"
+        ],
+        "required": [
+          "passportId",
+          "age"
+        ]
+      },
+      "hash": "48d7922ddcd4724d6c0060b68e0943b42ce6d8937cf69b5aba7a809a75a18b88",
+      "hashInputLength": 741,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a simple human being",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "age",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "oneOptional": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "age",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "simpleHumanV3",
+      "origin": "fixture",
+      "input": {
+        "title": "human schema",
+        "version": 3,
+        "keyCompression": false,
+        "description": "describes a simple human being (V3 with age as number)",
+        "type": "object",
+        "primaryKey": "passportId",
+        "properties": {
+          "passportId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "age": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "multipleOf": 1
+          },
+          "oneOptional": {
+            "type": "string"
+          }
+        },
+        "indexes": [
+          "age"
+        ],
+        "required": [
+          "passportId",
+          "age"
+        ]
+      },
+      "hash": "4f0f4422604577163dfe77fe631bf02223f4d31541a92ec2dc9028c7906c07b3",
+      "hashInputLength": 791,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "description": "describes a simple human being (V3 with age as number)",
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "age",
+            "passportId"
+          ],
+          [
+            "_meta.lwt",
+            "passportId"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "passportId",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maximum": 1000,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          },
+          "oneOptional": {
+            "type": "string"
+          },
+          "passportId": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "passportId",
+          "age",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "human schema",
+        "type": "object",
+        "version": 3
+      }
+    },
+    {
+      "name": "synthetic:attachments-enabled",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "attachments": {},
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "hash": "0bafb55e2e54870eaf84c342ca5f2acd18cafc011f1fa4bb0ce4209c0384eecd",
+      "hashInputLength": 564,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "attachments": {},
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:composite-primary",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": {
+          "key": "id",
+          "fields": [
+            "firstName",
+            "lastName"
+          ],
+          "separator": "|"
+        },
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ]
+      },
+      "hash": "ec66edac86e1cdd21c2ac96f6473b2446708bc85d34bdb8f1c179e7a600cd86d",
+      "hashInputLength": 719,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": {
+          "fields": [
+            "firstName",
+            "lastName"
+          ],
+          "key": "id",
+          "separator": "|"
+        },
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "firstName": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "lastName": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments",
+          "id"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:encrypted-field",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "encrypted": [
+          "secret"
+        ]
+      },
+      "hash": "af0ca776fe3519e444b21ab58313b8436ac6a94f8f2a23b00b5ad7d488425fa3",
+      "hashInputLength": 582,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [
+          "secret"
+        ],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:explicit-default-index",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ]
+        ]
+      },
+      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashInputLength": 547,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:key-compression-on",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "keyCompression": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "longFieldName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "hash": "fd430bf91c5282620ade73f8c7485af86bce9ad5a002fb227571d4db7af0b835",
+      "hashInputLength": 580,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": true,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "longFieldName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:key-order-swapped",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "age": {
+            "maximum": 150,
+            "minimum": 0,
+            "type": "integer",
+            "multipleOf": 1
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "key order test"
+      },
+      "hash": "5c97b533e84f5f3d719a2ba94e234322c9b69daee921bc9cb4770c168d39ae20",
+      "hashInputLength": 638,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "age": {
+            "maximum": 150,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "title": "key order test",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:no-index-at-all",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashInputLength": 547,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:redundant-required",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "id",
+          "id"
+        ]
+      },
+      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashInputLength": 547,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:version-3",
+      "origin": "synthetic",
+      "input": {
+        "version": 3,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "hash": "4a0aa08118e860cdfbc43b945a925f500969086dc7d959ae25ff190c6e4939e3",
+      "hashInputLength": 547,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "type": "object",
+        "version": 3
+      }
+    }
+  ],
+  "relations": [
+    {
+      "why": "key-order-does-not-change-hash",
+      "a": "plain",
+      "b": "reordered",
+      "equal": true,
+      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
+    },
+    {
+      "why": "explicit-default-index-equals-implicit-default",
+      "a": "plain",
+      "b": "explicitIndex",
+      "equal": true,
+      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
+    },
+    {
+      "why": "redundant-required-does-not-change-hash",
+      "a": "plain",
+      "b": "redundantRequired",
+      "equal": true,
+      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
+    },
+    {
+      "why": "max-length-change-changes-hash",
+      "a": "plain",
+      "b": "differentMaxLength",
+      "equal": false,
+      "hash": "db665022f1eff66df8054ff9d771b8c86d03384b33f735dd9e56c77c328eef48"
+    },
+    {
+      "why": "version-change-changes-hash",
+      "a": "plain",
+      "b": "versionBump",
+      "equal": false,
+      "hash": "6231ccc985960e0de95aa6ee3302b404b5d0e83764917aed9f885e908d4a56d6"
+    }
+  ],
+  "hashStringCases": [
+    {
+      "input": "",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "input": "abc",
+      "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    {
+      "input": "äöü",
+      "sha256": "bc329dbfa029f66476cb633afcd3136c65c840d0003ef6479583c09e64e2c33e"
+    },
+    {
+      "input": "😊",
+      "sha256": "08081c499cdeab015ad5c888c4aac3e8a4ba2333be9862f69482732bd817411d"
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256": "41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3"
+    }
+  ]
+}
