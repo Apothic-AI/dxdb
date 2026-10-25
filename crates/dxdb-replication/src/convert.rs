@@ -30,9 +30,8 @@
 //! (`utils-document.ts:34-41`). A port that generated a plausible revision here would
 //! hide a missing assignment instead of failing.
 
+use dxdb_json::{Map, Value};
 use dxdb_storage::{DocumentData, DocumentWriteData};
-use serde_json::Map;
-use serde_json::Value;
 
 use crate::conflict::strip_attachments_data_from_document;
 
@@ -87,7 +86,9 @@ pub fn doc_state_to_write_doc(
             .and_then(DocumentData::meta)
             .cloned()
             .unwrap_or_default();
-        meta.insert("lwt".to_string(), json_number(lwt));
+        if let Some(lwt) = json_number(lwt) {
+            meta.insert("lwt".to_string(), lwt);
+        }
         Some(Value::Object(meta))
     };
     match meta {
@@ -255,10 +256,23 @@ pub fn was_written_by_replication(
     }
 }
 
-fn json_number(value: f64) -> Value {
-    serde_json::Number::from_f64(value)
-        .map(Value::Number)
-        .unwrap_or(Value::Null)
+/// A JSON number for a finite `f64`.
+///
+/// The crate's single JSON-number constructor, so no call site has to reach through
+/// `dxdb-json` to build one (a document's number type is `dxdb_json::Value`, and only its
+/// re-exports are a consumer's business). `None` for a non-finite value, because JSON has
+/// no way to spell `NaN` or infinity and silently substituting `null` would corrupt a
+/// stored `lwt`.
+pub(crate) fn json_number(value: f64) -> Option<Value> {
+    // `Value::from(f64)` yields `Null` for a non-finite input, which is right for a
+    // caller that just wants a value but wrong for `_meta.lwt`: a null timestamp would
+    // sort before everything and break the `(_meta.lwt, primary)` order the change feed
+    // depends on. So the caller gets `None` and decides.
+    if value.is_finite() {
+        Some(Value::from(value))
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

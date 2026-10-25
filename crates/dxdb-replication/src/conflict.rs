@@ -39,9 +39,8 @@
 //!    `WithDeleted<RxDocType>` values that still carry whatever the caller passed — the
 //!    *handler* does not strip them, the *callers* do.
 
+use dxdb_json::{Map, Value};
 use dxdb_storage::{DocumentData, WriteError};
-use serde_json::Map;
-use serde_json::Value;
 
 /// The three states a conflict handler decides between.
 ///
@@ -375,7 +374,7 @@ mod tests {
         // `both_nan` states it explicitly so the port is not silently different.
         let a = Value::Null;
         assert!(deep_equal(&a, &a));
-        assert!(both_nan(&a, &a) == false, "null is not NaN");
+        assert!(!both_nan(&a, &a), "null is not NaN");
     }
 
     #[test]

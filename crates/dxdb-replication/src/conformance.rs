@@ -41,7 +41,7 @@
 
 use std::collections::VecDeque;
 
-use serde_json::Value;
+use dxdb_json::{Map, Value};
 
 // ---------------------------------------------------------------------------
 // Upstream case table
@@ -113,7 +113,10 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should replicate an inserted attachment",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "attachment-capable double: bytes, digest and stub round-trip",
+            "needs a payload store: RxStorageInstance::get_attachment_data(doc, att, digest) \
+             on the endpoint, plus a put_attachment that writes the payload and the \
+             {length, digest, type} stub. Digit side exists in dxdb-attachments \
+             (AttachmentCreator::digest, SHA-256). Blocked on dxdb-memory, not on the protocol.",
         ),
         rust_test: "attachment_inserted",
     },
@@ -123,7 +126,9 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should replicate an updated attachment",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "attachment-capable double: bytes, digest and stub round-trip",
+            "same payload store as attachment_inserted, plus replace-under-existing-id: \
+             the storage must accept a second write of the same attachment id with a new \
+             digest and swap the payload. Blocked on dxdb-memory.",
         ),
         rust_test: "attachment_updated",
     },
@@ -133,7 +138,9 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should replicate a deleted attachment",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "attachment-capable double: bytes, digest and stub round-trip",
+            "same payload store as attachment_inserted, plus stub removal: deleting an \
+             attachment must remove the `_attachments` key and leave the document with an \
+             empty object. Blocked on dxdb-memory.",
         ),
         rust_test: "attachment_deleted",
     },
@@ -143,7 +150,9 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should keep the master attachment state on conflict",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "protocol conflict resolution: needs the real upstream, not a double",
+            "needs BOTH the upstream conflict path (this lane, layer 3) and a payload store \
+             addressed by digest, so the fork can fetch the blob for the winning digest. \
+             The conflict half is the blocker: the payload store alone would not run it.",
         ),
         rust_test: "attachment_master_state_on_conflict",
     },
@@ -153,7 +162,9 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should not replicate attachment data when attachments are disabled",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "attachment-capable double that can also withhold payloads",
+            "needs a payload store plus a replication configured WITHOUT attachment \
+             transfer, so the test can assert the document arrives while the payload does \
+             not. Blocked on dxdb-memory and on the pull loop that carries stubs.",
         ),
         rust_test: "attachment_disabled_binary_not_replicated",
     },
@@ -298,7 +309,7 @@ pub fn human_data(passport_id: Option<&str>, age: Option<i64>, first_name: Optio
         .unwrap_or_else(|| fixture_string(&format!("firstName{passport}"), 10));
     let last = fixture_string(&format!("lastName{passport}"), 10);
 
-    let mut map = serde_json::Map::new();
+    let mut map = Map::new();
     map.insert("passportId".to_string(), Value::String(passport));
     map.insert("firstName".to_string(), Value::String(first));
     map.insert("lastName".to_string(), Value::String(last));
@@ -309,7 +320,7 @@ pub fn human_data(passport_id: Option<&str>, age: Option<i64>, first_name: Optio
 /// A JSON integer, used for `age` so the fixture matches the schema's
 /// `type: 'integer'` and prints as `42` rather than `42.0`.
 pub fn json_integer(value: i64) -> Value {
-    Value::Number(serde_json::Number::from(value))
+    Value::from(value)
 }
 
 // ---------------------------------------------------------------------------
@@ -763,7 +774,7 @@ pub fn to_json_without_meta_fields(doc: &Value) -> Value {
     let Value::Object(map) = doc else {
         return doc.clone();
     };
-    let mut out = serde_json::Map::new();
+    let mut out = Map::new();
     for (key, value) in map {
         if matches!(key.as_str(), "_rev" | "_attachments" | "_deleted" | "_meta") {
             continue;
@@ -780,10 +791,7 @@ pub fn to_json_without_meta_fields(doc: &Value) -> Value {
 /// suite's intent is set equality, so the port states it. Primary-key order is
 /// `dxdb_jsstr::compare_js`, the single ordering contract (DECISIONS.md D5).
 pub fn documents_by_primary(docs: &[Value], primary_path: &str) -> Vec<Value> {
-    let mut projected: Vec<Value> = docs
-        .iter()
-        .map(|doc| to_json_without_meta_fields(doc))
-        .collect();
+    let mut projected: Vec<Value> = docs.iter().map(to_json_without_meta_fields).collect();
     projected.sort_by(|a, b| {
         let ka = a
             .get(primary_path)

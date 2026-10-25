@@ -37,7 +37,6 @@ use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
 
 use dxdb_storage::{
@@ -100,7 +99,7 @@ pub struct ReplicationInput<S: RxStorageInstance> {
     /// (`replication-protocol.d.ts:130-148`).
     pub meta: S,
     /// The database's hash function.
-    pub hash_function: Arc<dyn HashFunction>,
+    pub hash_function: Rc<dyn HashFunction>,
     /// When true, the pull side does not store per-document assumed-master states.
     ///
     /// Set for pull-only replications, where nothing is ever pushed and so the assumed
@@ -118,7 +117,7 @@ pub struct ReplicationInput<S: RxStorageInstance> {
     ///
     /// Upstream's `waitBeforePersist`; waiting longer risks losing fork writes if the
     /// process dies, so it is opt-in.
-    pub wait_before_persist: Option<Arc<dyn Fn() -> BoxFuture<'static, ()>>>,
+    pub wait_before_persist: Option<Rc<dyn Fn() -> BoxFuture<'static, ()>>>,
 }
 
 /// Where a fresh replication begins, per direction.
@@ -443,7 +442,10 @@ impl fmt::Debug for TaskQueue {
 /// re-poll, which the next drain does anyway. A real executor is the platform
 /// binding's business (D3).
 fn poll_once(future: Pin<&mut (dyn Future<Output = ()> + 'static)>) -> Poll<()> {
-    let waker = Waker::from(Arc::new(NoopWake));
+    // `Waker` requires `Arc<W: Wake + Send + Sync>`. `NoopWake` is a zero-sized unit
+    // struct, so it is trivially `Send + Sync`; the futures themselves are not, and never
+    // cross a thread, but the waker type has no such latitude.
+    let waker = Waker::from(std::sync::Arc::new(NoopWake));
     let mut context = Context::from_waker(&waker);
     future.poll(&mut context)
 }
@@ -451,8 +453,8 @@ fn poll_once(future: Pin<&mut (dyn Future<Output = ()> + 'static)>) -> Poll<()> 
 struct NoopWake;
 
 impl Wake for NoopWake {
-    fn wake(self: Arc<Self>) {}
-    fn wake_by_ref(self: &Arc<Self>) {}
+    fn wake(self: std::sync::Arc<Self>) {}
+    fn wake_by_ref(self: &std::sync::Arc<Self>) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -460,7 +462,7 @@ impl Wake for NoopWake {
 // ---------------------------------------------------------------------------
 
 /// A callback observing the replication.
-pub type EventListener = Arc<dyn Fn(&ReplicationEvent)>;
+pub type EventListener = Rc<dyn Fn(&ReplicationEvent)>;
 
 /// The state a caller can observe, matching the upstream event subjects.
 ///
@@ -519,6 +521,11 @@ pub struct ResolvedConflict {
     pub output: DocumentData,
 }
 
+// The `record_*` / `set_*` mutators are the write side of the observables. They have no
+// caller yet because the downstream and upstream loops are the next layer; the read side
+// and the tests exercise every one of them. `#[allow(dead_code)]` here is honest about
+// that rather than deleting the API the protocol is written against.
+#[allow(dead_code)]
 impl ReplicationEvents {
     /// Fresh state: not cancelled, not paused, both directions active.
     ///
@@ -756,7 +763,7 @@ struct ReplicationStateInner<S: RxStorageInstance> {
     /// Swappable so a test can pin time (D4) or opt into concurrency (D3) without
     /// rebuilding state that already has queued work.
     clock: RefCell<Box<dyn Clock>>,
-    spawner: RefCell<Arc<dyn Spawner>>,
+    spawner: RefCell<Rc<dyn Spawner>>,
 }
 
 #[derive(Default)]
@@ -803,7 +810,7 @@ impl<S: RxStorageInstance> ReplicationState<S> {
                 queues: Queues::default(),
                 last_checkpoint_docs: RefCell::new(LastCheckpointDocs::default()),
                 clock: RefCell::new(Box::new(MonotonicClock::new())),
-                spawner: RefCell::new(Arc::new(dxdb_storage::SequentialSpawner::new())),
+                spawner: RefCell::new(Rc::new(dxdb_storage::SequentialSpawner::new())),
             }),
         }
     }
@@ -814,7 +821,7 @@ impl<S: RxStorageInstance> ReplicationState<S> {
     }
 
     /// Replaces the spawner (D3). Existing state and queued work are kept.
-    pub fn set_spawner(&self, spawner: Arc<dyn Spawner>) {
+    pub fn set_spawner(&self, spawner: Rc<dyn Spawner>) {
         *self.inner.spawner.borrow_mut() = spawner;
     }
 
@@ -894,7 +901,7 @@ impl<S: RxStorageInstance> ReplicationState<S> {
     }
 
     /// The awaitable an input may supply before persisting a fork write.
-    pub fn wait_before_persist(&self) -> Option<Arc<dyn Fn() -> BoxFuture<'static, ()>>> {
+    pub fn wait_before_persist(&self) -> Option<Rc<dyn Fn() -> BoxFuture<'static, ()>>> {
         self.inner.input.wait_before_persist.clone()
     }
 
@@ -1253,7 +1260,7 @@ mod tests {
         let events = ReplicationEvents::new();
         let seen = Rc::new(RefCell::new(0usize));
         let counter = seen.clone();
-        events.subscribe(Arc::new(move |event| {
+        events.subscribe(Rc::new(move |event| {
             if matches!(event, ReplicationEvent::Cancelled) {
                 *counter.borrow_mut() += 1;
             }
@@ -1279,7 +1286,7 @@ mod tests {
         let events = ReplicationEvents::new();
         let count = Rc::new(RefCell::new(0usize));
         let counter = count.clone();
-        events.subscribe(Arc::new(move |event| {
+        events.subscribe(Rc::new(move |event| {
             if matches!(
                 event,
                 ReplicationEvent::FirstSyncDown | ReplicationEvent::FirstSyncUp

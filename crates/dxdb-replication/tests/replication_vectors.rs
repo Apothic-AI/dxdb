@@ -135,11 +135,7 @@ fn every_meta_row_id_is_composed_from_item_id_and_flag() {
             .and_then(Value::as_array)
             .expect("steps")
         {
-            for row in step
-                .get("meta")
-                .and_then(Value::as_array)
-                .expect("meta")
-            {
+            for row in step.get("meta").and_then(Value::as_array).expect("meta") {
                 let id = str_field(row, "id");
                 let item_id = str_field(row, "itemId");
                 let flag = str_field(row, "isCheckpoint");
@@ -192,11 +188,7 @@ fn checkpoint_payloads_round_trip_byte_identically() {
             .and_then(Value::as_array)
             .expect("steps")
         {
-            for row in step
-                .get("meta")
-                .and_then(Value::as_array)
-                .expect("meta")
-            {
+            for row in step.get("meta").and_then(Value::as_array).expect("meta") {
                 if str_field(row, "isCheckpoint") != "1" {
                     continue;
                 }
@@ -269,11 +261,7 @@ fn is_resolved_conflict_is_present_only_when_upstream_set_it() {
             .and_then(Value::as_array)
             .expect("steps")
         {
-            for row in step
-                .get("meta")
-                .and_then(Value::as_array)
-                .expect("meta")
-            {
+            for row in step.get("meta").and_then(Value::as_array).expect("meta") {
                 if str_field(row, "isCheckpoint") != "0" {
                     continue;
                 }
@@ -306,15 +294,22 @@ fn is_resolved_conflict_is_present_only_when_upstream_set_it() {
     );
 }
 
-/// The assumed-master `docData` is the master state minus its local bookkeeping.
+/// The assumed-master `docData` carries no local bookkeeping, and is a *subset* of the
+/// master's state.
 ///
-/// Upstream stores what the master said, without `_meta`/`_rev`, because those are the
-/// master's local revision chain and meaningless on the fork. A port that stored the
-/// whole master document would compare unequal on every future push and push forever.
+/// Upstream stores the full master state: `newMeta.docData = newMasterDocState`
+/// (`meta-instance.ts:168`). The vector generator currently projects `docData` down to
+/// `{_rev, _deleted, age}` (`xtask/vectors/families/replication-transcripts.mjs:150-152`),
+/// which drops `passportId` and `firstName` — so this file can assert the *absence* of
+/// `_meta`/`_rev` and that what is present agrees with the master, but cannot yet assert
+/// completeness. That gap is reported to lane C rather than papered over; the assertion
+/// below is written so it starts enforcing completeness the moment the projection is
+/// fixed, because it compares every field the vector actually carries.
 #[test]
 fn assumed_master_doc_data_excludes_local_bookkeeping() {
     let vectors = load();
     let mut checked = 0usize;
+    let mut fields_seen = BTreeSet::new();
     let handler = DefaultConflictHandler;
 
     for transcript in transcripts(&vectors) {
@@ -323,10 +318,7 @@ fn assumed_master_doc_data_excludes_local_bookkeeping() {
             .and_then(Value::as_array)
             .expect("steps")
         {
-            let meta_rows = step
-                .get("meta")
-                .and_then(Value::as_array)
-                .expect("meta");
+            let meta_rows = step.get("meta").and_then(Value::as_array).expect("meta");
             let master_docs = step
                 .get("master")
                 .and_then(Value::as_array)
@@ -336,9 +328,10 @@ fn assumed_master_doc_data_excludes_local_bookkeeping() {
                 if str_field(row, "isCheckpoint") != "0" {
                     continue;
                 }
-                let Some(doc_data) = row.get("docData").filter(|v| !v.is_null()) else {
+                let Some(doc_data) = row.get("docData").filter(|value| !value.is_null()) else {
                     continue;
                 };
+                // --- the claims that hold regardless of the projection ---------------
                 assert!(
                     doc_data.get("_meta").is_none(),
                     "the assumed master state must not carry _meta: {}",
@@ -350,31 +343,35 @@ fn assumed_master_doc_data_excludes_local_bookkeeping() {
                     dxdb_json::to_js_json(doc_data)
                 );
 
-                // An empty assumed state equals nothing in particular; the meaningful
-                // check is that *if* the master holds this document, the assumed state
-                // is the master's own state with the local fields stripped, which is
-                // exactly `writeDocToDocState(doc, false, false)`.
                 let document_id = str_field(row, "itemId");
-                if let Some(master_doc) = master_docs.iter().find(|doc| {
-                    doc.get("passportId").and_then(Value::as_str) == Some(document_id)
-                }) {
-                    let projected = write_doc_to_doc_state(&as_doc(master_doc), false, false);
-                    // The master may have moved on since this step, so compare only when
-                    // the master's own state still matches what was assumed.
-                    if !handler.is_equal(
-                        &as_doc(doc_data),
-                        &projected,
-                        "vectors-assumed-master",
-                    ) {
+                let Some(master_doc) = master_docs
+                    .iter()
+                    .find(|doc| doc.get("passportId").and_then(Value::as_str) == Some(document_id))
+                else {
+                    continue;
+                };
+
+                for key in doc_data.as_object().expect("docData is an object").keys() {
+                    fields_seen.insert(key.clone());
+                }
+
+                // Every field the vector carries must agree with the master it was taken
+                // from. `_rev` is the master's revision at snapshot time and may
+                // legitimately differ, so it is skipped; everything else is the master's
+                // own value, which is what `newMeta.docData = newMasterDocState` means.
+                let projected = write_doc_to_doc_state(&as_doc(master_doc), false, false);
+                for (key, value) in doc_data.as_object().expect("docData is an object") {
+                    if key == "_rev" {
                         continue;
                     }
                     assert_eq!(
-                        doc_data.get("_deleted").and_then(Value::as_bool),
-                        projected.get("_deleted").and_then(Value::as_bool),
-                        "the assumed state's _deleted must match the master's"
+                        Some(value),
+                        projected.get(key),
+                        "assumed-master field {key:?} must agree with the master for document \
+                         {document_id}"
                     );
-                    checked += 1;
                 }
+                checked += 1;
             }
         }
     }
@@ -383,6 +380,18 @@ fn assumed_master_doc_data_excludes_local_bookkeeping() {
         checked > 0,
         "at least one transcript must have an assumed-master state matching its master"
     );
+    assert!(
+        fields_seen.contains("_deleted"),
+        "the assumed state must carry _deleted; it is what conflict detection compares"
+    );
+
+    // KNOWN GAP, reported to lane C, not asserted: upstream stores the whole master state
+    // in `docData`, and the generator projects it to `{_rev, _deleted, age}`, so
+    // `passportId` and `firstName` never appear here. When the generator records the full
+    // state, the per-field loop above already compares *every* field it carries against
+    // the master, so this test tightens automatically and needs no edit. Asserting the
+    // absence today would turn lane C's fix into a red gate, which is not this test's job.
+    let _ = (handler, fields_seen);
 }
 
 /// The recorded conflict resolves to the master, which is what the default handler does.
@@ -516,7 +525,15 @@ fn every_transcript_is_either_covered_or_named_as_deferred() {
         for row in case.get("meta").and_then(Value::as_array).expect("meta") {
             let id = str_field(row, "id");
             let item_id = str_field(row, "itemId");
-            assert_eq!(id, format!("{item_id}|0"), "document rows compose the same way");
+            let flag = str_field(row, "isCheckpoint");
+            // The boundary case records the whole meta instance, so it holds checkpoint
+            // rows as well as document rows. Both compose the same way; what matters is
+            // that the flag segment is the row's own flag, not an assumption about it.
+            assert_eq!(
+                id,
+                format!("{item_id}|{flag}"),
+                "every meta row composes its id from its own two key fields"
+            );
         }
     }
 }

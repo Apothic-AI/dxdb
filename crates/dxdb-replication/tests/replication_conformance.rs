@@ -34,11 +34,11 @@ mod common {
 }
 
 use common::double::DoubleEndpoint;
+use dxdb_json::{Map, Value};
 use dxdb_replication::conformance::{
     gate, human_data, human_primary_path, json_integer, Call, EndpointAdapter,
     ProtocolNotImplemented, ReplicationDriver, Suite, UPSTREAM_CASES,
 };
-use serde_json::Value;
 
 /// Build a suite with the throwaway double, plus a fresh driver.
 fn suite() -> Suite<DoubleEndpoint> {
@@ -549,7 +549,7 @@ mod attachment_replication {
         // The document must survive with an empty `_attachments` object; that is the
         // shape the suite asserts on, so it is worth pinning even without a payload
         // store.
-        let empty = Value::Object(serde_json::Map::new());
+        let empty = Value::Object(Map::new());
         assert_eq!(
             dxdb_json::to_js_json(&empty),
             "{}",

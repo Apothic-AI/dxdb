@@ -44,9 +44,8 @@
 //! (`meta-instance.ts:170-177`). So [`get_meta_write_row`] inserts the key only when it
 //! has a value; a `None` removes it rather than writing `null`.
 
+use dxdb_json::{Map, Value};
 use dxdb_storage::{DocumentData, DocumentWriteData, RxStorageInstance, StorageError};
-use serde_json::Map;
-use serde_json::Value;
 
 use crate::checkpoint::meta_doc_id;
 use crate::state::ReplicationState;

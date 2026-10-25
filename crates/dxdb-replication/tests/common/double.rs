@@ -39,7 +39,7 @@
 
 #![allow(dead_code)]
 
-use serde_json::Value;
+use dxdb_json::{Map, Value};
 
 use dxdb_replication::conformance::{
     fixture_string, human_data, human_primary_path, EndpointAdapter, ReplicationHandle,
@@ -135,9 +135,8 @@ pub fn get_height_of_revision(revision: &str) -> i64 {
 
 /// A JSON number for an `f64` that is known to be finite.
 pub fn json_number(value: f64) -> Value {
-    serde_json::Number::from_f64(value)
-        .map(Value::Number)
-        .expect("lwt is always finite")
+    assert!(value.is_finite(), "a fixture lwt is always finite");
+    Value::from(value)
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +221,7 @@ impl DocStore {
         map.entry("_deleted".to_string())
             .or_insert(Value::Bool(false));
         map.entry("_attachments".to_string())
-            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+            .or_insert_with(|| Value::Object(Map::new()));
 
         match existing {
             Some(_) => {
@@ -301,7 +300,7 @@ impl DocStore {
     /// assertion needs.
     pub fn checkpoint_after(&self, docs: &[Value]) -> Option<Value> {
         let last = docs.last()?;
-        let mut map = serde_json::Map::new();
+        let mut map = Map::new();
         map.insert(
             human_primary_path().to_string(),
             last.get(human_primary_path())
@@ -331,7 +330,7 @@ fn lwt_of(doc: &Value) -> f64 {
 /// just `lwt` — which is also what a document looks like before any replication has
 /// touched it.
 fn build_meta(lwt: f64) -> Value {
-    let mut map = serde_json::Map::new();
+    let mut map = Map::new();
     map.insert("lwt".to_string(), json_number(lwt));
     Value::Object(map)
 }
@@ -375,7 +374,7 @@ impl AttachmentCreator {
 
     /// The stub stored in `_attachments`.
     pub fn stub(&self) -> Value {
-        let mut map = serde_json::Map::new();
+        let mut map = Map::new();
         map.insert("length".to_string(), json_number(self.bytes.len() as f64));
         map.insert("digest".to_string(), Value::String(self.digest()));
         map.insert("type".to_string(), Value::String(self.mime.clone()));
@@ -784,7 +783,7 @@ fn same_content(a: &Value, b: &Value) -> bool {
         let Value::Object(map) = doc else {
             return doc.clone();
         };
-        let mut out = serde_json::Map::new();
+        let mut out = Map::new();
         for (key, value) in map {
             if matches!(key.as_str(), "_rev" | "_meta") {
                 continue;
@@ -804,7 +803,7 @@ fn strip_local_meta(doc: &Value) -> Value {
     let Value::Object(map) = doc else {
         return doc.clone();
     };
-    let mut out = serde_json::Map::new();
+    let mut out = Map::new();
     for (key, value) in map {
         if matches!(key.as_str(), "_meta" | "_rev") {
             continue;

@@ -31,9 +31,8 @@
 
 use std::fmt;
 
+use dxdb_json::{Map, Value};
 use dxdb_storage::{DocumentData, RxStorageInstance, StorageError};
-use serde_json::Map;
-use serde_json::Value;
 
 use crate::state::ReplicationState;
 
@@ -488,8 +487,8 @@ fn build_checkpoint_row(direction: Direction, checkpoint: &Checkpoint, lwt: f64)
 /// `{"lwt": ...}`, the `_meta` a meta row carries.
 fn meta_with_lwt(lwt: f64) -> Value {
     let mut meta = Map::new();
-    if let Some(number) = serde_json::Number::from_f64(lwt) {
-        meta.insert("lwt".to_string(), Value::Number(number));
+    if let Some(number) = crate::convert::json_number(lwt) {
+        meta.insert("lwt".to_string(), number);
     }
     Value::Object(meta)
 }
@@ -579,7 +578,7 @@ mod tests {
 
     #[test]
     fn a_non_object_is_rejected() {
-        assert!(Checkpoint::new(Value::Number(serde_json::Number::from(1))).is_err());
+        assert!(Checkpoint::new(Value::from(1)).is_err());
         assert!(Checkpoint::new(Value::Array(Vec::new())).is_err());
     }
 
