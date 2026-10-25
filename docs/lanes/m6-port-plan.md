@@ -98,8 +98,11 @@ Class key:
 | `webmcp` | 762 | J | omitted — `navigator.modelContext` |
 
 Class totals: **P 21 (9,900)** · **S 9 (8,178)** · **R 11 (11,038)** ·
-**E 2 (1,419)** · **J 7 (1,586)** · **N 2 (5,579)**. Sum 52 / 37,700; the two
-lines of drift against 37,698 are files changing under the worktree.
+**E 2 (1,419)** · **J 7 (1,586)** · **N 2 (5,579)**. The classes are a verified
+partition: 52 distinct directories, each assigned exactly once, summing to the
+same 37,700 lines `wc -l` reports. The counting scripts' 37,698 is 2 lines lower
+because `replication-graphql/helper.ts` and `webmcp/nosql-query-schema.ts` have
+no trailing newline and `wc -l` counts newlines.
 
 ### Notes on the four judgement calls
 
@@ -212,15 +215,18 @@ sync/async. The Rust payload type is named in 3.3.
 | 23 | `preReplicationMasterWrite` | `src/plugins/replication/index.ts:356` | async |
 | 24 | `preReplicationMasterWriteDocumentsHandle` | `src/plugins/replication/index.ts:434` | async |
 
-Registering, in terms of the 24: eleven hooks are actually used by the 52
-plugins. The distinct set is `preCreateRxSchema`, `preCreateRxDatabase`,
+Registering, in terms of the 24: sixteen hooks are registered by at least one of
+the 52 plugins. Those sixteen are `preCreateRxSchema`, `preCreateRxDatabase`,
 `preCreateRxCollection`, `preCreateRxQuery`, `prePrepareRxQuery`,
 `prePrepareQuery`, `preStorageWrite`, `createRxDatabase`, `createRxCollection`,
-`createRxCollection`/`createRxState`, `createRxDocument`, `postCloseRxCollection`,
-`postRemoveRxCollection`, `postRemoveRxDatabase`, `preCloseRxDatabase`,
-`preMigrateDocument`. Sixteen. The other eight exist for third-party plugins; they
-must still be present, because a plugin written against upstream registers
-against all 24.
+`createRxState`, `createRxDocument`, `postCloseRxCollection`,
+`postRemoveRxCollection`, `postRemoveRxDatabase`, `preCloseRxDatabase` and
+`preMigrateDocument`. The other eight — `createRxSchema`, `postCreateRxDocument`,
+`preAddRxPlugin`, `preCreateRxStorageInstance`, `postMigrateDocument`,
+`postCleanup`, `preReplicationMasterWrite` and
+`preReplicationMasterWriteDocumentsHandle` — exist for third-party plugins and are
+nonetheless invoked by core or by another plugin. They must all be present,
+because a plugin written against upstream registers against all 24.
 
 ### 3.3 Rust shapes
 
@@ -356,9 +362,13 @@ than a silence.
 
 3. **Prototype mutation has no equivalent.** Upstream's five prototypes
    (`RxSchema`, `RxDocument`, `RxQuery`, `RxCollection`, `RxDatabase`) are
-   monkey-patched by 13 of the 52 plugins, adding methods like
+   monkey-patched by 12 of the 52 plugins — `attachments`, `backup`, `cleanup`,
+   `crdt`, `json-dump`, `local-documents`, `migration-schema`, `pipeline`,
+   `query-builder`, `state`, `update`, `webmcp` — adding methods like
    `doc.update()`, `doc.incrementalUpdate()`, `query.update()`,
-   `db.dump()`, `collection.addPipeline()`, `db.addState()`. The plan's answer
+   `db.dump()`, `collection.addPipeline()`, `db.addState()`. `RxSchema` is
+   patchable upstream but no plugin patches it, so the schema trait is a design
+   obligation with no M6 caller; it can be the last of the five to land. The plan's answer
    (PLAN.md 4.3) is extension traits plus a type-indexed map on the handle. Two
    consequences worth stating now:
 
