@@ -5,6 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "dxdb plugin: MongoDB-style update operators applied to document data (RxDB src/plugins/update)"
+description = "dxdb plugin: MongoDB-style update modifiers applied to document data (RxDB src/plugins/update)"
 
 [dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-jsnum = { path = "../../dxdb-jsnum" }
+dxdb-jsstr = { path = "../../dxdb-jsstr" }
+dxdb-json = { path = "../../dxdb-json" }
+
+[dev-dependencies]
+serde_json.workspace = true
