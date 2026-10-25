@@ -1261,6 +1261,13 @@ So the four skeletons are real, compiling, tested source; the current manifest
 just does not look at two of them. That distinction is the whole point of this
 section.
 
+**Checked after rebasing onto the leader's `eb68494`** (size budgets + CI status
+job): both bugs are still present. That commit touched `Cargo.toml` and the
+`Makefile` but left `exclude = ["crates/storages"]` and the two `-p` recipe lines
+unchanged, so nothing above is stale. Its new `size` target is unaffected —
+`xtask/size-budget.sh` measures an artifact that already exists and runs no
+`cargo` command, so it never touches a package selector.
+
 ## 9. What is a port and what is our design: the summary table
 
 The one table a reviewer or a lawyer should read.
