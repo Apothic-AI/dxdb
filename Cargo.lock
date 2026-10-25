@@ -46,6 +46,10 @@ name = "dxdb-jsstr"
 version = "0.0.0"
 
 [[package]]
+name = "dxdb-memory"
+version = "0.0.0"
+
+[[package]]
 name = "dxdb-storage"
 version = "0.0.0"
 

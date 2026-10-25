@@ -9,8 +9,15 @@ resolver = "2"
 # first M6 plugin and `crates/cleanroom/*` with the first clean-room crate. Those
 # two edits are leader-owned (docs/WORKTREES.md); everything inside the groups
 # below needs no edit at all.
-members = ["crates/*", "crates/storages/*", "xtask"]
-exclude = ["crates/storages"]
+#
+# `crates/dxdb-*` rather than `crates/*`: the latter matches the `crates/storages`
+# grouping directory, which has no Cargo.toml, and the obvious fix (`exclude`) is
+# worse than the disease — cargo lets `exclude` win over `members` for any path
+# underneath an excluded directory, so `exclude = ["crates/storages"]` silently
+# removed every storage crate from the workspace. `make check` stayed green while
+# `dxdb-memory` was never compiled. Found by lane G; see docs/lanes/m5-port-plan.md
+# section 8.1.
+members = ["crates/dxdb-*", "crates/storages/*", "xtask"]
 default-members = ["crates/dxdb-core"]
 
 [workspace.package]
