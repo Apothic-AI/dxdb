@@ -64,14 +64,22 @@ crate, so they get the plain name in `crates/cleanroom/`:
 
 | Stage | Crates | Spec files |
 | --- | --- | --- |
-| B1 | `dxdb-logger` | [`logger.md`](./logger.md) |
-| B2 | `dxdb-encryption`, `dxdb-filesystem` (wrapper) | `encryption.md`, `filesystem-tier.md` |
-| B3 | `dxdb-indexeddb` (wrapper), `dxdb-opfs` (wrapper), `dxdb-worker` | `browser-storage-tier.md`, `worker.md` |
-| B4 | `dxdb-sqlite` (wrapper), `dxdb-memory-tier`, `dxdb-sharding`, `dxdb-meta-cache` | `sqlite-tier.md`, `memory-tier.md`, `sharding.md`, `meta-cache.md` |
-| B5 | `dxdb-fulltext`, `dxdb-query-optimizer`, `dxdb-server` | `fulltext.md`, `query-optimizer.md`, `server.md` |
+| B1 | `dxdb-logger` | [`logger.md`](./logger.md) — implemented, gated |
+| B2 | `dxdb-encryption` | [`encryption.md`](./encryption.md) — spec ready, implementation gated on `dxdb-core` |
+| B2 | `dxdb-filesystem` (wrapper) | `filesystem-tier.md` — not written |
+| B3 | `dxdb-indexeddb` (wrapper), `dxdb-opfs` (wrapper), `dxdb-worker` | `browser-storage-tier.md`, `worker.md` — not written |
+| B4 | `dxdb-sqlite` (wrapper), `dxdb-memory-tier`, `dxdb-sharding`, `dxdb-meta-cache` | [`sharding.md`](./sharding.md), [`meta-cache.md`](./meta-cache.md) — specs ready, implementation gated; `sqlite-tier.md`, `memory-tier.md` not written |
+| B5 | `dxdb-fulltext`, `dxdb-query-optimizer`, `dxdb-server` | `fulltext.md`, `query-optimizer.md`, `server.md` — not written |
 
 Only the stages with a spec file exist as work. A crate with no spec is not
 started, and a spec with no acceptance list is not reviewed.
+
+A spec may land before the crate it describes — that is the intended order
+(CLEANROOM.md section 2: the specification author writes first, from public docs,
+and writes no code). A spec that has landed but whose crate has not is *ready for
+review*, not *ready to implement*: `encryption.md` still carries an open question
+(the verifier's construction) that must be answered before an implementer starts,
+and it says so at the bottom of the file.
 
 ## What every spec must contain
 
