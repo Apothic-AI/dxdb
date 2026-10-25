@@ -9,7 +9,7 @@ resolver = "2"
 # first M6 plugin and `crates/cleanroom/*` with the first clean-room crate. Those
 # two edits are leader-owned (docs/WORKTREES.md); everything inside the groups
 # below needs no edit at all.
-members = ["crates/*", "crates/storages/*", "xtask"]
+members = ["crates/*", "crates/storages/*", "crates/cleanroom/*", "xtask"]
 exclude = ["crates/storages"]
 default-members = ["crates/dxdb-core"]
 
