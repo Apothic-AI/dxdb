@@ -451,9 +451,12 @@ idLength = max(parentPrimaryKeyMaxLength + 2, 6)   // +1 separator, +1 isCheckpo
 The lengths are not cosmetic: `getComposedPrimaryKeyOfDocumentData` concatenates
 `itemId + '|' + isCheckpoint`, and the schema validator runs on every meta write.
 `parentPrimaryKeyMaxLength` comes from the *fork* schema's primary field
-`maxLength`, and a composite fork primary key is not supported by `getLengthOfPrimaryKey`
-(it throws on a missing `maxLength`) — the port must reproduce that failure rather
-than invent a default.
+`maxLength` via `getLengthOfPrimaryKey`. For a **composite** primary key that
+function reads `properties[primaryKey.key].maxLength` (`getPrimaryFieldOfPrimaryKey`
+returns the composite's `.key`, `rx-schema-helper.ts:126-142`), and
+`fillWithDefaultSettings` does not inject a `properties` entry for `.key`, so the
+lookup fails on `ensureNotFalsy` unless the schema happens to declare one. The port
+reproduces that failure rather than inventing a default length.
 
 ### 5.3 Row shapes
 
