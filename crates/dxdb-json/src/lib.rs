@@ -20,7 +20,11 @@
 
 #![forbid(unsafe_code)]
 
-use serde_json::{Map, Value};
+// Re-exported rather than only imported, because every consumer of this crate needs
+// the value type to name a document and should not have to reach into serde_json to
+// find it. A `use` here made `dxdb_json::Value` a private import and produced a
+// confusing E0603 for the first crate that tried it.
+pub use serde_json::{Map, Value};
 
 pub use dxdb_jsnum;
 
