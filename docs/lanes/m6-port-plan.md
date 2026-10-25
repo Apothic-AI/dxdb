@@ -456,17 +456,43 @@ Steps 1 and 2 are done, against `dxdb-storage`'s published surface (lane D,
 
 | Crate | Upstream lines ported | Tests | Gate |
 | --- | ---: | ---: | --- |
-| `dxdb-plugin-query-builder` | 749 (631 builder + 81 wrapper + 37 merge helpers) | 29: 23 upstream-derived, 4 vector cross-check, 2 internal | green |
-| `dxdb-plugin-update` | 82, plus the 14 mingo modifier bodies it depended on | 40: 38 upstream/mingo-derived, 2 internal | green |
+| `dxdb-plugin-query-builder` | 749 (631 builder + 81 wrapper + 37 merge helpers) | 29: 11 name an upstream line, 12 cover behaviour upstream tests only incidentally, 4 cross-check the oracle, 2 internal | green |
+| `dxdb-plugin-update` | 82, plus the 14 mingo modifier bodies it depended on | 40: 5 name an upstream line (4 of them modifier cases, 1 the document-layer boundary), 25 name the mingo file whose behaviour they assert, 8 cover the briefed invariants, 2 internal | green |
 
 **Upstream test provenance.** `test/unit/query-builder.test.ts` is 229 lines and
-11 `it(...)` cases. Ten are ported one-for-one, each named
-`upstream_<line>_<slug>`; the eleventh (`:189`) needs a live collection and is
-ported at builder level for both merge directions. `test/unit/rx-document.test.ts`
-lines 346, 362, 374 and 388 supply the four `$set`/`$unset`/`$inc`/`delete`
-modifier cases. The other 34 update tests assert mingo behaviour that upstream
-never tests, so they name the mingo file instead of an RxDB line; a port that got
-those wrong would pass upstream's own suite.
+11 `it(...)` cases, and **all 11 are ported**, each named `upstream_<line>_<slug>`:
+`:24`, `:55`, `:79`, `:89`, `:113`, `:129`, `:142`, `:155`, `:172`, `:221`, and
+`:189`. The last one needs a live collection, so it is ported at builder level
+covering both merge directions rather than as an end-to-end query.
+
+`test/unit/rx-document.test.ts` supplies six: the four modifier cases at `:346`,
+`:362`, `:374` and `:388`, plus `:398`/`:433` as an explicit boundary test
+asserting that the conflict and final-field guards are *not* this crate's job.
+
+The remaining 25 update tests assert mingo behaviour that upstream never tests —
+they name the mingo file whose behaviour they pin, because upstream has no test for
+it and a port that got it wrong would pass upstream's own suite. Eight more cover
+the invariants the brief calls out (unknown modifier must error, accepted set,
+input not mutated, operator order, array-filter refusal, prototype-path refusal).
+
+Total for the tranche: **69 tests, all passing** (29 + 40).
+
+**Gate status, run in sequence as `for t in check clippy test wasm; do make $t; done`
+after merging master:**
+
+| Gate | Exit |
+| --- | --- |
+| `make check` | 0 |
+| `make clippy` | 0 |
+| `make test` | 0 |
+| `make wasm` | 0 |
+| `make fmt-check` | **2 — not this lane** |
+
+`make fmt-check` is red on master independently of `crates/plugins/`: every diff is
+in `crates/dxdb-storage/` (nine files, from lane D). `rustfmt --check` on the two
+plugin crates and their test files exits 0. Reported rather than fixed, because
+`crates/dxdb-storage/` is lane D's path; reformatting it from here would conflict
+with their next commit.
 
 **Not ported, and why it is not a gap to paper over.** The document layer that
 `rx-document.test.ts` exercises around those four cases — revision bump, conflict
