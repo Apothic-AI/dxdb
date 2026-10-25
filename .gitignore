@@ -1,5 +1,10 @@
 /target
 **/target
+
+# Vector generator dependencies. package.json and package-lock.json are
+# committed (they pin the upstream rxdb version the oracle runs against);
+# the installed tree is not.
+node_modules/
 .dagr/
 
 # graft's local graph cache and per-harness scaffolding. The cache is
