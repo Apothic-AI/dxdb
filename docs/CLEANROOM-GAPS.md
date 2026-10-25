@@ -338,6 +338,66 @@ mapping is already tested for shape.
 **Would resolve it.** Nothing; adding an SDK later is a feature request, not a
 spec change.
 
+### G-028: Rust futures can be cancelled; a JavaScript promise cannot
+
+**Question.** The documented callback trio is `onOperationStart`,
+`onOperationEnd`, `onOperationError`. What should happen when the caller drops the
+operation before it finishes?
+
+**Public evidence.** Nothing, because the question cannot arise upstream: a
+JavaScript `Promise` has no cancellation, and the paid plugin's callback set is
+exactly three, so the situation it does not model could not have been observed.
+
+**Decision.** In Rust the situation is routine (`select!`, a timeout wrapper, a
+cancelled query), so `dxdb-logger` adds a fourth phase, `Phase::Cancelled`, and a
+fourth hook, `OperationHooks::on_operation_cancelled`, whose default is a no-op.
+The terminal-record guard emits `Cancelled` from `Drop` when the future is dropped
+mid-flight. Without this, a start record would be left unpaired and `INV-2` would
+be false exactly where interruption is most likely. The phase maps onto the public
+Sentry status `cancelled`, so nothing is invented at the APM boundary.
+
+**Risk if wrong.** A consumer with an exhaustive match on the record phases needs
+a new arm. That is a compile error, not a silent behaviour change, and the default
+hook means a caller that never cancels sees nothing new.
+
+**Would resolve it.** Nothing; the two languages have different concurrency
+models and the divergence is the correct one.
+
+### G-029: a start record belongs to first poll, not to future construction
+
+**Question.** When a caller builds a storage-operation future and polls it later —
+or never — at what moment should the start record be emitted?
+
+**Public evidence.** Nothing directly, because the question does not exist upstream:
+a JavaScript `Promise` begins executing when it is constructed, so "the call
+started" and "the future was created" are the same instant, and the paid plugin's
+three callbacks never had to distinguish them.
+
+**Decision.** The start record, the log id allocation, and the first clock read all
+happen **inside** the returned future, at its first poll. Three consequences, all
+deliberate:
+
+- An operation that is never polled emits nothing and reads no clock. Constructing
+  a future is free.
+- Log ids increase in **poll** order, not call order (`INV-4`).
+- A caller that builds two futures and lets the first run to completion before
+  polling the second will see pair A complete before pair B opens. That is the
+  caller's schedule, not the logger's, and `INV-7` is written about pairs rather
+  than about globals for exactly this reason.
+
+The alternative — emitting at construction — was rejected because it would make an
+unpolled future cost a clock read and, worse, would emit a start record that can
+never be closed if the future is dropped before its first poll, breaking `INV-2` in
+the ordinary `select!` case.
+
+**Risk if wrong.** A user correlating log order with their own call order sees pair
+B open after pair A closes, even though B was constructed first. Documented in
+`specs/logger.md` INV-7 and in the crate docs.
+
+**Would resolve it.** Nothing; this follows from `INV-2` plus the Rust execution
+model. Recorded because it was a genuine spec/implementation mismatch caught at the
+merge gate, and the resolution is a spec correction, not a test weakening.
+
 ## Closed by fact, not by decision
 
 ### G-027: which upstream modules are in the Apache-2.0 tree (recorded, not decided)
