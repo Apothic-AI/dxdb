@@ -1,0 +1,8 @@
+# Local-only toolchain state for the Node vector generators.
+#
+# node_modules/ is already ignored at the repository root. The upstream checkout
+# and the bundle deliberately live in ~/.cache/dxdb-vectors/ instead of here:
+# anything in this directory is rsynced to the shared build box by
+# cargo-remote-3000 on every `make check`, and a 58 MB upstream checkout per
+# build is a cost nobody should pay for a data file that is already committed.
+node_modules/
