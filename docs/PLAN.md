@@ -520,16 +520,36 @@ Rules, learned the hard way and recorded here so nobody re-learns them:
   in the shared cargo config, one `target/` per project under `/data/builds/<hash>`. We do not
   raise `CARGO_BUILD_JOBS`, we do not `cargo clean` anything that is not ours, and we do not
   touch `/data/cargo` or `/data/rustup` outside `rustup target add`.
-- **Check before you build, check before you stop.** `ssh fly-builder 'pgrep -a -f "rustc|cargo"'`
-  before a big upload, so a full-volume rsync does not collide with someone else's compile.
-  The same command before `flyctl machine stop`, because stopping mid-compile destroys another
-  project's build.
-- **Disk is the shared resource.** The volume sat at 95-96% (89 GB used of 98 GB, 4.0-4.7 GB
-  free) across two checks while this plan was written, with 15-16 build trees and between 0 and
-  9 rustc processes running. A workspace with SQLite and `wasm-bindgen` is 2-4 GB per build tree.
-  So: prune our own stale tree when we change the dependency graph drastically, never `-c` the
-  whole target directory back (`-c=release/my-binary` for one artifact, or nothing at all), and
-  prefer `check`/`clippy` for iteration over a full `build`.
+- **Check before you build, check before you stop.** Run `make busy` before a big upload, so a
+  full-volume rsync does not collide with someone else's compile, and before
+  `flyctl machine stop`, because stopping mid-compile destroys another project's build.
+  **Do not use `pgrep -f "rustc|cargo"` for this.** `-f` matches the pattern against every
+  command line, including the `pgrep` and the `sh -c` that carry it, so a naive guard reports
+  "busy" permanently and any count taken that way is inflated. A measurement during this
+  session read "19 rustc processes"; the true number was 2 `cargo check` processes, both from
+  another project. Match executable names (`ps -eo comm=`, `pgrep -x`) instead.
+- **Disk is the shared resource, and it is currently exhausted.** The volume went from 95% to
+  **100% full (599 MB free of 98 GB)** during the session that wrote this plan, with 15-16 build
+  trees, 89 GB of `/data/builds`, and another project's `cargo check --workspace` resident for
+  the whole session. Nothing was stopped or pruned that was not ours, because doing so would
+  have destroyed someone else's compile. That is the correct behaviour, and it means dxdb has to plan for "no disk today".
+  Consequences:
+  - A workspace with SQLite and `wasm-bindgen` is 2-4 GB per build tree. Before the first real
+    build, confirm headroom (`ssh fly-builder 'df -h /data'`) rather than assuming it.
+  - Prefer `check` and `clippy` for iteration. A full `build` or `test` with a cold dependency
+    graph is the expensive case; do it deliberately, not casually.
+  - Never `-c` the whole target tree back (`-c=release/my-binary` for one artifact, or nothing).
+  - Prune **only** our own tree, and only `/data/builds/<hash>` whose `Cargo.toml` is ours.
+    Verify with `ssh fly-builder 'grep -l dxdb /data/builds/*/Cargo.toml'` before deleting
+    anything.
+  - If the box cannot host us, the answer is a **separate build space** (the project rule is
+    "set up a separate user account or build space on the server if necessary"), not raising
+    `CARGO_BUILD_JOBS` on a shared box or deleting a neighbour's tree.
+- **Never stop the machine while it is busy.** A `flyctl machine stop` while another project's
+  `cargo check` is running destroys that work and cannot be undone. The stop step only applies when
+  `pgrep` shows nothing running, and when the stop is ours to make (we started it, or everyone
+  sharing it has finished). Leaving a machine running is a billing cost; stopping it mid-build is
+  a data loss. The billing cost is the cheaper mistake.
 - **WASM targets need provisioning once.** The box currently has only `wasm32-unknown-unknown`
   and `x86_64` (verified). `wasm32-wasip1` and `wasm32-wasip2` get added to `/data/rustup`, which
   is persistent and shared, so it is a one-time cost, and it must match the pinned toolchain:
@@ -563,9 +583,12 @@ TOOLCHAIN := 1.95.0            # matches the shared pin; see docs/TOOLCHAIN.md b
 CARGO     := cargo remote-3000 -r fly -d $(TOOLCHAIN)
 MACHINE   := 87477e0cd01748
 APP       := open-surrealdb-ds-builder
-BUSY      := pgrep -a -f "rustc|cargo" || true
+# Match by executable name. `pgrep -f rustc` also matches the pgrep's own command
+# line, so a -f guard reports "busy" forever and a -f count is inflated. Keep the
+# predicate inline in the recipe: putting it in a make variable loses the quoting.
+BUSY      := 'ps -eo comm= | grep -qxE "rustc|cargo" && echo BUSY || echo IDLE'
 
-.PHONY: check clippy test wasm remote-up remote-down
+.PHONY: check clippy test wasm remote-up busy headroom
 check:
 	$(CARGO) check --workspace --all-targets
 clippy:
@@ -576,15 +599,27 @@ wasm:
 	$(CARGO) check --workspace --target wasm32-unknown-unknown
 remote-up:
 	flyctl machine start $(MACHINE) -a $(APP)
-remote-down:
-	@ssh fly-builder '$(BUSY)' | grep -q . \
-	  && echo "REFUSING to stop: a build is running (above). Coordination required." \
-	  || flyctl machine stop $(MACHINE) -a $(APP)
+busy:
+	@ssh fly-builder $(BUSY)
+headroom:
+	@ssh fly-builder 'df -h /data | tail -1'
 ```
 
-`remote-down` refusing on busy is the whole point: a stop mid-compile destroys another project's
-build, and the person who typed the command will not know. Forcing a stop is a deliberate,
-separate action, not a flag on the convenient target.
+Three things about that Makefile are the result of getting them wrong while writing this plan,
+so they are worth reading before anyone edits it:
+
+1. **`busy` asks the box and prints one word.** An earlier version piped the whole pipeline
+   through `ssh` and tested its exit status. Because `ssh` returns the remote shell's status and
+   the quoting put the pipeline in the wrong shell, it ran `cargo --help` instead. A guard you
+   cannot trust is worse than no guard.
+2. **There is no automatic stop target, on purpose.** A `remote-down` that stops the machine is
+   one typing mistake away from killing a neighbour's compile, and the mistake is silent. So the
+   documented flow is: `make busy`, then human judgement, then `flyctl machine stop` by hand.
+   The stop is the deliberate action, not the convenient one. If you do script it in your own
+   environment, gate it on `$$(ssh fly-builder '<BUSY>')` printing `IDLE`, never on an exit code.
+3. **`headroom` exists because the volume reached 0 bytes free** (100%, showing `0` available)
+   while another project was mid-compile. Check it before any build that has a cold dependency
+   graph.
 
 Plus a `.cargo-remote-3000.toml` in the repo root pinning the remote name and excludes, so no
 one has to remember flags.
@@ -734,7 +769,7 @@ A checklist, because "port complete" is otherwise unfalsifiable.
 | `localeCompare` / ICU collation | sort order differs from RxDB | decide early, document, keep behind a feature; index-string order is the contract |
 | Upstream moves (17.6.0 today) | port chases a moving target | pin a commit per release train, port in labelled tranches, diff upstream changelogs each train |
 | Paid features are closed source | clean room is the only route | hard repo separation, reading list, reviewer sign-off; see CLEANROOM.md |
-| Shared build server contention (95-96% disk full) | blocked builds, upset neighbours | coordinate via pgrep + messaging, prune only our own tree, scale to zero, never raise jobs |
+| Shared build server contention (hit 100% disk full during planning) | blocked builds, upset neighbours | check headroom before building, prune only our own verified tree, `check`/`clippy` first, separate build space or account if the box cannot host us, never stop a busy machine |
 | Threads/atomics need nightly or `-threads` target | "latest WASM features" claim overreaches | ship stable-only defaults; threads are a documented opt-in configuration |
 | Rust ecosystem WASM regressions | build breaks in a dependency | CI builds every crate for wasm on every PR, including non-wasm ones |
 | Scope: 52 plugins, 55k test lines | multi-month effort, burnout | milestone gates, port the 12 plugins users actually need first, publish a status matrix |
