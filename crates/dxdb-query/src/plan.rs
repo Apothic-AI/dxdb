@@ -343,9 +343,7 @@ pub fn get_in_query_range_opts(operator_value: &Value) -> Option<RangeOpts> {
             return None;
         }
         if is_number {
-            let Some(value) = item.as_f64() else {
-                return None;
-            };
+            let value = item.as_f64()?;
             if !value.is_finite() {
                 return None;
             }
@@ -413,7 +411,7 @@ pub fn get_query_plan(
     // names for the index actually being considered, inside the loop below. That
     // makes the rejection of an unencodable index land exactly where upstream's
     // does: when the index is used.
-    let mut indexes: Vec<Vec<Value>> = if let Some(index) = &query.index {
+    let indexes: Vec<Vec<Value>> = if let Some(index) = &query.index {
         vec![index.iter().cloned().map(Value::String).collect()]
     } else {
         dxdb_schema::get_indexes(schema)
@@ -666,12 +664,16 @@ fn sort_irrelevant_fields(schema: &Value, selector: &Value) -> std::collections:
         };
         let field_type = schema_part.get("type").and_then(Value::as_str);
         let has_enum = schema_part.get("enum").is_some();
-        if field_type == Some("boolean") || has_enum {
+        // A boolean or enum field with `$eq` has the same value in every matching
+        // document, so it cannot affect the order. A string or numeric field only
+        // qualifies when the `$eq` operand is a primitive of that kind — an object or
+        // array operand does not pin a single sortable value.
+        let pinned = field_type == Some("boolean")
+            || has_enum
+            || (matches!(field_type, Some("string") | Some("number") | Some("integer"))
+                && (eq_value.is_string() || eq_value.is_number()));
+        if pinned {
             out.insert(field.clone());
-        } else if matches!(field_type, Some("string") | Some("number") | Some("integer")) {
-            if eq_value.is_string() || eq_value.is_number() {
-                out.insert(field.clone());
-            }
         }
     }
     out

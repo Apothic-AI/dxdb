@@ -743,7 +743,8 @@ fn fill_keeps_a_non_string_index_entry() {
         ],
         "the literal number is carried through, `_deleted` prepended and the primary key appended"
     );
-    // A schema hash exists for it upstream, so creating one must succeed.
+    // A schema hash exists for it upstream, so the whole construction path must
+    // succeed. The unencodable index simply yields no *usable* indexes.
     let schema = create_rx_schema(&json!({
         "version": 0,
         "primaryKey": "passportId",
@@ -753,14 +754,22 @@ fn fill_keeps_a_non_string_index_entry() {
             "passportCountry": {"type": "string", "maxLength": 100}
         },
         "indexes": [[10, "passportCountry"]]
-    }));
-    // `Schema::new` validates the index entries because it is the encodable-schema
-    // type; the hash-bearing path is `fill` + `normalize` + `sha256`.
-    assert!(schema.is_err(), "an index that cannot be encoded has no Schema");
+    }))
+    .expect("upstream creates and hashes this schema");
+    assert_eq!(
+        schema.indexes(),
+        &[] as &[Vec<String>],
+        "the unencodable index is not offered as a usable index, but the schema exists"
+    );
+    assert_eq!(schema.hash().len(), 64, "and it has a hash");
 
     let normalized = normalize_rx_json_schema(&filled);
     let hash = sha256_hex(&dxdb_json::canonical_bytes(&normalized));
-    assert_eq!(hash.len(), 64, "a schema with a literal index still hashes");
+    assert_eq!(
+        hash,
+        schema.hash(),
+        "create_rx_schema must hash exactly the filled-and-normalized bytes"
+    );
 }
 
 #[test]

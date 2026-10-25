@@ -69,11 +69,27 @@ pub const INDEX_MAX: &str = "\u{FFFF}";
 /// `INDEX_MIN` (`src/query-planner.ts:25`): `Number.MIN_SAFE_INTEGER`, **not**
 /// `-Infinity`.
 ///
-/// Upstream's comment is the reason and it is worth keeping in view: `-Infinity`
-/// becomes `null` under `JSON.stringify`, and a query plan is sent to a storage
-/// worker as JSON in several plugins, where a `null` start key breaks the scan.
-/// The value is deliberately a number, and deliberately outside any realistic
-/// schema range.
+/// Upstream's comment is the reason, quoted because it must survive anyone tempted to
+/// "simplify" this back: **do not use `-Infinity` here because it would be transformed
+/// to `null` on `JSON.stringify`**, which can break things when the query plan is sent
+/// to the storage as JSON. Notice also that for IndexedDB `IDBKeyRange` the value has
+/// to be transformed back to `-Infinity` before `IDBKeyRange.bound` can use it.
+///
+/// So the value is a real number, deliberately outside any realistic schema range, and
+/// the JSON round trip is the property that matters (decision D8, `docs/DECISIONS.md`).
+///
+/// # This is the only definition in the workspace
+///
+/// The workspace has exactly one `INDEX_MIN`, here, because the planner is what
+/// produces it. `dxdb-storage` does not define its own: it converts at one documented
+/// boundary. A second definition in a second numeric type is how a plan silently
+/// stops being recognised by the storage that consumes it — the failure mode being a
+/// slow full scan rather than an error.
+///
+/// `i64` rather than `f64` because the value is an exact integer
+/// (`MIN_SAFE_INTEGER`), and an integer type cannot acquire a fractional part or
+/// become infinite by accident. `-9_007_199_254_740_991_i64 as f64` is exact, which is
+/// asserted in `tests/oracle_sentinels.rs`.
 pub const INDEX_MIN: i64 = -9_007_199_254_740_991;
 
 /// The per-number-field encoding parameters, computed once per index.

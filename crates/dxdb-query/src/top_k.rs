@@ -30,10 +30,7 @@ pub const TOP_K_SELECTION_FACTOR: usize = 2;
 /// Upstream returns `Infinity`; `None` is the same information without a float NaN
 /// hazard in the arithmetic below.
 pub fn get_skip_plus_limit(skip: u64, limit: Option<u64>) -> Option<u64> {
-    match limit {
-        Some(limit) => Some(skip + limit),
-        None => None,
-    }
+    limit.map(|limit| skip + limit)
 }
 
 /// `shouldUseTopKSelection` (`:404`).
