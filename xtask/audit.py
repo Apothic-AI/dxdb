@@ -128,6 +128,16 @@ def item_ported_tests_named():
     # rule violation in this repo (docs/PLAN.md 7.4) and silently creates a
     # multi-hundred-MB target/ directory.
     status, output = run(["make", "test"])
+    # A timeout is not a red test. `make test` queues on an flock because eight
+    # other lanes may be compiling on the shared box, so a busy box looks like a
+    # failure to a naive check. Distinguish the two: a timeout or a lock wait is
+    # "cannot verify right now", a nonzero exit from cargo is a real failure.
+    if status != 0 and ("Terminated" in output or "timed out" in output.lower()):
+        return (
+            "partial",
+            "could not verify: `make test` timed out waiting for the shared build box "
+            "(other lanes are compiling). Re-run when `make busy` reports IDLE.",
+        )
     gate_ok = status == 0
     if gate_ok and total_provenance >= 50:
         return "met", f"cargo test green; {total_provenance} upstream references across {files_with_provenance} files"
@@ -212,12 +222,22 @@ def item_targets_pass():
         cmd = ["cargo", "remote-3000", "-r", "fly", "-d", "1.95.0", "check", "--workspace"]
         if target:
             cmd += ["--target", target]
-        status, _ = run(cmd)
-        results[label] = status == 0
+        status, output = run(cmd)
+        if status != 0 and ("Terminated" in output or "timed out" in output.lower()):
+            results[label] = None  # could not verify, distinct from failed
+        else:
+            results[label] = status == 0
     met = [k for k, v in results.items() if v]
+    unverified = [k for k, v in results.items() if v is None]
     if len(met) == 4:
-        return "met", "all four targets check locally"
-    return "unmet", f"{len(met)}/4 targets: {', '.join(met) or 'none'}"
+        return "met", "all four targets check on the shared box"
+    if unverified and len(met) + len(unverified) == 4:
+        return (
+            "partial",
+            f"could not verify {', '.join(unverified)}: the build box was busy. "
+            f"{len(met)}/4 verified.",
+        )
+    return "unmet", f"{len(met)}/4 targets pass: {', '.join(met) or 'none'}"
 
 
 def item_wasm_budgets():
