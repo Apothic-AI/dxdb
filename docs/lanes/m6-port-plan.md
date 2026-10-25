@@ -418,24 +418,48 @@ this lane needs filler while waiting.
 `hooks.test.ts` (616 lines) and `plugin.test.ts` (209 lines) port to
 `dxdb-core`, not here: they test the registry, and the registry is the database's.
 
-## 5. Open questions that need a decision, not more typing
+## 5. What the workspace line had to be, and what master already resolved
 
-1. **The workspace glob cannot be a one-line change.** Measured, not assumed: the
-   moment `crates/plugins/` exists, `crates/*` matches it, and cargo fails with
-   "failed to read `crates/plugins/Cargo.toml`". The cleanroom lane hit the same
-   wall and its commit `2bbc47d` only changed the `members` line, so
-   `lane/m7-cleanroom` is left in a state that cannot build until its first crate
-   exists. The working form here was:
-   `members = ["crates/dxdb-*", "crates/storages/*", "crates/plugins/*", "xtask"]`
-   (one line, no new `exclude` entry). The leader should adopt it and fix the
-   cleanroom branch to match; `crates/*` as a member glob is incompatible with
-   both group directories.
-2. **`exclude = ["crates/storages"]` silently excludes `crates/storages/dxdb-memory`
-   from the workspace today.** Verified: `cargo metadata` lists six packages and
-   `dxdb-memory` is not one of them, so `make check` and `make test` do not see
-   it. `xtask/status.py`'s greps still find it, so nothing has failed loudly. Lane
-   D's parity oracle is therefore outside the gate. This is a leader-owned fix and
-   it is more urgent than the M6 glob.
+**Resolution status.** The leader merged this lane's first two commits into
+`master` and, in `d7f632b`, independently landed the same `crates/dxdb-*` form
+(found from lane G after `make gate-storage` turned up dead). The current line is
+
+```toml
+members = ["crates/dxdb-*", "crates/storages/*", "crates/plugins/*", "xtask"]
+```
+
+with no `exclude`, and `cargo metadata` now lists `dxdb-memory` as a member. So
+items 1 and 2 below are historical: they record what the constraint was and why
+the brief's literal one-line instruction was unsatisfiable, which is worth
+keeping because the brief still says it.
+
+1. **The workspace glob was not a one-line change in the sense the brief meant.**
+   Measured with `cargo metadata`, not assumed: the moment `crates/plugins/`
+   exists, `crates/*` matches it, and cargo fails with "failed to read
+   `crates/plugins/Cargo.toml`". A member glob cannot coexist with a grouping
+   directory of the same name.
+
+   The obvious fix, `exclude = ["crates/plugins"]`, is worse than the disease: an
+   `exclude` on a grouping directory silently removes every path underneath it, so
+   `crates/plugins/*` would match nothing and the crates would vanish from the
+   workspace while the gate stayed green. That is exactly the defect that had
+   `dxdb-memory` outside `make check`.
+
+   The form that works is `crates/dxdb-*` in place of `crates/*`, which cannot
+   match a grouping directory at all. One changed line, no `exclude` entry, and
+   the reason for the `exclude` disappears rather than moving.
+
+2. **`exclude = ["crates/storages"]` silently excluded
+   `crates/storages/dxdb-memory` from the workspace.** Verified by
+   `cargo metadata` listing six packages with no storage crate, so `make check`
+   and `make test` never saw the parity oracle. `xtask/status.py`'s greps still
+   found the files, so nothing failed loudly. Fixed on master by `d7f632b`; it is
+   recorded here because this lane found it from the M6 side and the general rule
+   ("`exclude` wins over `members` for everything underneath") is the reason to
+   prefer a narrower `members` glob over an `exclude` in future lanes.
+
+## 6. Open questions that need a decision, not more typing
+
 3. **`attachments` path ownership conflicts with the lane brief.** The brief lists
    `attachments` first in the build order; `docs/WORKTREES.md` assigns
    `crates/dxdb-attachments/` to lane E. Filenames say E, the brief says here.
