@@ -1,0 +1,15 @@
+[package]
+name = "dxdb-vectors"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb: typed reader for the cross-language oracle vectors in testdata/vectors/"
+
+[dependencies]
+# Deliberately the whole dependency list. This crate reads JSON data files and
+# nothing else; a consumer lane should not have to build a database to read an
+# oracle. Adding a dependency here needs a reason in docs/PLAN.md section 9.
+serde.workspace = true
+serde_json.workspace = true
