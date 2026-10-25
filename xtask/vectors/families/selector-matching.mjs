@@ -26,7 +26,7 @@
  * and missing fields (absent, not `undefined`), because "field is absent" versus
  * "field is null" is the classic divergence.
  */
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
 import { determinismHeader, emitFamily } from '../harness.mjs';

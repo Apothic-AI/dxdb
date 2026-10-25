@@ -26,7 +26,7 @@
  * the `docsInDb` map and the `schema.attachments` flag are the ones a storage
  * would have, not a hand-built stub.
  */
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
 import { determinismHeader, emitFamily } from '../harness.mjs';

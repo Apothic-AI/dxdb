@@ -27,7 +27,7 @@
  * (`startKeys`, `endKeys`, inclusiveness, `sortSatisfiedByIndex`,
  * `selectorSatisfiedByIndex`) so a port can be checked level by level.
  */
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
 import { determinismHeader, emitFamily } from '../harness.mjs';

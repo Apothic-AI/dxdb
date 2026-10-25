@@ -24,7 +24,7 @@
  * the input, the fully defaulted schema, and the hash, so a Rust port can be
  * checked at whichever of those three levels it disagrees on.
  */
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
 import { determinismHeader, emitFamily } from '../harness.mjs';

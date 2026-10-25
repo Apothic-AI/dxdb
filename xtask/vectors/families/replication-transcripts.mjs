@@ -23,7 +23,7 @@
  * on a database instance token are recorded verbatim rather than normalised, so a
  * port must produce the same token-to-revision derivation.
  */
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
 import { determinismHeader, emitFamily } from '../harness.mjs';

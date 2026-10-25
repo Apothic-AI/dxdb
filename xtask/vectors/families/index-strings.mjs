@@ -22,7 +22,7 @@
  * bound helpers for each index, plus compound indexes so concatenation order is
  * pinned.
  */
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
 import { loadOracle } from '../vendor.mjs';
 import { determinismHeader, emitFamily } from '../harness.mjs';
