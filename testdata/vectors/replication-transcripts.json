@@ -8,7 +8,14 @@
   "determinism": {
     "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
     "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call",
-    "note": "now() is frozen so _meta.lwt and checkpoint revisions are reproducible; document revisions are derived from the database instance token, which is fixed per instance here rather than randomToken-ed."
+    "note": "now() is frozen and Math.random seeded, so document _meta.lwt values are reproducible; document revisions derive from the database instance token, which is fixed per instance here rather than randomToken-ed.",
+    "excludedFromMetaSnapshots": {
+      "fields": [
+        "_meta.lwt",
+        "_rev"
+      ],
+      "why": "setCheckpoint() stamps the checkpoint document with now() and derives its revision from the checkpoint key; the 409 retry path consumes an extra tick and an extra revision height depending on promise scheduling. These are write bookkeeping, not replication semantics, so recording them made this family intermittently flaky. checkpointData is retained: that is the payload a resumed replication continues from."
+    }
   },
   "transactionCount": 6,
   "caseCount": 13,
@@ -124,10 +131,6 @@
               "id": "a|0",
               "itemId": "a",
               "isCheckpoint": "0",
-              "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-              "_meta": {
-                "lwt": 1700000000001.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -139,10 +142,6 @@
               "id": "b|0",
               "itemId": "b",
               "isCheckpoint": "0",
-              "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-              "_meta": {
-                "lwt": 1700000000003.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -154,10 +153,6 @@
               "id": "down|1",
               "itemId": "down",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-              "_meta": {
-                "lwt": 1700000000005.01
-              },
               "checkpointData": {
                 "id": "b",
                 "lwt": 1000
@@ -169,10 +164,6 @@
               "id": "up|1",
               "itemId": "up",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-              "_meta": {
-                "lwt": 1700000000004.01
-              },
               "checkpointData": {
                 "id": "b",
                 "lwt": 1700000000002.01
@@ -242,10 +233,6 @@
           "id": "a|0",
           "itemId": "a",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-          "_meta": {
-            "lwt": 1700000000001.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -257,10 +244,6 @@
           "id": "b|0",
           "itemId": "b",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-          "_meta": {
-            "lwt": 1700000000003.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -272,10 +255,6 @@
           "id": "down|1",
           "itemId": "down",
           "isCheckpoint": "1",
-          "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-          "_meta": {
-            "lwt": 1700000000005.01
-          },
           "checkpointData": {
             "id": "b",
             "lwt": 1000
@@ -287,10 +266,6 @@
           "id": "up|1",
           "itemId": "up",
           "isCheckpoint": "1",
-          "_rev": "1-rx_storage_replication_c9fa74526f7ca65556191e852e98e043559dd26d8eea2a99a57b48d36ba48d90",
-          "_meta": {
-            "lwt": 1700000000004.01
-          },
           "checkpointData": {
             "id": "b",
             "lwt": 1700000000002.01
@@ -351,10 +326,6 @@
               "id": "c|0",
               "itemId": "c",
               "isCheckpoint": "0",
-              "_rev": "1-rx_storage_replication_009ef8e14c1b4a169bdad6598bb6064725aae716f34b0bd7133d6da4678567bd",
-              "_meta": {
-                "lwt": 1700000000006.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -366,10 +337,6 @@
               "id": "down|1",
               "itemId": "down",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_009ef8e14c1b4a169bdad6598bb6064725aae716f34b0bd7133d6da4678567bd",
-              "_meta": {
-                "lwt": 1700000000009.01
-              },
               "checkpointData": {
                 "id": "c",
                 "lwt": 1700000000007.01
@@ -381,10 +348,6 @@
               "id": "up|1",
               "itemId": "up",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_009ef8e14c1b4a169bdad6598bb6064725aae716f34b0bd7133d6da4678567bd",
-              "_meta": {
-                "lwt": 1700000000008.01
-              },
               "checkpointData": {
                 "id": "c",
                 "lwt": 1000
@@ -426,10 +389,6 @@
           "id": "c|0",
           "itemId": "c",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_009ef8e14c1b4a169bdad6598bb6064725aae716f34b0bd7133d6da4678567bd",
-          "_meta": {
-            "lwt": 1700000000006.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -441,10 +400,6 @@
           "id": "down|1",
           "itemId": "down",
           "isCheckpoint": "1",
-          "_rev": "1-rx_storage_replication_009ef8e14c1b4a169bdad6598bb6064725aae716f34b0bd7133d6da4678567bd",
-          "_meta": {
-            "lwt": 1700000000009.01
-          },
           "checkpointData": {
             "id": "c",
             "lwt": 1700000000007.01
@@ -456,10 +411,6 @@
           "id": "up|1",
           "itemId": "up",
           "isCheckpoint": "1",
-          "_rev": "1-rx_storage_replication_009ef8e14c1b4a169bdad6598bb6064725aae716f34b0bd7133d6da4678567bd",
-          "_meta": {
-            "lwt": 1700000000008.01
-          },
           "checkpointData": {
             "id": "c",
             "lwt": 1000
@@ -531,10 +482,6 @@
               "id": "down|1",
               "itemId": "down",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
-              "_meta": {
-                "lwt": 1700000000017.01
-              },
               "checkpointData": {
                 "id": "d",
                 "lwt": 1700000000015.01
@@ -546,10 +493,6 @@
               "id": "d|0",
               "itemId": "d",
               "isCheckpoint": "0",
-              "_rev": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
-              "_meta": {
-                "lwt": 1700000000014.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -561,10 +504,6 @@
               "id": "up|1",
               "itemId": "up",
               "isCheckpoint": "1",
-              "_rev": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
-              "_meta": {
-                "lwt": 1700000000016.01
-              },
               "checkpointData": {
                 "id": "d",
                 "lwt": 1700000000011.01
@@ -606,10 +545,6 @@
           "id": "down|1",
           "itemId": "down",
           "isCheckpoint": "1",
-          "_rev": "1-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
-          "_meta": {
-            "lwt": 1700000000017.01
-          },
           "checkpointData": {
             "id": "d",
             "lwt": 1700000000015.01
@@ -621,10 +556,6 @@
           "id": "d|0",
           "itemId": "d",
           "isCheckpoint": "0",
-          "_rev": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
-          "_meta": {
-            "lwt": 1700000000014.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -636,10 +567,6 @@
           "id": "up|1",
           "itemId": "up",
           "isCheckpoint": "1",
-          "_rev": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
-          "_meta": {
-            "lwt": 1700000000016.01
-          },
           "checkpointData": {
             "id": "d",
             "lwt": 1700000000011.01
@@ -687,10 +614,6 @@
               "id": "down|1",
               "itemId": "down",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-              "_meta": {
-                "lwt": 1700000000021.01
-              },
               "checkpointData": {
                 "id": "e",
                 "lwt": 1000
@@ -702,10 +625,6 @@
               "id": "e|0",
               "itemId": "e",
               "isCheckpoint": "0",
-              "_rev": "1-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-              "_meta": {
-                "lwt": 1700000000019.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -717,10 +636,6 @@
               "id": "up|1",
               "itemId": "up",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-              "_meta": {
-                "lwt": 1700000000020.01
-              },
               "checkpointData": {
                 "id": "e",
                 "lwt": 1700000000018.01
@@ -765,10 +680,6 @@
               "id": "down|1",
               "itemId": "down",
               "isCheckpoint": "1",
-              "_rev": "2-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-              "_meta": {
-                "lwt": 1700000000023.01
-              },
               "checkpointData": {
                 "id": "e",
                 "lwt": 2000
@@ -780,10 +691,6 @@
               "id": "e|0",
               "itemId": "e",
               "isCheckpoint": "0",
-              "_rev": "2-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-              "_meta": {
-                "lwt": 1700000000022.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": true,
@@ -795,10 +702,6 @@
               "id": "up|1",
               "itemId": "up",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-              "_meta": {
-                "lwt": 1700000000020.01
-              },
               "checkpointData": {
                 "id": "e",
                 "lwt": 1700000000018.01
@@ -844,10 +747,6 @@
           "id": "down|1",
           "itemId": "down",
           "isCheckpoint": "1",
-          "_rev": "2-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-          "_meta": {
-            "lwt": 1700000000023.01
-          },
           "checkpointData": {
             "id": "e",
             "lwt": 2000
@@ -859,10 +758,6 @@
           "id": "e|0",
           "itemId": "e",
           "isCheckpoint": "0",
-          "_rev": "2-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-          "_meta": {
-            "lwt": 1700000000022.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": true,
@@ -874,10 +769,6 @@
           "id": "up|1",
           "itemId": "up",
           "isCheckpoint": "1",
-          "_rev": "1-rx_storage_replication_72288ff24ef9eee886c2b4ca20571ba8e55bc304aeebca173d81749baea34c2e",
-          "_meta": {
-            "lwt": 1700000000020.01
-          },
           "checkpointData": {
             "id": "e",
             "lwt": 1700000000018.01
@@ -925,10 +816,6 @@
               "id": "down|1",
               "itemId": "down",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-              "_meta": {
-                "lwt": 1700000000027.01
-              },
               "checkpointData": {
                 "id": "f",
                 "lwt": 1000
@@ -940,10 +827,6 @@
               "id": "f|0",
               "itemId": "f",
               "isCheckpoint": "0",
-              "_rev": "1-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-              "_meta": {
-                "lwt": 1700000000025.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -955,10 +838,6 @@
               "id": "up|1",
               "itemId": "up",
               "isCheckpoint": "1",
-              "_rev": "1-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-              "_meta": {
-                "lwt": 1700000000026.01
-              },
               "checkpointData": {
                 "id": "f",
                 "lwt": 1700000000024.01
@@ -1027,10 +906,6 @@
               "id": "down|1",
               "itemId": "down",
               "isCheckpoint": "1",
-              "_rev": "2-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-              "_meta": {
-                "lwt": 1700000000031.01
-              },
               "checkpointData": {
                 "id": "g",
                 "lwt": 3000
@@ -1042,10 +917,6 @@
               "id": "f|0",
               "itemId": "f",
               "isCheckpoint": "0",
-              "_rev": "1-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-              "_meta": {
-                "lwt": 1700000000025.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -1057,10 +928,6 @@
               "id": "g|0",
               "itemId": "g",
               "isCheckpoint": "0",
-              "_rev": "1-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-              "_meta": {
-                "lwt": 1700000000029.01
-              },
               "checkpointData": null,
               "docData": {
                 "_deleted": false,
@@ -1072,10 +939,6 @@
               "id": "up|1",
               "itemId": "up",
               "isCheckpoint": "1",
-              "_rev": "2-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-              "_meta": {
-                "lwt": 1700000000030.01
-              },
               "checkpointData": {
                 "id": "g",
                 "lwt": 1700000000028.01
@@ -1145,10 +1008,6 @@
           "id": "down|1",
           "itemId": "down",
           "isCheckpoint": "1",
-          "_rev": "2-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-          "_meta": {
-            "lwt": 1700000000031.01
-          },
           "checkpointData": {
             "id": "g",
             "lwt": 3000
@@ -1160,10 +1019,6 @@
           "id": "f|0",
           "itemId": "f",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-          "_meta": {
-            "lwt": 1700000000025.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1175,10 +1030,6 @@
           "id": "g|0",
           "itemId": "g",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-          "_meta": {
-            "lwt": 1700000000029.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1190,10 +1041,6 @@
           "id": "up|1",
           "itemId": "up",
           "isCheckpoint": "1",
-          "_rev": "2-rx_storage_replication_643bf170d75cafa4ea672a1d26408b2baebd6610e22a70d066e6724523f04014",
-          "_meta": {
-            "lwt": 1700000000030.01
-          },
           "checkpointData": {
             "id": "g",
             "lwt": 1700000000028.01
@@ -1223,10 +1070,6 @@
           "id": "batch-0|0",
           "itemId": "batch-0",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000033.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1238,10 +1081,6 @@
           "id": "batch-1|0",
           "itemId": "batch-1",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000035.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1253,10 +1092,6 @@
           "id": "batch-2|0",
           "itemId": "batch-2",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000037.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1268,10 +1103,6 @@
           "id": "batch-3|0",
           "itemId": "batch-3",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000041.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1283,10 +1114,6 @@
           "id": "batch-4|0",
           "itemId": "batch-4",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000043.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1298,10 +1125,6 @@
           "id": "batch-5|0",
           "itemId": "batch-5",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000045.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1313,10 +1136,6 @@
           "id": "batch-6|0",
           "itemId": "batch-6",
           "isCheckpoint": "0",
-          "_rev": "1-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000047.01
-          },
           "checkpointData": null,
           "docData": {
             "_deleted": false,
@@ -1328,10 +1147,6 @@
           "id": "down|1",
           "itemId": "down",
           "isCheckpoint": "1",
-          "_rev": "2-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000049.01
-          },
           "checkpointData": {
             "id": "batch-6",
             "lwt": 1060
@@ -1343,10 +1158,6 @@
           "id": "up|1",
           "itemId": "up",
           "isCheckpoint": "1",
-          "_rev": "2-rx_storage_replication_eee0bf46338fb5fff68ecad15d8c49f3567c9ff73317b67b0c60006b8e4c0ac6",
-          "_meta": {
-            "lwt": 1700000000048.01
-          },
           "checkpointData": {
             "id": "batch-6",
             "lwt": 1700000000046.01

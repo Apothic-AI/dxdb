@@ -122,19 +122,34 @@ export async function run({ check, repo }) {
       queryHelper.normalizeMangoQuery(meta.schema, { selector: {}, sort: [{ id: 'asc' }] })
     );
     const result = await meta.query(prepared);
+    /**
+     * The meta instance's OWN `_meta.lwt` and `_rev` height are deliberately not
+     * recorded.
+     *
+     * `setCheckpoint` stamps the checkpoint document with `now()` and derives its
+     * revision from the checkpoint key. When a write loses a 409 race it retries,
+     * which consumes another `now()` tick and another revision height. How many
+     * times that happens depends on promise scheduling, not on replication
+     * semantics: measuring this generator over 40 runs produced a second output
+     * shape roughly once in twelve until these two fields were excluded. They are
+     * write bookkeeping, and asserting them would make the file flaky while
+     * claiming to pin behaviour upstream never promised.
+     *
+     * What is retained is the checkpoint identity (`id`, `itemId`, `isCheckpoint`)
+     * and its `checkpointData` payload, which is what a resumed replication
+     * actually continues from and which is derived from document `_meta.lwt` --
+     * a value this harness does control.
+     */
     return result.documents.map((doc) => ({
       id: doc.id,
       itemId: doc.itemId,
       isCheckpoint: doc.isCheckpoint,
-      _rev: doc._rev,
-      _meta: doc._meta,
-      // The field is `checkpointData` (see `getRxReplicationMetaInstanceSchema`).
-      // This is the actual checkpoint payload: id + lwt of the last applied
-      // document, which is what a resumed replication continues from.
       checkpointData: doc.checkpointData ?? null,
       // The fork's recorded assumption about the master's document state, used
       // for conflict detection on the next push.
-      docData: doc.docData ? { _rev: doc.docData._rev, _deleted: doc.docData._deleted, age: doc.docData.age } : null,
+      docData: doc.docData
+        ? { _rev: doc.docData._rev, _deleted: doc.docData._deleted, age: doc.docData.age }
+        : null,
       isResolvedConflict: doc.isResolvedConflict ?? null,
     }));
   };
@@ -374,9 +389,19 @@ export async function run({ check, repo }) {
     determinism: {
       ...determinismHeader(),
       note:
-        'now() is frozen so _meta.lwt and checkpoint revisions are reproducible; ' +
-        'document revisions are derived from the database instance token, which is ' +
-        'fixed per instance here rather than randomToken-ed.',
+        'now() is frozen and Math.random seeded, so document _meta.lwt values are ' +
+        'reproducible; document revisions derive from the database instance token, ' +
+        'which is fixed per instance here rather than randomToken-ed.',
+      excludedFromMetaSnapshots: {
+        fields: ['_meta.lwt', '_rev'],
+        why:
+          'setCheckpoint() stamps the checkpoint document with now() and derives its ' +
+          'revision from the checkpoint key; the 409 retry path consumes an extra ' +
+          'tick and an extra revision height depending on promise scheduling. These ' +
+          'are write bookkeeping, not replication semantics, so recording them made ' +
+          'this family intermittently flaky. checkpointData is retained: that is the ' +
+          'payload a resumed replication continues from.',
+      },
     },
     transactionCount: transcripts.length,
     caseCount:
