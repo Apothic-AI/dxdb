@@ -255,6 +255,27 @@ Five design decisions, each with the reason it beats upstream's arrangement:
 - The driver must refuse to open a file path when the active VFS is in-memory,
   with an error that names the VFS rather than a generic `SQLITE_CANTOPEN`. Silent
   data loss on reload is the failure mode we are designing against here.
+  **Implemented** as `Vfs::selected()` plus `DriverError::WouldBeEphemeral`.
+- **Correction to the feature plumbing, found while implementing.** This section
+  originally said the OPFS pool comes from "the `sqlite-wasm-vfs` SAH-pool", which
+  reads as a `rusqlite` feature. It is not: `rusqlite` 0.41's feature list has no
+  `sqlite-wasm-vfs` at all (its wasm features are `ffi-sqlite-wasm-rs` and
+  `wasm32-wasi-vfs`). The SAH pool is a **separate crate**, `sqlite-wasm-vfs` 0.3.0,
+  feature `sahpool`, and it is `wasm32-unknown-unknown`-only. So our manifest has:
+  - `wasm32-wasi-vfs = ["rusqlite/wasm32-wasi-vfs"]` — the WASI preopen VFS, a
+    genuine `rusqlite` feature;
+  - `opfs-sah-pool = ["dep:sqlite-wasm-vfs"]` — a target-gated optional dependency
+    on the separate crate, not a feature of the FFI crate.
+
+  Attempting `rusqlite/sqlite-wasm-vfs` fails resolution with "`rusqlite` does not
+  have that feature", which is how this was caught rather than assumed.
+- **Native linking needs `bundled`.** The shared Fly box has `libsqlite3.so.0` but
+  not `libsqlite3-dev`, so there is no `libsqlite3.so` for the linker and the link
+  fails with `rust-lld: error: unable to find library -lsqlite3`. Installing a
+  system package on a shared box is not this lane's call, and `bundled` is better
+  anyway: it compiles SQLite from source, making the build hermetic and identical
+  everywhere. It is native-only by construction and does not affect wasm, where
+  `ffi-sqlite-wasm-rs` supplies the FFI.
 - Other wasm caveats that go in the crate docs: no threads, so no parallel
   statements on one connection; `sqlite3_step` blocking a worker is the expected
   cost; the JS-side glue for the SAH-pool is not ours.
@@ -512,21 +533,49 @@ The write path:
 Three separate claims hide inside "multiInstance safe". They need separate
 answers, because only the first is free.
 
-**Claim 1 — no corruption, no lost writes, mutual exclusion.** Provided by redb
-plus the OS file lock. Two processes, one file, single writer at a time, MVCC for
-readers, crash-safe commit. We configure and verify it; we do not implement it.
-Concretely: open with redb's default (file-locking) backend, set a write timeout,
-and treat `DatabaseAlreadyOpen` as a startup error with a message that says
-another process holds the folder, not as a retry.
+**Claim 1 — no corruption, no lost writes, mutual exclusion.** Provided by redb,
+but **only in `ConcurrencyMode::MultiWriter`, which requires the
+`experimental-multiprocess` feature**. Correction to the first version of this
+section, which said "open with redb's default":
+
+> redb's **default** is `ConcurrencyMode::ExclusiveWriter`, which *locks the whole
+> file to one process*. A second process's `open` fails with
+> "Database already open. Cannot acquire lock." The default cannot satisfy
+> `multiInstance: true` at all.
+
+Measured on the pinned toolchain (redb 4.4.0, rustc 1.95.0), two processes, one
+file, one writer committing five rows while a second process polls:
+
+```text
+MultiWriter:      writer P1 opens; reader P2 opens
+                  reader sees 3 rows -> 4 -> 5 as the writer commits
+                  (cross-process visibility follows committed transactions)
+ExclusiveWriter:  reader: OPEN FAILED: Database already open. Cannot acquire lock.
+```
+
+So `MultiWriter` is a **requirement, not a tuning knob**, and this crate enables
+`experimental-multiprocess` unconditionally. Consequence, recorded because a
+feature named `experimental` is a warning: it pulls in `experimental-api-5`,
+which **changes redb's read-only table API** — `range` becomes
+`range_owned(KeyRange)` under that feature and is `#[cfg(not(...))]`-gated
+otherwise. Our access goes through the `ReadableTable` trait and write/read
+transactions, which are unaffected, but the signatures are not the ones in a
+non-experimental doc example. Pin redb, and re-run the cross-process test on every
+bump.
+
+What we still do not implement: crash-safe commit, MVCC, and writer
+serialisation. Those come from the engine.
 
 **Claim 2 — a second process sees the first process's committed writes.**
-Provided, but only on a fresh read transaction. redb's MVCC is snapshot-based:
-a long-lived read transaction in process B will keep returning B's snapshot
-forever. So the design rule is: **read transactions are short and per-operation,
-never cached on the instance.** One `bulkWrite` opens one write transaction; one
-`query` opens one read transaction and drops it. The moment an instance caches a
-`ReadTransaction` for "performance", multi-instance visibility silently breaks.
-This is a design rule with a test, not a comment.
+Provided under `MultiWriter`, but only on a fresh transaction. redb is
+snapshot-isolated: a long-lived read transaction in process B keeps returning
+B's snapshot forever. So the design rule is: **read transactions are short and
+per-operation, never cached on the instance.** One `bulk_write` opens one write
+transaction; one `query` opens one read transaction and drops it. The moment an
+instance caches a `ReadTransaction` for "performance", multi-instance visibility
+silently breaks in a way no single-process test catches. This is a design rule
+with a test (`two_handles_on_one_file_both_write_and_both_see_the_result`), not a
+comment.
 
 **Claim 3 — cross-process change events.** **Not provided. This is the real gap.**
 `cross-instance.test.ts` requires that a document written by `db1` produces a
