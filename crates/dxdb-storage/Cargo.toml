@@ -8,3 +8,19 @@ repository.workspace = true
 description = "dxdb storage traits (RxStorage / RxStorageInstance) and bulk-write categorisation"
 
 [dependencies]
+serde = { workspace = true, optional = true }
+serde_json.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+dynosaur.workspace = true
+dxdb-jsnum = { path = "../dxdb-jsnum" }
+dxdb-jsstr = { path = "../dxdb-jsstr" }
+dxdb-json = { path = "../dxdb-json" }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[features]
+# `serde` derives on the wire-shaped types. Off by default so the core build
+# stays small; the platform bindings turn it on at the boundary.
+serde = ["dep:serde"]

@@ -17,7 +17,7 @@ resolver = "2"
 # removed every storage crate from the workspace. `make check` stayed green while
 # `dxdb-memory` was never compiled. Found by lane G; see docs/lanes/m5-port-plan.md
 # section 8.1.
-members = ["crates/dxdb-*", "crates/storages/*", "xtask"]
+members = ["crates/dxdb-*", "crates/storages/*", "crates/plugins/*", "xtask"]
 default-members = ["crates/dxdb-core"]
 
 [workspace.package]
