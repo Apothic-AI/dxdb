@@ -56,6 +56,19 @@ jobs:
       - name: wasm32-unknown-unknown
         run: make wasm
 
+  status:
+    # The parity matrix must be reproducible: `make status` regenerates the module
+    # rows from the upstream checkout, so a drifted row set is a real failure.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: upstream checkout
+        run: git clone --depth 1 https://github.com/pubkey/rxdb "$RUNNER_TEMP/rxdb"
+      - run: make status RXDB_UPSTREAM="$RUNNER_TEMP/rxdb"
+      - name: row set unchanged
+        run: git diff --exit-code docs/STATUS.md || {
+               echo "docs/STATUS.md row set drifted from upstream; commit the regenerated file"; exit 1; }
+
   vectors:
     # The cross-language oracle: regenerate expected outputs from upstream RxDB
     # in Node and assert the committed vectors have not drifted.
