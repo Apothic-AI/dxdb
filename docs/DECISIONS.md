@@ -143,3 +143,96 @@ burden, and we are not the licensor of those features.
 
 **Consequence:** these are marked `not ported (intentional)` in `docs/STATUS.md` and are
 not parity gaps. A reviewer comparing against upstream must not "fix" this.
+
+---
+
+## D7: The protocol's checkpoint is generic and opaque; the storage's is concrete
+
+**Decided:** 2026-10-25. **Raised by:** lane E, reviewing the merged `dxdb-storage`.
+
+`dxdb-storage` defines `Checkpoint { id: String, lwt: f64 }`. That is the right type
+for *a storage's own change feed*, and its `to_json()` satisfies the round-trip
+requirement (`lwt` goes through `dxdb_json`, so it is formatted with JavaScript number
+semantics).
+
+It is **not** the protocol's checkpoint type, and the replication protocol must not be
+constrained to it. Upstream is explicit about why
+(`src/replication-protocol/checkpoint.ts:92`):
+
+> Instead of just storing the new checkpoint, we have to stack up the checkpoint with
+> the previous one. This is required for plugins like the sharding RxStorage where the
+> changeStream events only contain a Partial of the checkpoint.
+
+Upstream's `CheckpointType` is a type parameter; `stackCheckpoints` is `Object.assign`
+over arbitrary objects; a checkpoint is only ever handed back to the caller's own
+`masterChangesSince`. A sharding checkpoint is not `{id, lwt}`, and a transport may use
+`{seq}` or `{cursor, region}`. Stacking two `Checkpoint` structs would silently drop
+every key that is not `id` or `lwt` — data loss in the one operation the stacking exists
+to make safe.
+
+**Decision:** the replication protocol is generic over `C: JsonCheckpoint` (any
+ordered-JSON object), with `stack_checkpoints` as a shallow left-to-right merge where
+later wins and key order is first-insertion. `dxdb_storage::Checkpoint` is one concrete
+`C` that a caller may use, and the storage-to-storage adapter does exactly that. Nothing
+in `dxdb-storage` changes.
+
+**What `C` must satisfy**, asserted in one place:
+
+1. It encodes to a JSON object, not a scalar or an array.
+2. Its key order survives a round-trip, so ordered-JSON encoding is used on both sides.
+3. Merging is shallow, left-to-right, later-wins, first-insertion key order.
+
+**Rejected:** widening `dxdb_storage::Checkpoint` into a map, and making every storage
+carry an opaque checkpoint. Both push the protocol's generality into a layer that does
+not need it, and the storage's typed checkpoint is genuinely more useful to storage
+implementors.
+
+**Consequence:** a lane that finds `Checkpoint` inconvenient for the protocol has found
+a real constraint, not a bug. The generic parameter is the answer.
+
+---
+
+## D8: `INDEX_MIN` is defined once, in `dxdb-query`; `dxdb-storage` re-exports it
+
+**Decided:** 2026-10-25. **Raised by:** lanes B and D independently.
+
+Both lanes correctly derived the same reading of `src/query-planner.ts:25`:
+`INDEX_MIN` is `Number.MIN_SAFE_INTEGER` (`-9007199254740991`), not `-Infinity`,
+because `-Infinity` becomes `null` under `JSON.stringify` and a query plan is sent to a
+storage worker as JSON in several plugins, where a `null` start key breaks the scan.
+`INDEX_MAX` is `String.fromCharCode(65535)`, i.e. the string `"\u{FFFF}"`.
+
+Both then defined the constant in their own crate, with different Rust types:
+`dxdb-query` as `i64`, `dxdb-storage` as `f64`. `"\u{FFFF}"` as a `&str` in one and as a
+`PlanKey::String` in the other.
+
+**Problem:** these are not two independent constants that happen to agree. They are one
+sentinel that must compare equal across the planner-to-storage boundary. Two definitions
+in two types is a latent divergence: a future change to one, or a rounding difference in
+the `f64` variant, would make the planner emit a bound the storage does not recognise,
+and the symptom would be a slow full scan or an incorrect range rather than a failure.
+
+**Decision:** the constant is defined once, in `dxdb-query`, where the planner that
+produces it lives. `dxdb-storage` re-exports it rather than defining its own. Where
+`dxdb-storage` needs a typed key, it converts explicitly at the boundary, in one place,
+with the conversion tested.
+
+**Why `dxdb-query` and not `dxdb-storage`:** the plan is *produced* by the planner, and
+the value's whole purpose is to survive serialisation of that plan. The crate that owns
+plan construction owns the sentinel. Storage consumes plans; it does not author them.
+
+**Dependency note:** this means `dxdb-storage` gains a dependency on `dxdb-query`, or the
+constant moves to a crate both can share. Neither is free: `dxdb-storage` currently
+depends only on the encoding crates. The cheaper of the two is a thin shared crate
+(`dxdb-plan`), and that is the expected resolution if the conversion boundary turns out
+to be more than one line. **This choice is deferred to whoever implements the boundary**,
+on the condition that there is exactly one definition of the value in the workspace, and
+that the reason it is what it is stays recorded next to it.
+
+**What must be true either way:**
+
+1. Exactly one definition of `INDEX_MIN` and one of `INDEX_MAX` in the workspace.
+2. The definition carries upstream's reason for its value, verbatim in spirit: not
+   `-Infinity`, because `JSON.stringify` turns it into `null`.
+3. A test asserts that a plan survives `to_js_json` -> parse -> compare with its bounds
+   intact, since surviving JSON round-trip is the entire point of the value.

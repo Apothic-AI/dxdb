@@ -6,8 +6,9 @@
  *
  *   1. `Math.random()`. It seeds `randomToken()` (which becomes
  *      `eventBulk.id` in `categorizeBulkWriteRows`, and every database /
- *      collection / instance token in replication), and `randomString()` (which
- *      is inside `averageSchema()`'s title, so it feeds the schema hash).
+ *      collection / instance token the replication protocol touches), and
+ *      `randomString()` (which is inside `averageSchema()`'s title, so it feeds
+ *      the schema hash).
  *   2. `Date.now()`, via `now()`. It sets `_meta.lwt` on replicated documents and
  *      on every checkpoint the replication protocol writes.
  *
@@ -17,7 +18,8 @@
  * same clock and compare checkpoints bit for bit. Freezing them is also what
  * makes `make vectors` idempotent, which is the lane's gate.
  */
-import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 /**
  * xorshift128, seeded. Not cryptographic, not trying to be: it only has to be
@@ -41,12 +43,6 @@ export function createPrng(seed = 0x5eed1e55) {
 /** The clock start used by the frozen `Date.now`. */
 export const CLOCK_START = 1_700_000_000_000;
 
-/** Human-readable description of the determinism stubs, for each file header. */
-export const DETERMINISM = {
-  mathRandom: 'xorshift128 seeded with 0x5eed1e55, 1 draw per call',
-  dateNow: `frozen monotonic clock starting at ${CLOCK_START}, +1 ms per call`,
-};
-
 /**
  * Install the stubs. Must run before `loadOracle()` because `randomToken()` and
  * `now()` read their sources lazily but their *results* are baked into fixtures
@@ -67,76 +63,35 @@ export function installDeterminism() {
   globalThis.Date = FrozenDate;
 }
 
-/** Sort object keys recursively, so key order in the output never drifts. */
-export function sortKeysDeep(value) {
-  if (Array.isArray(value)) {
-    return value.map(sortKeysDeep);
-  }
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const key of Object.keys(value).sort()) {
-      out[key] = sortKeysDeep(value[key]);
-    }
-    return out;
-  }
-  return value;
-}
-
-/** JSON with 2-space indent and a trailing newline, the jsnum.mjs convention. */
-export function toJson(doc) {
-  return JSON.stringify(doc, null, 2) + '\n';
+/** Human-readable description of the determinism stubs, for each file header. */
+export function determinismHeader() {
+  return {
+    mathRandom: 'xorshift128 seeded with 0x5eed1e55, 1 draw per call',
+    dateNow: `frozen monotonic clock starting at ${CLOCK_START}, +1 ms per call`,
+  };
 }
 
 /**
- * Normalise a value that came out of RxDB into something JSON-stable:
- * - `undefined` (and object keys whose value is undefined) are dropped by
- *   JSON.stringify anyway, but dropping them here makes the intent explicit;
- * - `-0` is written as the string `-0` so a reader cannot lose the sign;
- * - non-finite numbers are written by name.
- * Everything else passes through untouched. This is only ever applied to data
- * that RxDB produced, never to inputs we hand it.
+ * Write or verify one family file. This is the single implementation of the
+ * `--check` contract every family shares; families only build their document.
+ *
+ * The comparison is on parsed content with the informational `node` field
+ * removed, matching `jsnum.mjs`: a Node upgrade that changes nothing is not
+ * drift, a change in any recorded observation is.
+ *
+ * Returns `{ ok, cases, bytes }` so the dispatcher can aggregate without every
+ * family re-deriving its own counts.
  */
-export function stableValue(value) {
-  if (typeof value === 'number') {
-    if (Number.isNaN(value)) return { $number: 'NaN' };
-    if (value === Infinity) return { $number: 'Infinity' };
-    if (value === -Infinity) return { $number: '-Infinity' };
-    if (Object.is(value, -0)) return { $number: '-0' };
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map(stableValue);
-  }
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const key of Object.keys(value)) {
-      if (typeof value[key] === 'undefined') continue;
-      out[key] = stableValue(value[key]);
-    }
-    return out;
-  }
-  return value;
-}
+export function emitFamily({ outFile, doc, check, label, caseCount }) {
+  const json = JSON.stringify(doc, null, 2) + '\n';
 
-/** A short sha256 prefix, used to assert two runs agree where a value is opaque. */
-export function shortHash(text) {
-  return createHash('sha256').update(text).digest('hex').slice(0, 16);
-}
-
-/**
- * Write or verify one family file. Mirrors jsnum.mjs's `--check` contract:
- * compare parsed content with the informational `node` field removed, so a Node
- * upgrade that changes nothing is not reported as drift.
- */
-export function emitFamily({ fs, outFile, doc, check, label, caseCount }) {
-  const json = toJson(doc);
   if (check) {
     let committed;
     try {
-      committed = fs.readFileSync(outFile, 'utf8');
+      committed = readFileSync(outFile, 'utf8');
     } catch {
       console.error(`${label} vectors missing at ${outFile}; run \`make vectors\``);
-      return { ok: false };
+      return { ok: false, cases: caseCount };
     }
     const strip = (text) => {
       const parsed = JSON.parse(text);
@@ -146,13 +101,14 @@ export function emitFamily({ fs, outFile, doc, check, label, caseCount }) {
     if (strip(committed) !== strip(json)) {
       console.error(`${label} vectors drifted from the current Node output:`);
       console.error(`  regenerate with \`make vectors\` and review the diff at ${outFile}`);
-      return { ok: false };
+      return { ok: false, cases: caseCount };
     }
     console.log(`${label} vectors OK (${caseCount} cases)`);
-    return { ok: true };
+    return { ok: true, cases: caseCount };
   }
-  fs.mkdirSync(fs.dirname ? fs.dirname(outFile) : undefined, { recursive: true });
-  fs.writeFileSync(outFile, json);
+
+  mkdirSync(dirname(outFile), { recursive: true });
+  writeFileSync(outFile, json);
   console.log(`wrote ${outFile} (${caseCount} cases, node ${process.version})`);
-  return { ok: true };
+  return { ok: true, cases: caseCount, bytes: json.length };
 }

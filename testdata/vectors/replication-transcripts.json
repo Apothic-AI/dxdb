@@ -1,0 +1,1172 @@
+{
+  "$comment": "Replication transcripts from upstream src/replication-protocol/ against the in-memory storage (PLAN.md 7.2, feeds M3). Each transcript is a scripted sequence of writes and syncs, and after every step it records the observable state of the fork, the master, and the replication meta instance (where the checkpoints and their derived revisions live).",
+  "generator": "xtask/vectors/generate.mjs",
+  "rxdbVersion": "17.6.0",
+  "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
+  "node": "v22.23.3",
+  "format": "scripted-steps->{fork, master, meta} snapshots",
+  "determinism": {
+    "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+    "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call",
+    "note": "now() is frozen and Math.random seeded, so document _meta.lwt values are reproducible; document revisions derive from the database instance token, which is fixed per instance here rather than randomToken-ed.",
+    "excludedFromMetaSnapshots": {
+      "fields": [
+        "_meta.lwt",
+        "_rev"
+      ],
+      "why": "setCheckpoint() stamps the checkpoint document with now() and derives its revision from the checkpoint key; the 409 retry path consumes an extra tick and an extra revision height depending on promise scheduling. These are write bookkeeping, not replication semantics, so recording them made this family intermittently flaky. checkpointData is retained: that is the payload a resumed replication continues from."
+    }
+  },
+  "transactionCount": 6,
+  "caseCount": 13,
+  "transcripts": [
+    {
+      "why": "empty-master-and-fork",
+      "steps": [
+        {
+          "step": "before-start",
+          "master": [],
+          "fork": [],
+          "meta": []
+        },
+        {
+          "step": "after-start",
+          "master": [],
+          "fork": [],
+          "meta": []
+        }
+      ],
+      "recordedConflictResolutions": 0,
+      "errors": [],
+      "finalForkState": [],
+      "finalMasterState": [],
+      "finalMetaState": []
+    },
+    {
+      "why": "pull-existing-documents",
+      "steps": [
+        {
+          "step": "master-populated",
+          "master": [
+            {
+              "passportId": "a",
+              "_rev": "1-a",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 10,
+              "firstName": "first-a"
+            },
+            {
+              "passportId": "b",
+              "_rev": "1-b",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 40,
+              "firstName": "first-b"
+            }
+          ],
+          "fork": [],
+          "meta": []
+        },
+        {
+          "step": "after-pull",
+          "master": [
+            {
+              "passportId": "a",
+              "_rev": "1-a",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 10,
+              "firstName": "first-a"
+            },
+            {
+              "passportId": "b",
+              "_rev": "1-b",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 40,
+              "firstName": "first-b"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "a",
+              "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000000.01,
+                "o": {
+                  "_rev": 1,
+                  "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+                }
+              },
+              "age": 10,
+              "firstName": "first-a"
+            },
+            {
+              "passportId": "b",
+              "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000002.01,
+                "o": {
+                  "_rev": 1,
+                  "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+                }
+              },
+              "age": 40,
+              "firstName": "first-b"
+            }
+          ],
+          "meta": [
+            {
+              "id": "a|0",
+              "itemId": "a",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 10
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "b|0",
+              "itemId": "b",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 40
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "down|1",
+              "itemId": "down",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "b",
+                "lwt": 1000
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            },
+            {
+              "id": "up|1",
+              "itemId": "up",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "b",
+                "lwt": 1700000000002.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            }
+          ]
+        }
+      ],
+      "recordedConflictResolutions": 0,
+      "errors": [],
+      "finalForkState": [
+        {
+          "passportId": "a",
+          "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1700000000000.01,
+            "o": {
+              "_rev": 1,
+              "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+            }
+          },
+          "age": 10,
+          "firstName": "first-a"
+        },
+        {
+          "passportId": "b",
+          "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1700000000002.01,
+            "o": {
+              "_rev": 1,
+              "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+            }
+          },
+          "age": 40,
+          "firstName": "first-b"
+        }
+      ],
+      "finalMasterState": [
+        {
+          "passportId": "a",
+          "_rev": "1-a",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1000
+          },
+          "age": 10,
+          "firstName": "first-a"
+        },
+        {
+          "passportId": "b",
+          "_rev": "1-b",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1000
+          },
+          "age": 40,
+          "firstName": "first-b"
+        }
+      ],
+      "finalMetaState": [
+        {
+          "id": "a|0",
+          "itemId": "a",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 10
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "b|0",
+          "itemId": "b",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 40
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "down|1",
+          "itemId": "down",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "b",
+            "lwt": 1000
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        },
+        {
+          "id": "up|1",
+          "itemId": "up",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "b",
+            "lwt": 1700000000002.01
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        }
+      ]
+    },
+    {
+      "why": "push-existing-documents",
+      "steps": [
+        {
+          "step": "fork-populated",
+          "master": [],
+          "fork": [
+            {
+              "passportId": "c",
+              "_rev": "1-c",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 33,
+              "firstName": "first-c"
+            }
+          ],
+          "meta": []
+        },
+        {
+          "step": "after-push",
+          "master": [
+            {
+              "passportId": "c",
+              "_rev": "1-token-master-handler",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000007.01
+              },
+              "age": 33,
+              "firstName": "first-c"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "c",
+              "_rev": "1-c",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 33,
+              "firstName": "first-c"
+            }
+          ],
+          "meta": [
+            {
+              "id": "c|0",
+              "itemId": "c",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 33
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "down|1",
+              "itemId": "down",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "c",
+                "lwt": 1700000000007.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            },
+            {
+              "id": "up|1",
+              "itemId": "up",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "c",
+                "lwt": 1000
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            }
+          ]
+        }
+      ],
+      "recordedConflictResolutions": 0,
+      "errors": [],
+      "finalForkState": [
+        {
+          "passportId": "c",
+          "_rev": "1-c",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1000
+          },
+          "age": 33,
+          "firstName": "first-c"
+        }
+      ],
+      "finalMasterState": [
+        {
+          "passportId": "c",
+          "_rev": "1-token-master-handler",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1700000000007.01
+          },
+          "age": 33,
+          "firstName": "first-c"
+        }
+      ],
+      "finalMetaState": [
+        {
+          "id": "c|0",
+          "itemId": "c",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 33
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "down|1",
+          "itemId": "down",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "c",
+            "lwt": 1700000000007.01
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        },
+        {
+          "id": "up|1",
+          "itemId": "up",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "c",
+            "lwt": 1000
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        }
+      ]
+    },
+    {
+      "why": "conflict-both-sides-differ",
+      "steps": [
+        {
+          "step": "both-sides-populated",
+          "master": [
+            {
+              "passportId": "d",
+              "_rev": "1-d",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 50,
+              "firstName": "first-d"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "d",
+              "_rev": "1-fork-d",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 10,
+              "firstName": "first-d"
+            }
+          ],
+          "meta": []
+        },
+        {
+          "step": "after-conflict",
+          "master": [
+            {
+              "passportId": "d",
+              "_rev": "2-token-master-handler",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000015.01
+              },
+              "age": 50,
+              "firstName": "first-d"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "d",
+              "_rev": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000011.01
+              },
+              "age": 50,
+              "firstName": "first-d"
+            }
+          ],
+          "meta": [
+            {
+              "id": "down|1",
+              "itemId": "down",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "d",
+                "lwt": 1700000000015.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            },
+            {
+              "id": "d|0",
+              "itemId": "d",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 50
+              },
+              "isResolvedConflict": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1"
+            },
+            {
+              "id": "up|1",
+              "itemId": "up",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "d",
+                "lwt": 1700000000011.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            }
+          ]
+        }
+      ],
+      "recordedConflictResolutions": 1,
+      "errors": [],
+      "finalForkState": [
+        {
+          "passportId": "d",
+          "_rev": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1700000000011.01
+          },
+          "age": 50,
+          "firstName": "first-d"
+        }
+      ],
+      "finalMasterState": [
+        {
+          "passportId": "d",
+          "_rev": "2-token-master-handler",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1700000000015.01
+          },
+          "age": 50,
+          "firstName": "first-d"
+        }
+      ],
+      "finalMetaState": [
+        {
+          "id": "down|1",
+          "itemId": "down",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "d",
+            "lwt": 1700000000015.01
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        },
+        {
+          "id": "d|0",
+          "itemId": "d",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 50
+          },
+          "isResolvedConflict": "2-rx_storage_replication_07f5866269ab8121e9ff68298e1d962235b2ef5693b0d03b5d9806548a9071b1"
+        },
+        {
+          "id": "up|1",
+          "itemId": "up",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "d",
+            "lwt": 1700000000011.01
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        }
+      ]
+    },
+    {
+      "why": "deletion-propagates",
+      "steps": [
+        {
+          "step": "after-initial-pull",
+          "master": [
+            {
+              "passportId": "e",
+              "_rev": "1-e",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 22,
+              "firstName": "first-e"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "e",
+              "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000018.01,
+                "o": {
+                  "_rev": 1,
+                  "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+                }
+              },
+              "age": 22,
+              "firstName": "first-e"
+            }
+          ],
+          "meta": [
+            {
+              "id": "down|1",
+              "itemId": "down",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "e",
+                "lwt": 1000
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            },
+            {
+              "id": "e|0",
+              "itemId": "e",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 22
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "up|1",
+              "itemId": "up",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "e",
+                "lwt": 1700000000018.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            }
+          ]
+        },
+        {
+          "step": "after-master-delete",
+          "master": [
+            {
+              "passportId": "e",
+              "_rev": "2-deleted-e",
+              "_deleted": true,
+              "_meta": {
+                "lwt": 2000
+              },
+              "age": 22,
+              "firstName": "first-e"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "e",
+              "_rev": "2-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+              "_deleted": true,
+              "_meta": {
+                "lwt": 1700000000018.01,
+                "o": {
+                  "_rev": 2,
+                  "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+                }
+              },
+              "age": 22,
+              "firstName": "first-e"
+            }
+          ],
+          "meta": [
+            {
+              "id": "down|1",
+              "itemId": "down",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "e",
+                "lwt": 2000
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            },
+            {
+              "id": "e|0",
+              "itemId": "e",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": true,
+                "age": 22
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "up|1",
+              "itemId": "up",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "e",
+                "lwt": 1700000000018.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            }
+          ]
+        }
+      ],
+      "recordedConflictResolutions": 0,
+      "errors": [],
+      "finalForkState": [
+        {
+          "passportId": "e",
+          "_rev": "2-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+          "_deleted": true,
+          "_meta": {
+            "lwt": 1700000000018.01,
+            "o": {
+              "_rev": 2,
+              "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+            }
+          },
+          "age": 22,
+          "firstName": "first-e"
+        }
+      ],
+      "finalMasterState": [
+        {
+          "passportId": "e",
+          "_rev": "2-deleted-e",
+          "_deleted": true,
+          "_meta": {
+            "lwt": 2000
+          },
+          "age": 22,
+          "firstName": "first-e"
+        }
+      ],
+      "finalMetaState": [
+        {
+          "id": "down|1",
+          "itemId": "down",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "e",
+            "lwt": 2000
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        },
+        {
+          "id": "e|0",
+          "itemId": "e",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": true,
+            "age": 22
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "up|1",
+          "itemId": "up",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "e",
+            "lwt": 1700000000018.01
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        }
+      ]
+    },
+    {
+      "why": "incremental-pull-after-first-sync",
+      "steps": [
+        {
+          "step": "after-first-sync",
+          "master": [
+            {
+              "passportId": "f",
+              "_rev": "1-f",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 25,
+              "firstName": "first-f"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "f",
+              "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000024.01,
+                "o": {
+                  "_rev": 1,
+                  "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+                }
+              },
+              "age": 25,
+              "firstName": "first-f"
+            }
+          ],
+          "meta": [
+            {
+              "id": "down|1",
+              "itemId": "down",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "f",
+                "lwt": 1000
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            },
+            {
+              "id": "f|0",
+              "itemId": "f",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 25
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "up|1",
+              "itemId": "up",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "f",
+                "lwt": 1700000000024.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            }
+          ]
+        },
+        {
+          "step": "after-second-doc",
+          "master": [
+            {
+              "passportId": "f",
+              "_rev": "1-f",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1000
+              },
+              "age": 25,
+              "firstName": "first-f"
+            },
+            {
+              "passportId": "g",
+              "_rev": "1-g",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 3000
+              },
+              "age": 26,
+              "firstName": "first-g"
+            }
+          ],
+          "fork": [
+            {
+              "passportId": "f",
+              "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000024.01,
+                "o": {
+                  "_rev": 1,
+                  "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+                }
+              },
+              "age": 25,
+              "firstName": "first-f"
+            },
+            {
+              "passportId": "g",
+              "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+              "_deleted": false,
+              "_meta": {
+                "lwt": 1700000000028.01,
+                "o": {
+                  "_rev": 1,
+                  "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+                }
+              },
+              "age": 26,
+              "firstName": "first-g"
+            }
+          ],
+          "meta": [
+            {
+              "id": "down|1",
+              "itemId": "down",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "g",
+                "lwt": 3000
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            },
+            {
+              "id": "f|0",
+              "itemId": "f",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 25
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "g|0",
+              "itemId": "g",
+              "isCheckpoint": "0",
+              "checkpointData": null,
+              "docData": {
+                "_deleted": false,
+                "age": 26
+              },
+              "isResolvedConflict": null
+            },
+            {
+              "id": "up|1",
+              "itemId": "up",
+              "isCheckpoint": "1",
+              "checkpointData": {
+                "id": "g",
+                "lwt": 1700000000028.01
+              },
+              "docData": null,
+              "isResolvedConflict": null
+            }
+          ]
+        }
+      ],
+      "recordedConflictResolutions": 0,
+      "errors": [],
+      "finalForkState": [
+        {
+          "passportId": "f",
+          "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1700000000024.01,
+            "o": {
+              "_rev": 1,
+              "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+            }
+          },
+          "age": 25,
+          "firstName": "first-f"
+        },
+        {
+          "passportId": "g",
+          "_rev": "1-f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1700000000028.01,
+            "o": {
+              "_rev": 1,
+              "hash": "f1fc63ba43d510e30d4b82b69fe1af655824e99a04d1857618875bf471aab036"
+            }
+          },
+          "age": 26,
+          "firstName": "first-g"
+        }
+      ],
+      "finalMasterState": [
+        {
+          "passportId": "f",
+          "_rev": "1-f",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 1000
+          },
+          "age": 25,
+          "firstName": "first-f"
+        },
+        {
+          "passportId": "g",
+          "_rev": "1-g",
+          "_deleted": false,
+          "_meta": {
+            "lwt": 3000
+          },
+          "age": 26,
+          "firstName": "first-g"
+        }
+      ],
+      "finalMetaState": [
+        {
+          "id": "down|1",
+          "itemId": "down",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "g",
+            "lwt": 3000
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        },
+        {
+          "id": "f|0",
+          "itemId": "f",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 25
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "g|0",
+          "itemId": "g",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 26
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "up|1",
+          "itemId": "up",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "g",
+            "lwt": 1700000000028.01
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        }
+      ]
+    }
+  ],
+  "batchBoundary": [
+    {
+      "why": "pull-batch-size-3-with-7-documents",
+      "pullBatchSize": 3,
+      "documentsInMaster": 7,
+      "forkIds": [
+        "batch-0",
+        "batch-1",
+        "batch-2",
+        "batch-3",
+        "batch-4",
+        "batch-5",
+        "batch-6"
+      ],
+      "meta": [
+        {
+          "id": "batch-0|0",
+          "itemId": "batch-0",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 20
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "batch-1|0",
+          "itemId": "batch-1",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 20
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "batch-2|0",
+          "itemId": "batch-2",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 20
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "batch-3|0",
+          "itemId": "batch-3",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 20
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "batch-4|0",
+          "itemId": "batch-4",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 20
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "batch-5|0",
+          "itemId": "batch-5",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 20
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "batch-6|0",
+          "itemId": "batch-6",
+          "isCheckpoint": "0",
+          "checkpointData": null,
+          "docData": {
+            "_deleted": false,
+            "age": 20
+          },
+          "isResolvedConflict": null
+        },
+        {
+          "id": "down|1",
+          "itemId": "down",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "batch-6",
+            "lwt": 1060
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        },
+        {
+          "id": "up|1",
+          "itemId": "up",
+          "isCheckpoint": "1",
+          "checkpointData": {
+            "id": "batch-6",
+            "lwt": 1700000000046.01
+          },
+          "docData": null,
+          "isResolvedConflict": null
+        }
+      ],
+      "errors": []
+    }
+  ]
+}
