@@ -528,12 +528,21 @@ Rules, learned the hard way and recorded here so nobody re-learns them:
   "busy" permanently and any count taken that way is inflated. A measurement during this
   session read "19 rustc processes"; the true number was 2 `cargo check` processes, both from
   another project. Match executable names (`ps -eo comm=`, `pgrep -x`) instead.
-- **Disk is the shared resource, and it is currently exhausted.** The volume went from 95% to
-  **100% full (599 MB free of 98 GB)** during the session that wrote this plan, with 15-16 build
-  trees, 89 GB of `/data/builds`, and another project's `cargo check --workspace` resident for
-  the whole session. Nothing was stopped or pruned that was not ours, because doing so would
-  have destroyed someone else's compile. That is the correct behaviour, and it means dxdb has to plan for "no disk today".
-  Consequences:
+- **Disk is the shared resource, and it has been grown.** The volume hit **0 bytes free (100%
+  of 98 GB)** during the session that wrote this plan: 15-16 build trees, 89 GB of
+  `/data/builds`, and another project's `cargo check --workspace` resident throughout. Nothing
+  was stopped or pruned that was not ours, because doing so would have destroyed someone else's
+  compile.
+
+  The volume was then grown online from 100 GB to **250 GB** (`vol_vdewd65ldwkqj14`), no restart,
+  no peer disruption, no data moved: `flyctl volumes extend ... -s 250` grew the block device,
+  the kernel grew the ext4 filesystem with it, and `resize2fs` confirmed "Nothing to do". Live
+  state after the change: 246 GiB usable, 94 GB used, **141 GB free**, inode use 2%. Two peer
+  `cargo check` processes from before the change were still running after it.
+
+  So the constraint is no longer "no disk today", but 141 GB is not infinite on a box that
+  accumulates ~9 GB per build tree per project, and the growth was a manual, human-authorized
+  action. Consequences, unchanged in spirit:
   - A workspace with SQLite and `wasm-bindgen` is 2-4 GB per build tree. Before the first real
     build, confirm headroom (`ssh fly-builder 'df -h /data'`) rather than assuming it.
   - Prefer `check` and `clippy` for iteration. A full `build` or `test` with a cold dependency
@@ -545,6 +554,17 @@ Rules, learned the hard way and recorded here so nobody re-learns them:
   - If the box cannot host us, the answer is a **separate build space** (the project rule is
     "set up a separate user account or build space on the server if necessary"), not raising
     `CARGO_BUILD_JOBS` on a shared box or deleting a neighbour's tree.
+  - If `make headroom` shows under ~10% free, **ask before growing again**. Extending a shared
+    volume changes costs and affects every project on the box, so it is a coordination decision,
+    not a routine cleanup. The procedure that worked, in order:
+    `flyctl volumes list -a <app>` (get the volume id and size),
+    `flyctl volumes extend <vol-id> -a <app> -s <new-total-GB> -y` (Fly reports whether a restart
+    is needed; ours did not need one),
+    `ssh fly-builder 'df -h /data'` (ext4 on this box grows itself on volume extend),
+    `ssh fly-builder 'resize2fs /dev/vdc'` (idempotent confirmation; it said "Nothing to do").
+    Both steps are online and safe with builds running. Check `findmnt -no FSTYPE /data` first:
+    this was a bare ext4 device with no partition table, which is why `growpart` was not needed
+    and was not installed.
 - **Never stop the machine while it is busy.** A `flyctl machine stop` while another project's
   `cargo check` is running destroys that work and cannot be undone. The stop step only applies when
   `pgrep` shows nothing running, and when the stop is ours to make (we started it, or everyone
@@ -618,8 +638,8 @@ so they are worth reading before anyone edits it:
    The stop is the deliberate action, not the convenient one. If you do script it in your own
    environment, gate it on `$$(ssh fly-builder '<BUSY>')` printing `IDLE`, never on an exit code.
 3. **`headroom` exists because the volume reached 0 bytes free** (100%, showing `0` available)
-   while another project was mid-compile. Check it before any build that has a cold dependency
-   graph.
+   while another project was mid-compile, before the volume was grown to 250 GB. Check it before
+   any build that has a cold dependency graph.
 
 Plus a `.cargo-remote-3000.toml` in the repo root pinning the remote name and excludes, so no
 one has to remember flags.
@@ -769,7 +789,7 @@ A checklist, because "port complete" is otherwise unfalsifiable.
 | `localeCompare` / ICU collation | sort order differs from RxDB | decide early, document, keep behind a feature; index-string order is the contract |
 | Upstream moves (17.6.0 today) | port chases a moving target | pin a commit per release train, port in labelled tranches, diff upstream changelogs each train |
 | Paid features are closed source | clean room is the only route | hard repo separation, reading list, reviewer sign-off; see CLEANROOM.md |
-| Shared build server contention (hit 100% disk full during planning) | blocked builds, upset neighbours | check headroom before building, prune only our own verified tree, `check`/`clippy` first, separate build space or account if the box cannot host us, never stop a busy machine |
+| Shared build server contention (hit 100% disk full during planning; volume since grown to 250 GB) | blocked builds, upset neighbours | check headroom before building, prune only our own verified tree, `check`/`clippy` first, ask before growing the shared volume again, separate build space or account if the box cannot host us, never stop a busy machine |
 | Threads/atomics need nightly or `-threads` target | "latest WASM features" claim overreaches | ship stable-only defaults; threads are a documented opt-in configuration |
 | Rust ecosystem WASM regressions | build breaks in a dependency | CI builds every crate for wasm on every PR, including non-wasm ones |
 | Scope: 52 plugins, 55k test lines | multi-month effort, burnout | milestone gates, port the 12 plugins users actually need first, publish a status matrix |
