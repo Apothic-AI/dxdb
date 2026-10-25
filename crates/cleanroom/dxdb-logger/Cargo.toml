@@ -1,0 +1,17 @@
+[package]
+name = "dxdb-logger"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb clean-room storage logger: structured records for every storage operation"
+
+[dependencies]
+serde_json.workspace = true
+tracing = "0.1"
+
+[dev-dependencies]
+# The tests await the wrapped storage's futures, so they need an executor. Every
+# future in this crate resolves on its first poll; `block_on` is only the driver.
+futures.workspace = true
