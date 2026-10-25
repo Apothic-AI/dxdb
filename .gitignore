@@ -2,5 +2,16 @@
 **/target
 .dagr/
 
-# graft local graph cache (regenerable)
+# graft's local graph cache and per-harness scaffolding. The cache is
+# regenerable (`graft build`); the scaffolding files are generated per checkout
+# by `graft init` and would otherwise land in every lane's commits.
 /graft/
+/AGENTS.md
+/GEMINI.md
+/.ignore
+/.mcp.json
+/opencode.json
+/.claude/
+/.gemini/
+/.grok/
+/.github/copilot-instructions.md
