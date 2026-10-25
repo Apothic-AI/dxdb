@@ -8,7 +8,7 @@
 | Spec author read | `docs-src/docs/logger.md`, `docs-src/docs/releases/15.0.0.md:110`, the Apache-2.0 storage interface and helper, the Sentry span interface, OTel database span conventions, `tracing` crate docs |
 | Spec author did not read | `rxdb-premium` in any form (source, bundles, `.d.ts`, source maps, installer, payloads) |
 | Full provenance | [`READING-LIST.md`](./READING-LIST.md), row `dxdb-logger` |
-| Gap rows this spec depends on | G-001, G-003, G-004, G-005, G-006, G-020, G-021, G-022, G-023, G-024, G-025, G-026, G-027 |
+| Gap rows this spec depends on | G-001, G-003, G-004, G-005, G-006, G-020, G-021, G-022, G-023, G-024, G-025, G-026, G-027, G-028, G-029 |
 | Status | implemented and verified (B1) |
 
 ## 1. Observable behaviour
@@ -43,9 +43,18 @@ stream, or `getAttachmentData` internals, because the documentation does not lis
 them and adding unlogged-but-plausible operations would be inventing behaviour.
 
 Each logged operation produces a **start** record and exactly one **terminal**
-record: `end` on success, `error` on failure. Never both. A failed operation has
-no duration in the "completed successfully" sense, and one that emits both would
-double-count in an APM. See G-025.
+record: `end` on success, `error` on failure, and `cancelled` if the caller
+dropped the operation before it finished. Never more than one. A failed operation
+has no duration in the "completed successfully" sense, and one that emits both
+`end` and `error` would double-count in an APM. See G-025.
+
+`cancelled` is dxdb's addition, not a documented upstream behaviour: a JavaScript
+`Promise` has no cancellation, so the paid plugin could never have emitted one. In
+Rust, dropping a future mid-flight is routine (`select!`, a timeout wrapper, a
+cancelled query), and leaving its start record unpaired would make `INV-2` false
+in the one place storage code is most likely to be interrupted. It maps onto the
+public Sentry status `cancelled`, which the span interface documents as "the
+operation was cancelled, typically by the caller". Recorded in G-028.
 
 ### 1.3 Timing
 
@@ -199,10 +208,11 @@ clock asserts zero reads) and `acceptance_02`, `acceptance_03`.
 
 **INV-4 — log ids are unique and pair records within one process.** No two
 operations share a `LogId`, and the start and terminal records of one operation do
-so.
-*Enforced by* a monotonic counter allocated per wrapped call. *Proved by*
-`inv_04_log_ids_are_unique_and_paired`, including interleaved concurrent
-operations (`acceptance_11`).
+so. Ids increase in *poll* order, not call order, because the start record — and
+therefore the id — is allocated at first poll (`INV-7`).
+*Enforced by* a monotonic counter allocated per wrapped call, inside the future.
+*Proved by* `inv_04_log_ids_are_unique_and_paired`, including interleaved
+concurrent operations (`acceptance_11`).
 
 **INV-5 — durations are honest.** `duration_ns` is `Some` if and only if timing is
 enabled and the phase is `End`, and its value equals the difference between the
@@ -219,11 +229,25 @@ hex encoding and the status enum. *Proved by* `inv_06_sentry_spans_are_valid` an
 `acceptance_13_...`.
 
 **INV-7 — order within a record pair.** For a given `LogId`, the start record is
-observed before its terminal record in the record stream delivered to hooks and to
-`tracing`.
-*Enforced by* awaiting the inner call between the two emissions, and by hooks
-being called synchronously in the emitting task. *Proved by*
-`acceptance_11_...` (record order assertion).
+delivered before its terminal record, and a start record is emitted at the
+operation's first poll, never at future construction, so an operation that is
+never polled emits nothing and costs nothing.
+
+What this invariant does **not** say, deliberately: that all start records of
+concurrently-created operations precede all their terminal records. That would be a
+claim about the executor's polling schedule, not about the logger. A caller may
+build two futures and have the first driven to completion before the second is
+polled at all — `futures::future::join` polls in order, and these operations
+resolve on their first poll — and no wrapper that defers its start record to first
+poll can avoid that. The logger's responsibility is the pair: every terminal record
+closes one log id, and no operation emits a record without having been polled.
+
+*Enforced by* opening the record inside the returned future rather than in the
+method body, awaiting the inner call between the two emissions, and calling hooks
+synchronously in the emitting task. *Proved by*
+`inv_07_start_precedes_terminal_in_delivery_order` (pairing and non-interleaving)
+and `inv_07_unpolled_operations_emit_nothing` (nothing is emitted for an operation
+that was never polled), together with `acceptance_11_...`.
 
 ## 4. Failure modes
 
@@ -237,7 +261,10 @@ being called synchronously in the emitting task. *Proved by*
 | Hook panics | the panic propagates to the caller | no catch: a logger that swallows panics corrupts the caller's error handling. Documented, and the port's JS boundary decides whether to contain it |
 | Tracing subscriber absent | nothing observable | `tracing` no-ops; the records still reach hooks |
 | Meta storage instance, filter off | nothing observable | no records, no clock reads |
-| Two operations interleave | two pairs, each correctly ordered, distinct ids | per-call ids, no shared state |
+| Two operations interleave | complete pairs, each start before its terminal, distinct ids | per-call ids, no shared state, no lock on the record path |
+| A future is built but never polled | nothing at all | the start record, its id and the clock read all happen inside the future |
+| The caller drops the future mid-flight | the inner call is dropped with it; a `cancelled` record closes the pair | the terminal-record guard fires from `Drop` (`INV-2`) |
+| A batch write carries thousands of ids | the record stays small | ids are capped at `OperationDetails::MAX_LOGGED_IDS` (16) and the true count is kept separately |
 | Wrapper used after inner `close` | whatever the inner storage does with it | not special-cased: the wrapper has no liveness state of its own |
 
 Errors are the inner storage's own error type (`StorageError` in this crate's
@@ -309,8 +336,8 @@ live in `crates/cleanroom/dxdb-logger/tests/`.
 8. A failing operation returns the inner error value unchanged and records it once
    with `phase == Error`. `[INV-1, INV-2]`
 9. `get_changed_documents_since` forwards its result when the inner storage
-   supports it, reports not-supported when it does not, and is never fabricated.
-   `[INV-1]`
+   reports support, reports not-supported without calling the inner storage when
+   it does not, and never fabricates a result. `[INV-1]`
 10. The `info` operation exists as a setting and is logged when the inner storage
     supports it, and reports not-supported otherwise (G-005). `[INV-1, INV-2]`
 11. Operations that interleave in time produce distinct log ids, each pairing a
@@ -350,10 +377,33 @@ live in `crates/cleanroom/dxdb-logger/tests/`.
 | INV-4 | `inv_04_log_ids_are_unique_and_paired` | `tests/invariants.rs` |
 | INV-5 | `inv_05_durations_are_exact_and_present_iff_timing_enabled` | `tests/invariants.rs` |
 | INV-6 | `inv_06_sentry_spans_are_valid` | `tests/invariants.rs` |
+| INV-2 (cancel) | `inv_02_cancellation_is_terminal` | `tests/invariants.rs` |
+| INV-7 | `inv_07_start_precedes_terminal_in_delivery_order` | `tests/invariants.rs` |
+| INV-7 (unpolled) | `inv_07_unpolled_operations_emit_nothing` | `tests/invariants.rs` |
 
-Property testing note: the settings space is finite (2 × 2 × 2^10 combinations),
-so the invariant tests enumerate it exhaustively rather than sampling it, and use
-a small fixed-seed generator for interleavings. No `proptest` dependency, which
-keeps the crate's dev-dependency graph empty and therefore keeps `make wasm`
-(`--all-targets`, including tests) free of a proptest-on-wasm risk. Failures are
-reproducible by construction.
+Property-testing note: the settings space is finite (2^10 operation subsets x 2
+timing x 2 meta = 8,192), so `inv_01_transparency_is_total` enumerates it
+exhaustively rather than sampling it, and the concurrency invariants drive
+explicit interleavings instead of random ones. There is no `proptest`
+dependency, which also keeps `make wasm` — which builds every target, tests
+included — free of a proptest-on-wasm risk. Every failure is reproducible by
+construction, which matters more here than sample size: this crate's unit of
+correctness is a settings combination, not a random byte string.
+
+## Verification record
+
+Stage B1 closed with all four workspace gates green in one contiguous run on the
+shared build server (rustc 1.95.0, `make` targets as written in the `Makefile`):
+
+| Gate | Exit |
+| --- | --- |
+| `make check` | 0 |
+| `make clippy` | 0 |
+| `make test` | 0 |
+| `make wasm` | 0 |
+
+Test counts in that run, for this crate: 8 unit tests, 14 acceptance tests, 8
+invariant tests. Every acceptance number 1-14 and every invariant `INV-1` to
+`INV-7` is covered by a passing test named in the test map above. The section 5
+performance targets remain **unmeasured**: no bench has been run, so nothing in
+this crate may be described as fast.
