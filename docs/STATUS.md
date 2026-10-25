@@ -16,34 +16,34 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 
 | Module | Upstream lines | Crate | State | Evidence (gate) |
 | --- | --- | --- | --- | --- |
-| `change-event-buffer.ts` | 174 | dxdb-reactivity | not started |  |
-| `custom-index.ts` | 470 | dxdb-query | not started |  |
+| `change-event-buffer.ts` | 174 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
+| `custom-index.ts` | 470 | dxdb-query | ported + tested | make test -p dxdb-query (900-case index-string oracle) |
 | `doc-cache.ts` | 512 |  | not started |  |
-| `event-reduce.ts` | 292 | dxdb-reactivity | not started |  |
+| `event-reduce.ts` | 292 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
 | `hooks.ts` | 128 |  | not started |  |
 | `incremental-write.ts` | 251 |  | not started |  |
 | `index.ts` | 32 |  | not started |  |
 | `overwritable.ts` | 41 |  | not started |  |
 | `plugin-helpers.ts` | 326 |  | not started |  |
 | `plugin.ts` | 116 |  | not started |  |
-| `query-cache.ts` | 140 | dxdb-reactivity | not started |  |
-| `query-planner.ts` | 483 | dxdb-query | not started |  |
-| `rx-change-event.ts` | 136 | dxdb-reactivity | not started |  |
+| `query-cache.ts` | 140 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
+| `query-planner.ts` | 483 | dxdb-query | ported | planner + normalisation in crates/dxdb-query/src/plan.rs |
+| `rx-change-event.ts` | 136 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
 | `rx-collection-helper.ts` | 298 |  | not started |  |
-| `rx-collection.ts` | 1362 |  | not started |  |
+| `rx-collection.ts` | 1362 | dxdb-core | in progress | dxdb-core in progress (lane D) |
 | `rx-database-internal-store.ts` | 402 |  | not started |  |
-| `rx-database.ts` | 1030 |  | not started |  |
+| `rx-database.ts` | 1030 | dxdb-core | in progress | dxdb-core in progress (lane D) |
 | `rx-document-prototype-merge.ts` | 134 |  | not started |  |
-| `rx-document.ts` | 627 |  | not started |  |
-| `rx-error.ts` | 191 |  | not started |  |
-| `rx-query-helper.ts` | 576 | dxdb-query | not started |  |
-| `rx-query-mingo.ts` | 68 | dxdb-query | not started |  |
+| `rx-document.ts` | 627 | dxdb-core | in progress | dxdb-core in progress (lane D) |
+| `rx-error.ts` | 191 | dxdb-core | in progress | error catalogue in progress |
+| `rx-query-helper.ts` | 576 | dxdb-query | ported | crates/dxdb-query/src/normalize.rs |
+| `rx-query-mingo.ts` | 68 | dxdb-query | ported | crates/dxdb-query/src/matcher.rs |
 | `rx-query-single-result.ts` | 117 | dxdb-query | not started |  |
-| `rx-query.ts` | 1008 | dxdb-query | not started |  |
-| `rx-schema-helper.ts` | 394 | dxdb-schema | not started |  |
-| `rx-schema.ts` | 325 | dxdb-schema | not started |  |
-| `rx-storage-helper.ts` | 1131 | dxdb-storage | not started |  |
-| `rx-storage-multiinstance.ts` | 188 | dxdb-storage | not started |  |
+| `rx-query.ts` | 1008 | dxdb-query | in progress | query surface; collection layer pending |
+| `rx-schema-helper.ts` | 394 | dxdb-schema | ported + tested | make test -p dxdb-schema |
+| `rx-schema.ts` | 325 | dxdb-schema | ported + tested | make test -p dxdb-schema (51-case hash oracle) |
+| `rx-storage-helper.ts` | 1131 | dxdb-storage | ported + tested | 600-case + 47-case categorizeBulkWriteRows oracles |
+| `rx-storage-multiinstance.ts` | 188 | dxdb-storage | in progress | storage traits landed; multiinstance wrapper pending |
 
 ## Plugins (`src/plugins/**`, 52 directories, 37700 lines)
 
@@ -116,12 +116,12 @@ not parity gaps:
 
 | Milestone | Gate (command) | State |
 | --- | --- | --- |
-| M0 | `make check` + `make test` green on host and `wasm32-unknown-unknown` | not started |
-| M1 | `make test -p dxdb-schema -p dxdb-query` incl. ported rx-query/rx-schema suites + fuzz vs JS oracle | not started |
-| M2 | `make test -p dxdb-core` incl. full rx-storage-implementations + query-correctness suites on dxdb-memory | not started |
-| M3 | `make test -p dxdb-replication` incl. ported replication-base-test-suite + two-process convergence | not started |
-| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | not started |
-| M5 | conformance under Wasmtime from .wasm component with preopen; under Node from napi and WASI builds | not started |
+| M0 | `make check` + `make test` green on host and `wasm32-unknown-unknown` | **met** |
+| M1 | `make test -p dxdb-schema -p dxdb-query` incl. ported rx-query/rx-schema suites + fuzz vs JS oracle | **in progress** (60 tests; 900-case oracle green) |
+| M2 | `make test -p dxdb-core` incl. full rx-storage-implementations + query-correctness suites on dxdb-memory | **in progress** (memory storage + conformance at 46/46) |
+| M3 | `make test -p dxdb-replication` incl. ported replication-base-test-suite + two-process convergence | **in progress** (6 cases + protocol layer 1) |
+| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | **in progress** (adapter green in 3 engines; storages pending) |
+| M5 | conformance under Wasmtime from .wasm component with preopen; under Node from napi and WASI builds | **in progress** (storage drivers landed; component run pending) |
 | M6 | full ported open-source plugin test corpus green | not started |
-| M7 | clean-room specs + implementations, invariants-first tests green, gaps register published | not started |
+| M7 | clean-room specs + implementations, invariants-first tests green, gaps register published | **in progress** (B0+B1 done; 3 B2 specs written) |
 

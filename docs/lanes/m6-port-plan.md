@@ -98,8 +98,11 @@ Class key:
 | `webmcp` | 762 | J | omitted — `navigator.modelContext` |
 
 Class totals: **P 21 (9,900)** · **S 9 (8,178)** · **R 11 (11,038)** ·
-**E 2 (1,419)** · **J 7 (1,586)** · **N 2 (5,579)**. Sum 52 / 37,700; the two
-lines of drift against 37,698 are files changing under the worktree.
+**E 2 (1,419)** · **J 7 (1,586)** · **N 2 (5,579)**. The classes are a verified
+partition: 52 distinct directories, each assigned exactly once, summing to the
+same 37,700 lines `wc -l` reports. The counting scripts' 37,698 is 2 lines lower
+because `replication-graphql/helper.ts` and `webmcp/nosql-query-schema.ts` have
+no trailing newline and `wc -l` counts newlines.
 
 ### Notes on the four judgement calls
 
@@ -212,15 +215,18 @@ sync/async. The Rust payload type is named in 3.3.
 | 23 | `preReplicationMasterWrite` | `src/plugins/replication/index.ts:356` | async |
 | 24 | `preReplicationMasterWriteDocumentsHandle` | `src/plugins/replication/index.ts:434` | async |
 
-Registering, in terms of the 24: eleven hooks are actually used by the 52
-plugins. The distinct set is `preCreateRxSchema`, `preCreateRxDatabase`,
+Registering, in terms of the 24: sixteen hooks are registered by at least one of
+the 52 plugins. Those sixteen are `preCreateRxSchema`, `preCreateRxDatabase`,
 `preCreateRxCollection`, `preCreateRxQuery`, `prePrepareRxQuery`,
 `prePrepareQuery`, `preStorageWrite`, `createRxDatabase`, `createRxCollection`,
-`createRxCollection`/`createRxState`, `createRxDocument`, `postCloseRxCollection`,
-`postRemoveRxCollection`, `postRemoveRxDatabase`, `preCloseRxDatabase`,
-`preMigrateDocument`. Sixteen. The other eight exist for third-party plugins; they
-must still be present, because a plugin written against upstream registers
-against all 24.
+`createRxState`, `createRxDocument`, `postCloseRxCollection`,
+`postRemoveRxCollection`, `postRemoveRxDatabase`, `preCloseRxDatabase` and
+`preMigrateDocument`. The other eight — `createRxSchema`, `postCreateRxDocument`,
+`preAddRxPlugin`, `preCreateRxStorageInstance`, `postMigrateDocument`,
+`postCleanup`, `preReplicationMasterWrite` and
+`preReplicationMasterWriteDocumentsHandle` — exist for third-party plugins and are
+nonetheless invoked by core or by another plugin. They must all be present,
+because a plugin written against upstream registers against all 24.
 
 ### 3.3 Rust shapes
 
@@ -281,6 +287,37 @@ pub enum HookPayload<'a> {
     Unsupported(&'a Hook),  // see 3.5: hooks with no call site yet
 }
 ```
+
+Two payloads can now name real types, because lane D published
+`dxdb-storage` (`d136a7a`) while this lane was writing:
+
+- `preCreateRxStorageInstance` carries `dxdb_storage::InstanceCreationParams`
+  (13 fields, `traits.rs:133`).
+- `preStorageWrite` carries
+  `{ storage_instance: &dyn RxStorageInstance, rows: &mut [BulkWriteRow] }`
+  (`write.rs:43`).
+
+**One field is missing and it matters.** Upstream's payload for
+`preCreateRxStorageInstance` includes `password`
+(`src/rx-collection.ts:1268`, `src/rx-database.ts:429`), and
+`dxdb_storage::InstanceCreationParams` deliberately does not, with the reason
+recorded in its own doc comment: encryption is a wrapper, so a plain storage never
+sees a password and one that could see it would be a place to leak it. So the hook
+payload cannot simply be `InstanceCreationParams`; it has to be
+
+```rust
+pub struct PreCreateRxStorageInstancePayload {
+    pub params: dxdb_storage::InstanceCreationParams,
+    /// Upstream passes this. A wrapping storage needs it; `params` must not gain
+    /// it, because a plain storage must never be able to read it.
+    pub password: Option<SecretString>,
+}
+```
+
+This is the one place where the storage layer's improved security contract and
+the hook contract disagree, and the resolution is a separate payload type rather
+than widening `InstanceCreationParams`. Recorded here because it is invisible
+from either side alone.
 
 **The mutating hooks return, they do not take `&mut`.** Upstream passes a mutable
 object and reads it back after the run. In Rust that becomes:
@@ -356,9 +393,13 @@ than a silence.
 
 3. **Prototype mutation has no equivalent.** Upstream's five prototypes
    (`RxSchema`, `RxDocument`, `RxQuery`, `RxCollection`, `RxDatabase`) are
-   monkey-patched by 13 of the 52 plugins, adding methods like
+   monkey-patched by 12 of the 52 plugins — `attachments`, `backup`, `cleanup`,
+   `crdt`, `json-dump`, `local-documents`, `migration-schema`, `pipeline`,
+   `query-builder`, `state`, `update`, `webmcp` — adding methods like
    `doc.update()`, `doc.incrementalUpdate()`, `query.update()`,
-   `db.dump()`, `collection.addPipeline()`, `db.addState()`. The plan's answer
+   `db.dump()`, `collection.addPipeline()`, `db.addState()`. `RxSchema` is
+   patchable upstream but no plugin patches it, so the schema trait is a design
+   obligation with no M6 caller; it can be the last of the five to land. The plan's answer
    (PLAN.md 4.3) is extension traits plus a type-indexed map on the handle. Two
    consequences worth stating now:
 
@@ -408,24 +449,128 @@ this lane needs filler while waiting.
 `hooks.test.ts` (616 lines) and `plugin.test.ts` (209 lines) port to
 `dxdb-core`, not here: they test the registry, and the registry is the database's.
 
-## 5. Open questions that need a decision, not more typing
+### 4.1 Tranche 2: what actually landed
 
-1. **The workspace glob cannot be a one-line change.** Measured, not assumed: the
-   moment `crates/plugins/` exists, `crates/*` matches it, and cargo fails with
-   "failed to read `crates/plugins/Cargo.toml`". The cleanroom lane hit the same
-   wall and its commit `2bbc47d` only changed the `members` line, so
-   `lane/m7-cleanroom` is left in a state that cannot build until its first crate
-   exists. The working form here was:
-   `members = ["crates/dxdb-*", "crates/storages/*", "crates/plugins/*", "xtask"]`
-   (one line, no new `exclude` entry). The leader should adopt it and fix the
-   cleanroom branch to match; `crates/*` as a member glob is incompatible with
-   both group directories.
-2. **`exclude = ["crates/storages"]` silently excludes `crates/storages/dxdb-memory`
-   from the workspace today.** Verified: `cargo metadata` lists six packages and
-   `dxdb-memory` is not one of them, so `make check` and `make test` do not see
-   it. `xtask/status.py`'s greps still find it, so nothing has failed loudly. Lane
-   D's parity oracle is therefore outside the gate. This is a leader-owned fix and
-   it is more urgent than the M6 glob.
+Steps 1 and 2 are done, against `dxdb-storage`'s published surface (lane D,
+`d136a7a`). The numbers are measured, not estimated.
+
+| Crate | Upstream lines ported | Tests | Gate |
+| --- | ---: | ---: | --- |
+| `dxdb-plugin-query-builder` | 749 (631 builder + 81 wrapper + 37 merge helpers) | 29: 11 name an upstream line, 12 cover behaviour upstream tests only incidentally, 4 cross-check the oracle, 2 internal | green |
+| `dxdb-plugin-update` | 82, plus the 14 mingo modifier bodies it depended on | 40: 5 name an upstream line (4 of them modifier cases, 1 the document-layer boundary), 25 name the mingo file whose behaviour they assert, 8 cover the briefed invariants, 2 internal | green |
+
+**Upstream test provenance.** `test/unit/query-builder.test.ts` is 229 lines and
+11 `it(...)` cases, and **all 11 are ported**, each named `upstream_<line>_<slug>`:
+`:24`, `:55`, `:79`, `:89`, `:113`, `:129`, `:142`, `:155`, `:172`, `:221`, and
+`:189`. The last one needs a live collection, so it is ported at builder level
+covering both merge directions rather than as an end-to-end query.
+
+`test/unit/rx-document.test.ts` supplies six: the four modifier cases at `:346`,
+`:362`, `:374` and `:388`, plus `:398`/`:433` as an explicit boundary test
+asserting that the conflict and final-field guards are *not* this crate's job.
+
+The remaining 25 update tests assert mingo behaviour that upstream never tests —
+they name the mingo file whose behaviour they pin, because upstream has no test for
+it and a port that got it wrong would pass upstream's own suite. Eight more cover
+the invariants the brief calls out (unknown modifier must error, accepted set,
+input not mutated, operator order, array-filter refusal, prototype-path refusal).
+
+Total for the tranche: **69 tests, all passing** (29 + 40).
+
+**Gate status, run in sequence as `for t in check clippy test wasm; do make $t; done`
+after merging master:**
+
+| Gate | Exit |
+| --- | --- |
+| `make check` | 0 |
+| `make clippy` | 0 |
+| `make test` | 0 |
+| `make wasm` | 0 |
+| `make fmt-check` | **2 — not this lane** |
+
+`make fmt-check` is red on master independently of `crates/plugins/`: every diff is
+in `crates/dxdb-storage/` (nine files, from lane D). `rustfmt --check` on the two
+plugin crates and their test files exits 0. Reported rather than fixed, because
+`crates/dxdb-storage/` is lane D's path; reformatting it from here would conflict
+with their next commit.
+
+**Not ported, and why it is not a gap to paper over.** The document layer that
+`rx-document.test.ts` exercises around those four cases — revision bump, conflict
+on a stale `_rev` (`:398`), the `final` field guard (`:433`), the query-level
+effect of `_deleted` — belongs to lane D's write path. The modifier engine accepts
+and applies `_rev` and final fields without complaint, because refusing them is
+the caller's job; `upstream_398_and_433_are_document_layer_not_modifier_layer`
+asserts that boundary so it stays machine-visible.
+
+**Brief errata, verified against the pin.** The tranche-2 brief asked for
+`query-builder`'s `.remove()` chain and for `update`'s `incrementalPatch`,
+`incrementalModify` and `atomicUpdate`. None of those exist where the brief places
+them:
+
+- `remove()` is `RxQuery.remove` in core (`src/rx-query.ts:525`), not a
+  query-builder method. The builder's authoritative method list is `where`,
+  `equals`, `eq`, `or`, `nor`, `and`, `mod`, `exists`, `elemMatch`, `sort`, plus
+  `limit`/`skip`/`maxScan`/`batchSize`/`comment` and the nine generated
+  comparisons (`nosql-query-builder.ts:67-321`, `:459`, `:473`). All are ported
+  except `maxScan`/`batchSize`/`comment`, which upstream accepts and then discards
+  at projection time and this crate reproduces deliberately.
+- `incrementalModify` is core `RxDocument`; `incrementalPatch` is defined by
+  `local-documents` (`rx-local-document.ts:201`) and patched by `crdt`
+  (`crdt/index.ts:393`); `atomicUpdate` does not exist anywhere in the repository
+  at `3b763ee17`. The three entry points the update plugin actually defines are
+  `update`, `incrementalUpdate` and `RxQueryUpdate` (`update/index.ts:15,25,34`).
+
+**The modifier dependency decision, recorded in full in the crate docs.** Port the
+operator set directly rather than depend on anything. Nothing off the shelf
+implements mingo's quirks: `$mul` on a missing field yields `0` not `factor`,
+`$inc` skips a non-numeric *target* but errors on a non-numeric *argument*,
+`$unset` writes `null` into arrays, `$push`'s `$slice` keeps the first N when
+positive and the last N when negative. Fourteen operators are accepted, matching
+mingo 7.2.5 exactly; everything else, including the `$setOnInsert` that upstream's
+*typings* advertise but mingo never shipped, is an error rather than a no-op.
+
+## 5. What the workspace line had to be, and what master already resolved
+
+**Resolution status.** The leader merged this lane's first two commits into
+`master` and, in `d7f632b`, independently landed the same `crates/dxdb-*` form
+(found from lane G after `make gate-storage` turned up dead). The current line is
+
+```toml
+members = ["crates/dxdb-*", "crates/storages/*", "crates/plugins/*", "xtask"]
+```
+
+with no `exclude`, and `cargo metadata` now lists `dxdb-memory` as a member. So
+items 1 and 2 below are historical: they record what the constraint was and why
+the brief's literal one-line instruction was unsatisfiable, which is worth
+keeping because the brief still says it.
+
+1. **The workspace glob was not a one-line change in the sense the brief meant.**
+   Measured with `cargo metadata`, not assumed: the moment `crates/plugins/`
+   exists, `crates/*` matches it, and cargo fails with "failed to read
+   `crates/plugins/Cargo.toml`". A member glob cannot coexist with a grouping
+   directory of the same name.
+
+   The obvious fix, `exclude = ["crates/plugins"]`, is worse than the disease: an
+   `exclude` on a grouping directory silently removes every path underneath it, so
+   `crates/plugins/*` would match nothing and the crates would vanish from the
+   workspace while the gate stayed green. That is exactly the defect that had
+   `dxdb-memory` outside `make check`.
+
+   The form that works is `crates/dxdb-*` in place of `crates/*`, which cannot
+   match a grouping directory at all. One changed line, no `exclude` entry, and
+   the reason for the `exclude` disappears rather than moving.
+
+2. **`exclude = ["crates/storages"]` silently excluded
+   `crates/storages/dxdb-memory` from the workspace.** Verified by
+   `cargo metadata` listing six packages with no storage crate, so `make check`
+   and `make test` never saw the parity oracle. `xtask/status.py`'s greps still
+   found the files, so nothing failed loudly. Fixed on master by `d7f632b`; it is
+   recorded here because this lane found it from the M6 side and the general rule
+   ("`exclude` wins over `members` for everything underneath") is the reason to
+   prefer a narrower `members` glob over an `exclude` in future lanes.
+
+## 6. Open questions that need a decision, not more typing
+
 3. **`attachments` path ownership conflicts with the lane brief.** The brief lists
    `attachments` first in the build order; `docs/WORKTREES.md` assigns
    `crates/dxdb-attachments/` to lane E. Filenames say E, the brief says here.

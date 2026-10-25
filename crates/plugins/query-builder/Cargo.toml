@@ -8,3 +8,10 @@ repository.workspace = true
 description = "dxdb plugin: the chainable Mango query builder (RxDB src/plugins/query-builder)"
 
 [dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-json = { path = "../../dxdb-json" }
+dxdb-storage = { path = "../../dxdb-storage" }
+
+[dev-dependencies]
+serde_json.workspace = true
