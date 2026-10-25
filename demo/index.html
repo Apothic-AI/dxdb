@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>dxdb browser conformance harness</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        margin: 2rem auto; max-width: 62rem; padding: 0 1rem;
+      }
+      h1 { font-size: 1.1rem; }
+      table { border-collapse: collapse; width: 100%; margin: 0.5rem 0 1.5rem; }
+      th, td { text-align: left; padding: 0.2rem 0.5rem; border-bottom: 1px solid #8883; }
+      th { font-weight: 600; }
+      .pass { color: #10701b; }
+      .fail { color: #b3261e; }
+      .skip { color: #8a6d00; }
+      #status { font-weight: 700; }
+      caption { text-align: left; font-weight: 600; padding-bottom: 0.25rem; }
+    </style>
+  </head>
+  <body>
+    <h1>dxdb browser conformance harness</h1>
+    <p>Overall: <span id="status" data-state="pending">pending</span></p>
+
+    <!--
+      Results are published as `data-*` attributes on <body> and as a JSON blob
+      in #results, because Playwright must be able to read them without relying
+      on anything the page renders. If the page fails before it sets
+      data-status="done", the spec reports that rather than timing out silently.
+    -->
+    <div id="results"></div>
+    <table id="capabilities">
+      <caption>Capability probe (this engine, this run)</caption>
+      <thead>
+        <tr><th>Capability</th><th>Result</th><th>Detail</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <table id="suite">
+      <caption>Conformance suite</caption>
+      <thead>
+        <tr><th>Storage</th><th>Status</th><th>Detail</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
