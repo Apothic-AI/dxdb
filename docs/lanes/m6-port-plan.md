@@ -288,6 +288,37 @@ pub enum HookPayload<'a> {
 }
 ```
 
+Two payloads can now name real types, because lane D published
+`dxdb-storage` (`d136a7a`) while this lane was writing:
+
+- `preCreateRxStorageInstance` carries `dxdb_storage::InstanceCreationParams`
+  (13 fields, `traits.rs:133`).
+- `preStorageWrite` carries
+  `{ storage_instance: &dyn RxStorageInstance, rows: &mut [BulkWriteRow] }`
+  (`write.rs:43`).
+
+**One field is missing and it matters.** Upstream's payload for
+`preCreateRxStorageInstance` includes `password`
+(`src/rx-collection.ts:1268`, `src/rx-database.ts:429`), and
+`dxdb_storage::InstanceCreationParams` deliberately does not, with the reason
+recorded in its own doc comment: encryption is a wrapper, so a plain storage never
+sees a password and one that could see it would be a place to leak it. So the hook
+payload cannot simply be `InstanceCreationParams`; it has to be
+
+```rust
+pub struct PreCreateRxStorageInstancePayload {
+    pub params: dxdb_storage::InstanceCreationParams,
+    /// Upstream passes this. A wrapping storage needs it; `params` must not gain
+    /// it, because a plain storage must never be able to read it.
+    pub password: Option<SecretString>,
+}
+```
+
+This is the one place where the storage layer's improved security contract and
+the hook contract disagree, and the resolution is a separate payload type rather
+than widening `InstanceCreationParams`. Recorded here because it is invisible
+from either side alone.
+
 **The mutating hooks return, they do not take `&mut`.** Upstream passes a mutable
 object and reads it back after the run. In Rust that becomes:
 
@@ -417,6 +448,60 @@ this lane needs filler while waiting.
 
 `hooks.test.ts` (616 lines) and `plugin.test.ts` (209 lines) port to
 `dxdb-core`, not here: they test the registry, and the registry is the database's.
+
+### 4.1 Tranche 2: what actually landed
+
+Steps 1 and 2 are done, against `dxdb-storage`'s published surface (lane D,
+`d136a7a`). The numbers are measured, not estimated.
+
+| Crate | Upstream lines ported | Tests | Gate |
+| --- | ---: | ---: | --- |
+| `dxdb-plugin-query-builder` | 749 (631 builder + 81 wrapper + 37 merge helpers) | 29: 23 upstream-derived, 4 vector cross-check, 2 internal | green |
+| `dxdb-plugin-update` | 82, plus the 14 mingo modifier bodies it depended on | 40: 38 upstream/mingo-derived, 2 internal | green |
+
+**Upstream test provenance.** `test/unit/query-builder.test.ts` is 229 lines and
+11 `it(...)` cases. Ten are ported one-for-one, each named
+`upstream_<line>_<slug>`; the eleventh (`:189`) needs a live collection and is
+ported at builder level for both merge directions. `test/unit/rx-document.test.ts`
+lines 346, 362, 374 and 388 supply the four `$set`/`$unset`/`$inc`/`delete`
+modifier cases. The other 34 update tests assert mingo behaviour that upstream
+never tests, so they name the mingo file instead of an RxDB line; a port that got
+those wrong would pass upstream's own suite.
+
+**Not ported, and why it is not a gap to paper over.** The document layer that
+`rx-document.test.ts` exercises around those four cases — revision bump, conflict
+on a stale `_rev` (`:398`), the `final` field guard (`:433`), the query-level
+effect of `_deleted` — belongs to lane D's write path. The modifier engine accepts
+and applies `_rev` and final fields without complaint, because refusing them is
+the caller's job; `upstream_398_and_433_are_document_layer_not_modifier_layer`
+asserts that boundary so it stays machine-visible.
+
+**Brief errata, verified against the pin.** The tranche-2 brief asked for
+`query-builder`'s `.remove()` chain and for `update`'s `incrementalPatch`,
+`incrementalModify` and `atomicUpdate`. None of those exist where the brief places
+them:
+
+- `remove()` is `RxQuery.remove` in core (`src/rx-query.ts:525`), not a
+  query-builder method. The builder's authoritative method list is `where`,
+  `equals`, `eq`, `or`, `nor`, `and`, `mod`, `exists`, `elemMatch`, `sort`, plus
+  `limit`/`skip`/`maxScan`/`batchSize`/`comment` and the nine generated
+  comparisons (`nosql-query-builder.ts:67-321`, `:459`, `:473`). All are ported
+  except `maxScan`/`batchSize`/`comment`, which upstream accepts and then discards
+  at projection time and this crate reproduces deliberately.
+- `incrementalModify` is core `RxDocument`; `incrementalPatch` is defined by
+  `local-documents` (`rx-local-document.ts:201`) and patched by `crdt`
+  (`crdt/index.ts:393`); `atomicUpdate` does not exist anywhere in the repository
+  at `3b763ee17`. The three entry points the update plugin actually defines are
+  `update`, `incrementalUpdate` and `RxQueryUpdate` (`update/index.ts:15,25,34`).
+
+**The modifier dependency decision, recorded in full in the crate docs.** Port the
+operator set directly rather than depend on anything. Nothing off the shelf
+implements mingo's quirks: `$mul` on a missing field yields `0` not `factor`,
+`$inc` skips a non-numeric *target* but errors on a non-numeric *argument*,
+`$unset` writes `null` into arrays, `$push`'s `$slice` keeps the first N when
+positive and the last N when negative. Fourteen operators are accepted, matching
+mingo 7.2.5 exactly; everything else, including the `$setOnInsert` that upstream's
+*typings* advertise but mingo never shipped, is an error rather than a no-op.
 
 ## 5. What the workspace line had to be, and what master already resolved
 
