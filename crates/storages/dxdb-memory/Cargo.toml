@@ -14,6 +14,10 @@ futures.workspace = true
 dxdb-jsnum = { path = "../../dxdb-jsnum" }
 dxdb-jsstr = { path = "../../dxdb-jsstr" }
 dxdb-storage = { path = "../../dxdb-storage" }
+# The query surface (index strings, planner, matcher, comparator). Now that
+# dxdb-query is published, dxdb-memory consumes it instead of keeping a local
+# duplicate: this crate is a storage, and a storage does not author encodings.
+dxdb-query = { path = "../../dxdb-query" }
 
 [dev-dependencies]
 # The index-string and behaviour oracles read committed vector files.

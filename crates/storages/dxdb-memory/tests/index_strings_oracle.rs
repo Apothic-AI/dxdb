@@ -25,9 +25,13 @@
 
 use std::collections::BTreeMap;
 
-use dxdb_memory::index_strings::{
+// The encoder under test is `dxdb-query`'s, not a local copy. This test began life
+// checking `dxdb-memory`'s own port while `dxdb-query` was unpublished; now that lane
+// B has published, the same vectors check *their* encoder from a storage's side,
+// which is where a divergence would actually hurt. The vectors did not move.
+use dxdb_query::custom_index::{
     get_index_string_length, get_indexable_string, get_start_index_string_from_lower_bound,
-    get_start_index_string_from_upper_bound, index_max_str, BoundValue,
+    get_start_index_string_from_upper_bound, BoundValue, INDEX_MAX,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -190,7 +194,7 @@ fn neutral_bounds(
     let mut bounds = Vec::with_capacity(index.len());
     let mut saw_probed_field = false;
     for path in index {
-        let part = dxdb_memory::index_strings::get_schema_by_object_path(schema, path)
+        let part = schema_by_object_path(schema, path)
             .ok_or_else(|| format!("index field '{path}' is not in properties"))?;
         let field_type = part.get("type").and_then(Value::as_str).unwrap_or("string");
         if path == probed_field {
@@ -199,20 +203,22 @@ fn neutral_bounds(
             // `"bound": null` is the *null* probe. They are different upstream
             // branches, so they must stay different here.
             bounds.push(match probe {
-                Probe::Undefined => BoundValue::Undefined,
-                Probe::Null => BoundValue::Null,
-                Probe::Value => BoundValue::from_json(
+                Probe::Undefined => BoundValue::from_json(None),
+                Probe::Null => BoundValue::from_json(Some(&Value::Null)),
+                Probe::Value => BoundValue::from_json(Some(
                     probe_json.expect("a value probe carries its value"),
-                ),
+                )),
             });
             continue;
         }
         bounds.push(match field_type {
-            "number" | "integer" => BoundValue::Value(Value::from(
+            // The neutral filler the generator used, as JSON, then through the same
+            // conversion a plan would take.
+            "number" | "integer" => BoundValue::from_json(Some(&Value::from(
                 part.get("minimum").and_then(Value::as_f64).unwrap_or(0.0),
-            )),
-            "boolean" => BoundValue::Value(Value::Bool(false)),
-            _ => BoundValue::Value(Value::String(String::new())),
+            ))),
+            "boolean" => BoundValue::from_json(Some(&Value::Bool(false))),
+            _ => BoundValue::from_json(Some(&Value::String(String::new()))),
         });
     }
     if !saw_probed_field {
@@ -491,15 +497,18 @@ fn inputs_upstream_rejects_are_rejected_here() {
         // correct; silently producing a string is not.
         let message = encoded.expect_err("checked above").to_string();
         match case.class.as_str() {
+            // Assert on the error *code*, not on wording: the message belongs to
+            // `dxdb-query`, the code is the upstream catalogue entry. `CI2` is
+            // "index field's type cannot be encoded" and `CI1` is "index field is not
+            // in the schema", which is exactly the two rules these cases pin.
             "upstream-requires-numeric-index-bounds" => assert!(
-                message.contains("minimum and maximum")
-                    || message.contains("unsupported type"),
-                "{}: expected a bounds or type error, got {message}",
+                message.contains("CI2"),
+                "{}: expected CI2 (unencodable index field), got {message}",
                 case.schema
             ),
             "upstream-rejects-missing-indexed-field" => assert!(
-                message.contains("not in properties"),
-                "{}: expected a missing-field error, got {message}",
+                message.contains("CI1"),
+                "{}: expected CI1 (missing indexed field), got {message}",
                 case.schema
             ),
             other => panic!("unexpected class {other}"),
@@ -535,8 +544,31 @@ fn the_corpus_still_probes_the_clamping_boundary() {
 
 /// Sanity: the sentinel the bounds code uses is upstream's `INDEX_MAX`, a single
 /// U+FFFF, and not something stringified.
+///
+/// This is also the D8 check from the storage side: the sentinel the planner emits
+/// must be the same value the storage recognises, as a single code unit.
 #[test]
 fn the_index_max_sentinel_is_one_code_unit() {
-    assert_eq!(index_max_str().chars().count(), 1);
-    assert_eq!(index_max_str(), "\u{FFFF}");
+    assert_eq!(INDEX_MAX.chars().count(), 1);
+    assert_eq!(INDEX_MAX, "\u{FFFF}");
+    // D8: the numeric sentinel is MIN_SAFE_INTEGER and survives the f64 view
+    // exactly, because it is an integer well inside 2^53.
+    let as_f64 = dxdb_query::custom_index::INDEX_MIN as f64;
+    assert_eq!(as_f64, -9_007_199_254_740_991.0_f64);
+    assert_eq!(as_f64 as i64, dxdb_query::custom_index::INDEX_MIN);
+    assert!(as_f64.is_finite(), "must survive JSON, so never -Infinity");
+}
+
+/// Resolves a dotted field path in a schema part the way upstream's
+/// `getSchemaByObjectPath` does: the whole path is prefixed with `properties.` and
+/// every dot is rewritten to `.properties.`, so the leaf is under `properties` too.
+fn schema_by_object_path(schema: &Value, path: &str) -> Option<Value> {
+    let mut current = schema.get("properties")?;
+    for (position, segment) in path.split('.').enumerate() {
+        if position > 0 {
+            current = current.get("properties")?;
+        }
+        current = current.get(segment)?;
+    }
+    Some(current.clone())
 }

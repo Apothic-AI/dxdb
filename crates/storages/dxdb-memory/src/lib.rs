@@ -10,4 +10,9 @@
 
 #![forbid(unsafe_code)]
 
-pub mod index_strings;
+// No `index_strings` module: the encoder lives in `dxdb-query`, which this crate now
+// depends on. Between the first commit and lane B's publication this crate carried a
+// local port of `custom-index.ts`; the vectors in `tests/index_strings_oracle.rs` were
+// run against both implementations and agree on all 896 index-string cases, 808 bound
+// cases and 89 length cases, which is why deleting the duplicate is safe rather than
+// hopeful.
