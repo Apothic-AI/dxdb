@@ -1,0 +1,16 @@
+{
+  "name": "dxdb-vectors-toolchain",
+  "private": true,
+  "type": "module",
+  "description": "Pinned runtime dependencies used by the vector generators to import upstream RxDB source. Not part of the Rust build; node_modules/ is gitignored.",
+  "dependencies": {
+    "js-base64": "3.9.4",
+    "mingo": "7.2.5",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "array-push-at-sort-position": "5.0.0",
+    "async-test-util": "2.5.0",
+    "esbuild": "0.25.10"
+  }
+}

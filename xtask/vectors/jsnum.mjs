@@ -121,30 +121,48 @@ const doc = {
 
 const json = JSON.stringify(doc, null, 2) + '\n';
 
-if (process.argv.includes('--check')) {
-  let committed;
-  try {
-    committed = readFileSync(outFile, 'utf8');
-  } catch {
-    console.error(`jsnum vectors missing at ${outFile}; run \`make vectors\``);
-    process.exit(1);
+/**
+ * Write or verify the jsnum family. Exported so `generate.mjs` can run every
+ * family in one process; the standalone `node xtask/vectors/jsnum.mjs [--check]`
+ * behaviour below is unchanged, because this file is the reference the other
+ * families are written against.
+ */
+export function run({ check = process.argv.includes('--check'), repo: repoArg } = {}) {
+  const target = repoArg ? join(repoArg, 'testdata', 'vectors', 'jsnum.json') : outFile;
+  if (check) {
+    let committed;
+    try {
+      committed = readFileSync(target, 'utf8');
+    } catch {
+      console.error(`jsnum vectors missing at ${target}; run \`make vectors\``);
+      return { ok: false, cases: doc.cases.length };
+    }
+    // Compare parsed content, not formatting, so a whitespace-only rewrite is not
+    // reported as drift. The node version is excluded for the same reason: an
+    // upgrade should not fail the build if the numbers are identical.
+    const strip = (text) => {
+      const parsed = JSON.parse(text);
+      delete parsed.node;
+      return JSON.stringify(parsed);
+    };
+    if (strip(committed) !== strip(json)) {
+      console.error('jsnum vectors drifted from the current Node output:');
+      console.error(`  regenerate with \`make vectors\` and review the diff at ${target}`);
+      return { ok: false, cases: doc.cases.length };
+    }
+    console.log(`jsnum vectors OK (${doc.cases.length} cases)`);
+    return { ok: true, cases: doc.cases.length };
   }
-  // Compare parsed content, not formatting, so a whitespace-only rewrite is not
-  // reported as drift. The node version is excluded for the same reason: an
-  // upgrade should not fail the build if the numbers are identical.
-  const strip = (text) => {
-    const parsed = JSON.parse(text);
-    delete parsed.node;
-    return JSON.stringify(parsed);
-  };
-  if (strip(committed) !== strip(json)) {
-    console.error('jsnum vectors drifted from the current Node output:');
-    console.error(`  regenerate with \`make vectors\` and review the diff at ${outFile}`);
-    process.exit(1);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, json);
+  console.log(`wrote ${target} (${doc.cases.length} cases, node ${process.version})`);
+  return { ok: true, cases: doc.cases.length, bytes: json.length };
+}
+
+// Standalone entry point.
+if (process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
+  const result = run();
+  if (!result.ok) {
+    process.exitCode = 1;
   }
-  console.log(`jsnum vectors OK (${doc.cases.length} cases)`);
-} else {
-  mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, json);
-  console.log(`wrote ${outFile} (${doc.cases.length} cases, node ${process.version})`);
 }
