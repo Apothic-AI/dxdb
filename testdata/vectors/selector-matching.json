@@ -1,0 +1,3970 @@
+{
+  "$comment": "Selector matching from upstream `getQueryMatcher` (mingo configured by src/rx-query-mingo.ts) over a generated document corpus (PLAN.md 7.2). `matchingIds` is the differential oracle for the M1 matcher and the input to its property test. `corpus` is the exact document set, so the Rust side does not have to reproduce the generator.",
+  "generator": "xtask/vectors/generate.mjs",
+  "rxdbVersion": "17.6.0",
+  "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
+  "node": "v22.23.3",
+  "format": "documents+selector->matchingIds",
+  "determinism": {
+    "corpus": "generated from xorshift128 seeded with 0x5e1ec7, 64 documents"
+  },
+  "registeredOperators": [
+    "$elemMatch",
+    "$eq",
+    "$nor",
+    "$exists",
+    "$regex",
+    "$and",
+    "$gt",
+    "$gte",
+    "$in",
+    "$lt",
+    "$lte",
+    "$ne",
+    "$nin",
+    "$mod",
+    "$not",
+    "$or",
+    "$size",
+    "$type"
+  ],
+  "corpus": [
+    {
+      "id": "doc-000",
+      "firstName": null,
+      "lastName": "z",
+      "age": 20,
+      "address": {
+        "street": "main",
+        "number": 0
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-000",
+      "_meta": {
+        "lwt": 1000
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-001",
+      "firstName": "",
+      "lastName": "z",
+      "age": 40,
+      "tags": [],
+      "address": {
+        "street": "",
+        "number": 1
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-001",
+      "_meta": {
+        "lwt": 1001
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-002",
+      "firstName": "carol",
+      "lastName": "Smith-Jr",
+      "age": 20,
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "side",
+        "number": 4
+      },
+      "_deleted": false,
+      "_rev": "1-doc-002",
+      "_meta": {
+        "lwt": 1002
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-003",
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "side",
+        "number": 2
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-003",
+      "_meta": {
+        "lwt": 1003
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-004",
+      "firstName": "",
+      "age": 20,
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 1
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-004",
+      "_meta": {
+        "lwt": 1004
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-005",
+      "firstName": "😊",
+      "lastName": "",
+      "age": 40,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "side",
+        "number": 4
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-005",
+      "_meta": {
+        "lwt": 1005
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-006",
+      "firstName": null,
+      "lastName": "",
+      "age": 0,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "main",
+        "number": 0
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-006",
+      "_meta": {
+        "lwt": 1006
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-007",
+      "firstName": "Alice",
+      "lastName": "Smith-Jr",
+      "age": 0,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "side",
+        "number": 1
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-007",
+      "_meta": {
+        "lwt": 1007
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-008",
+      "firstName": null,
+      "lastName": "z",
+      "age": 3.5,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 0
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-008",
+      "_meta": {
+        "lwt": 1008
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-009",
+      "firstName": "",
+      "lastName": "",
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 1
+      },
+      "_deleted": false,
+      "_rev": "1-doc-009",
+      "_meta": {
+        "lwt": 1009
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-010",
+      "firstName": "😊",
+      "lastName": "",
+      "age": 20,
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 3
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-010",
+      "_meta": {
+        "lwt": 1010
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-011",
+      "firstName": "bob",
+      "lastName": "z",
+      "age": -1,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 3
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-011",
+      "_meta": {
+        "lwt": 1011
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-012",
+      "firstName": "bob",
+      "lastName": "Smith-Jr",
+      "tags": [],
+      "address": {
+        "street": "",
+        "number": 4
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-012",
+      "_meta": {
+        "lwt": 1012
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-013",
+      "firstName": "Alice",
+      "lastName": "o'neil",
+      "age": -1,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "main",
+        "number": 2
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-013",
+      "_meta": {
+        "lwt": 1013
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-014",
+      "firstName": null,
+      "age": 150,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "side",
+        "number": 4
+      },
+      "_deleted": false,
+      "_rev": "1-doc-014",
+      "_meta": {
+        "lwt": 1014
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-015",
+      "firstName": "Alice",
+      "lastName": "jones",
+      "age": 150,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "",
+        "number": 0
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-015",
+      "_meta": {
+        "lwt": 1015
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-016",
+      "firstName": "äöü",
+      "lastName": "z",
+      "age": 1,
+      "tags": [],
+      "address": {
+        "street": "",
+        "number": 3
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-016",
+      "_meta": {
+        "lwt": 1016
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-017",
+      "firstName": "null",
+      "lastName": "",
+      "age": 0,
+      "active": false,
+      "_deleted": true,
+      "_rev": "1-doc-017",
+      "_meta": {
+        "lwt": 1017
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-018",
+      "lastName": "o'neil",
+      "age": -1,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "firstName": null,
+      "_deleted": false,
+      "_rev": "1-doc-018",
+      "_meta": {
+        "lwt": 1018
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-019",
+      "firstName": "",
+      "lastName": "jones",
+      "age": 21,
+      "address": {
+        "street": "",
+        "number": 1
+      },
+      "_deleted": false,
+      "_rev": "1-doc-019",
+      "_meta": {
+        "lwt": 1019
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-020",
+      "age": 40,
+      "address": {
+        "street": "oak",
+        "number": 4
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-020",
+      "_meta": {
+        "lwt": 1020
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-021",
+      "tags": [],
+      "address": {
+        "street": "side",
+        "number": 2
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-021",
+      "_meta": {
+        "lwt": 1021
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-022",
+      "firstName": null,
+      "lastName": "o'neil",
+      "age": 40,
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "side",
+        "number": 2
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-022",
+      "_meta": {
+        "lwt": 1022
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-023",
+      "lastName": "o'neil",
+      "age": 3.5,
+      "tags": [
+        "ä"
+      ],
+      "active": false,
+      "_deleted": true,
+      "_rev": "1-doc-023",
+      "_meta": {
+        "lwt": 1023
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-024",
+      "firstName": "",
+      "age": 40,
+      "tags": [
+        "a"
+      ],
+      "active": false,
+      "_deleted": true,
+      "_rev": "1-doc-024",
+      "_meta": {
+        "lwt": 1024
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-025",
+      "firstName": null,
+      "lastName": "o'neil",
+      "age": 21,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "main",
+        "number": 4
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-025",
+      "_meta": {
+        "lwt": 1025
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-026",
+      "lastName": "smith",
+      "age": 40,
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 0
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-026",
+      "_meta": {
+        "lwt": 1026
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-027",
+      "firstName": "",
+      "lastName": "jones",
+      "age": 0,
+      "address": {
+        "street": "",
+        "number": 1
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-027",
+      "_meta": {
+        "lwt": 1027
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-028",
+      "firstName": "Alice",
+      "lastName": "z",
+      "age": 1,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "",
+        "number": 2
+      },
+      "active": true,
+      "_deleted": true,
+      "_rev": "1-doc-028",
+      "_meta": {
+        "lwt": 1028
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-029",
+      "firstName": "alice",
+      "age": 21,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 0
+      },
+      "active": true,
+      "_deleted": true,
+      "_rev": "1-doc-029",
+      "_meta": {
+        "lwt": 1029
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-030",
+      "age": 21,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "side",
+        "number": 1
+      },
+      "active": true,
+      "firstName": null,
+      "_deleted": false,
+      "_rev": "1-doc-030",
+      "_meta": {
+        "lwt": 1030
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-031",
+      "firstName": "äöü",
+      "lastName": "o'neil",
+      "age": 1,
+      "address": {
+        "street": "main",
+        "number": 3
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-031",
+      "_meta": {
+        "lwt": 1031
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-032",
+      "firstName": "carol",
+      "age": 1,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "_deleted": false,
+      "_rev": "1-doc-032",
+      "_meta": {
+        "lwt": 1032
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-033",
+      "firstName": null,
+      "lastName": "Smith-Jr",
+      "age": 1000,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "address": {
+        "street": "main",
+        "number": 3
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-033",
+      "_meta": {
+        "lwt": 1033
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-034",
+      "firstName": "a b",
+      "lastName": "z",
+      "address": {
+        "street": "oak",
+        "number": 2
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-034",
+      "_meta": {
+        "lwt": 1034
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-035",
+      "firstName": "alice",
+      "lastName": "jones",
+      "age": 150,
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 2
+      },
+      "_deleted": false,
+      "_rev": "1-doc-035",
+      "_meta": {
+        "lwt": 1035
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-036",
+      "firstName": null,
+      "lastName": "o'neil",
+      "age": 20,
+      "address": {
+        "street": "main",
+        "number": 4
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-036",
+      "_meta": {
+        "lwt": 1036
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-037",
+      "firstName": "Alice",
+      "lastName": "o'neil",
+      "age": 150,
+      "tags": [
+        "a"
+      ],
+      "address": {
+        "street": "side",
+        "number": 1
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-037",
+      "_meta": {
+        "lwt": 1037
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-038",
+      "firstName": "null",
+      "lastName": "smith",
+      "age": -1,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 4
+      },
+      "_deleted": true,
+      "_rev": "1-doc-038",
+      "_meta": {
+        "lwt": 1038
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-039",
+      "firstName": "null",
+      "age": 1000,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "main",
+        "number": 3
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-039",
+      "_meta": {
+        "lwt": 1039
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-040",
+      "firstName": "null",
+      "lastName": "o'neil",
+      "age": 1,
+      "address": {
+        "street": "",
+        "number": 1
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-040",
+      "_meta": {
+        "lwt": 1040
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-041",
+      "firstName": "",
+      "lastName": "jones",
+      "age": -1,
+      "tags": [],
+      "address": {
+        "street": "side",
+        "number": 3
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-041",
+      "_meta": {
+        "lwt": 1041
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-042",
+      "firstName": "Alice",
+      "age": 1,
+      "tags": [],
+      "address": {
+        "street": "",
+        "number": 3
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-042",
+      "_meta": {
+        "lwt": 1042
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-043",
+      "firstName": "äöü",
+      "lastName": "o'neil",
+      "age": 20,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 4
+      },
+      "_deleted": false,
+      "_rev": "1-doc-043",
+      "_meta": {
+        "lwt": 1043
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-044",
+      "firstName": "bob",
+      "lastName": "o'neil",
+      "age": 21,
+      "_deleted": false,
+      "_rev": "1-doc-044",
+      "_meta": {
+        "lwt": 1044
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-045",
+      "firstName": null,
+      "lastName": "",
+      "age": 20,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "",
+        "number": 1
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-045",
+      "_meta": {
+        "lwt": 1045
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-046",
+      "firstName": "carol",
+      "age": 20,
+      "tags": [
+        "ä"
+      ],
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-046",
+      "_meta": {
+        "lwt": 1046
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-047",
+      "firstName": "null",
+      "lastName": "o'neil",
+      "age": 1000,
+      "tags": [
+        "a"
+      ],
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-047",
+      "_meta": {
+        "lwt": 1047
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-048",
+      "lastName": "Smith-Jr",
+      "age": 40,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "main",
+        "number": 3
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-048",
+      "_meta": {
+        "lwt": 1048
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-049",
+      "firstName": "a b",
+      "lastName": "o'neil",
+      "age": 0,
+      "tags": [
+        "ä"
+      ],
+      "_deleted": false,
+      "_rev": "1-doc-049",
+      "_meta": {
+        "lwt": 1049
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-050",
+      "firstName": "a b",
+      "lastName": "o'neil",
+      "age": -1,
+      "tags": [],
+      "address": {
+        "street": "oak",
+        "number": 0
+      },
+      "active": true,
+      "_deleted": true,
+      "_rev": "1-doc-050",
+      "_meta": {
+        "lwt": 1050
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-051",
+      "firstName": "Alice",
+      "lastName": "z",
+      "age": -1,
+      "tags": [
+        "a"
+      ],
+      "_deleted": false,
+      "_rev": "1-doc-051",
+      "_meta": {
+        "lwt": 1051
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-052",
+      "lastName": "jones",
+      "age": 150,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 2
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-052",
+      "_meta": {
+        "lwt": 1052
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-053",
+      "firstName": null,
+      "age": 150,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "address": {
+        "street": "",
+        "number": 2
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-053",
+      "_meta": {
+        "lwt": 1053
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-054",
+      "lastName": "Smith-Jr",
+      "age": 3.5,
+      "tags": [
+        "ä"
+      ],
+      "_deleted": false,
+      "_rev": "1-doc-054",
+      "_meta": {
+        "lwt": 1054
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-055",
+      "firstName": "Alice",
+      "age": 21,
+      "tags": [
+        "ä"
+      ],
+      "address": {
+        "street": "oak",
+        "number": 2
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-055",
+      "_meta": {
+        "lwt": 1055
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-056",
+      "firstName": "a b",
+      "lastName": "jones",
+      "age": 150,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "_deleted": true,
+      "_rev": "1-doc-056",
+      "_meta": {
+        "lwt": 1056
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-057",
+      "lastName": "o'neil",
+      "tags": [],
+      "address": {
+        "street": "",
+        "number": 4
+      },
+      "active": true,
+      "_deleted": true,
+      "_rev": "1-doc-057",
+      "_meta": {
+        "lwt": 1057
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-058",
+      "firstName": "äöü",
+      "lastName": "",
+      "age": 21,
+      "address": {
+        "street": "main",
+        "number": 1
+      },
+      "_deleted": false,
+      "_rev": "1-doc-058",
+      "_meta": {
+        "lwt": 1058
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-059",
+      "firstName": "carol",
+      "lastName": "",
+      "age": 1000,
+      "tags": [],
+      "address": {
+        "street": "side",
+        "number": 0
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-059",
+      "_meta": {
+        "lwt": 1059
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-060",
+      "lastName": "",
+      "age": 150,
+      "address": {
+        "street": "oak",
+        "number": 2
+      },
+      "active": false,
+      "_deleted": false,
+      "_rev": "1-doc-060",
+      "_meta": {
+        "lwt": 1060
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-061",
+      "firstName": "äöü",
+      "lastName": "o'neil",
+      "age": 21,
+      "address": {
+        "street": "",
+        "number": 3
+      },
+      "active": true,
+      "_deleted": false,
+      "_rev": "1-doc-061",
+      "_meta": {
+        "lwt": 1061
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-062",
+      "firstName": "bob",
+      "lastName": "",
+      "age": 150,
+      "tags": [
+        "b",
+        "c"
+      ],
+      "address": {
+        "street": "side",
+        "number": 2
+      },
+      "_deleted": false,
+      "_rev": "1-doc-062",
+      "_meta": {
+        "lwt": 1062
+      },
+      "_attachments": {}
+    },
+    {
+      "id": "doc-063",
+      "firstName": "bob",
+      "lastName": "Smith-Jr",
+      "age": -1,
+      "tags": [],
+      "address": {
+        "street": "oak",
+        "number": 2
+      },
+      "_deleted": false,
+      "_rev": "1-doc-063",
+      "_meta": {
+        "lwt": 1063
+      },
+      "_attachments": {}
+    }
+  ],
+  "caseCount": 63,
+  "matchingCaseCount": 60,
+  "rejectionCaseCount": 3,
+  "unexpectedRejections": [],
+  "cases": [
+    {
+      "why": "eq-field",
+      "selector": {
+        "firstName": {
+          "$eq": "alice"
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$eq": "alice"
+        }
+      },
+      "matchingIds": [
+        "doc-029",
+        "doc-035"
+      ],
+      "matchCount": 2
+    },
+    {
+      "why": "eq-null",
+      "selector": {
+        "firstName": {
+          "$eq": null
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$eq": null
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-003",
+        "doc-006",
+        "doc-008",
+        "doc-014",
+        "doc-018",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-025",
+        "doc-026",
+        "doc-030",
+        "doc-033",
+        "doc-036",
+        "doc-045",
+        "doc-048",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-057",
+        "doc-060"
+      ],
+      "matchCount": 22
+    },
+    {
+      "why": "eq-zero",
+      "selector": {
+        "age": {
+          "$eq": 0
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$eq": 0
+        }
+      },
+      "matchingIds": [
+        "doc-006",
+        "doc-007",
+        "doc-017",
+        "doc-027",
+        "doc-049"
+      ],
+      "matchCount": 5
+    },
+    {
+      "why": "eq-empty-string",
+      "selector": {
+        "firstName": {
+          "$eq": ""
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$eq": ""
+        }
+      },
+      "matchingIds": [
+        "doc-001",
+        "doc-004",
+        "doc-009",
+        "doc-019",
+        "doc-024",
+        "doc-027",
+        "doc-041"
+      ],
+      "matchCount": 7
+    },
+    {
+      "why": "eq-boolean",
+      "selector": {
+        "active": {
+          "$eq": true
+        }
+      },
+      "normalizedSelector": {
+        "active": {
+          "$eq": true
+        }
+      },
+      "matchingIds": [
+        "doc-003",
+        "doc-005",
+        "doc-006",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-015",
+        "doc-020",
+        "doc-021",
+        "doc-026",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-036",
+        "doc-040",
+        "doc-041",
+        "doc-050",
+        "doc-052",
+        "doc-057",
+        "doc-059",
+        "doc-061"
+      ],
+      "matchCount": 21
+    },
+    {
+      "why": "eq-deleted-flag",
+      "selector": {
+        "_deleted": {
+          "$eq": false
+        }
+      },
+      "normalizedSelector": {
+        "_deleted": {
+          "$eq": false
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-018",
+        "doc-019",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 55
+    },
+    {
+      "why": "eq-missing-field",
+      "selector": {
+        "notAField": {
+          "$eq": 1
+        }
+      },
+      "normalizedSelector": {
+        "notAField": {
+          "$eq": 1
+        }
+      },
+      "matchingIds": [],
+      "matchCount": 0
+    },
+    {
+      "why": "eq-nested-path",
+      "selector": {
+        "address.street": {
+          "$eq": "main"
+        }
+      },
+      "normalizedSelector": {
+        "address.street": {
+          "$eq": "main"
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-006",
+        "doc-013",
+        "doc-025",
+        "doc-031",
+        "doc-033",
+        "doc-036",
+        "doc-039",
+        "doc-048",
+        "doc-058"
+      ],
+      "matchCount": 10
+    },
+    {
+      "why": "eq-array",
+      "selector": {
+        "tags": {
+          "$eq": [
+            "a"
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$eq": [
+            "a"
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-009",
+        "doc-010",
+        "doc-022",
+        "doc-024",
+        "doc-026",
+        "doc-035",
+        "doc-037",
+        "doc-047",
+        "doc-051"
+      ],
+      "matchCount": 12
+    },
+    {
+      "why": "gt-age",
+      "selector": {
+        "age": {
+          "$gt": 20
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$gt": 20
+        }
+      },
+      "matchingIds": [
+        "doc-001",
+        "doc-005",
+        "doc-014",
+        "doc-015",
+        "doc-019",
+        "doc-020",
+        "doc-022",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-029",
+        "doc-030",
+        "doc-033",
+        "doc-035",
+        "doc-037",
+        "doc-039",
+        "doc-044",
+        "doc-047",
+        "doc-048",
+        "doc-052",
+        "doc-053",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062"
+      ],
+      "matchCount": 28
+    },
+    {
+      "why": "gte-age",
+      "selector": {
+        "age": {
+          "$gte": 20
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$gte": 20
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-010",
+        "doc-014",
+        "doc-015",
+        "doc-019",
+        "doc-020",
+        "doc-022",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-029",
+        "doc-030",
+        "doc-033",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-039",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-052",
+        "doc-053",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062"
+      ],
+      "matchCount": 36
+    },
+    {
+      "why": "lt-age",
+      "selector": {
+        "age": {
+          "$lt": 20
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$lt": 20
+        }
+      },
+      "matchingIds": [
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-011",
+        "doc-013",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-023",
+        "doc-027",
+        "doc-028",
+        "doc-031",
+        "doc-032",
+        "doc-038",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-054",
+        "doc-063"
+      ],
+      "matchCount": 22
+    },
+    {
+      "why": "lte-age",
+      "selector": {
+        "age": {
+          "$lte": 20
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$lte": 20
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-002",
+        "doc-004",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-010",
+        "doc-011",
+        "doc-013",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-023",
+        "doc-027",
+        "doc-028",
+        "doc-031",
+        "doc-032",
+        "doc-036",
+        "doc-038",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-045",
+        "doc-046",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-054",
+        "doc-063"
+      ],
+      "matchCount": 30
+    },
+    {
+      "why": "gt-negative",
+      "selector": {
+        "age": {
+          "$gt": -1
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$gt": -1
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-010",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-019",
+        "doc-020",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-039",
+        "doc-040",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062"
+      ],
+      "matchCount": 50
+    },
+    {
+      "why": "gt-float",
+      "selector": {
+        "age": {
+          "$gt": 3.4
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$gt": 3.4
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-008",
+        "doc-010",
+        "doc-014",
+        "doc-015",
+        "doc-019",
+        "doc-020",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-029",
+        "doc-030",
+        "doc-033",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-039",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062"
+      ],
+      "matchCount": 39
+    },
+    {
+      "why": "range-both",
+      "selector": {
+        "age": {
+          "$gte": 1,
+          "$lte": 40
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$gte": 1,
+          "$lte": 40
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-008",
+        "doc-010",
+        "doc-016",
+        "doc-019",
+        "doc-020",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-036",
+        "doc-040",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-048",
+        "doc-054",
+        "doc-055",
+        "doc-058",
+        "doc-061"
+      ],
+      "matchCount": 32
+    },
+    {
+      "why": "range-inverted",
+      "selector": {
+        "age": {
+          "$gte": 40,
+          "$lte": 1
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$gte": 40,
+          "$lte": 1
+        }
+      },
+      "matchingIds": [],
+      "matchCount": 0
+    },
+    {
+      "why": "gt-empty-string",
+      "selector": {
+        "firstName": {
+          "$gt": ""
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$gt": ""
+        }
+      },
+      "matchingIds": [
+        "doc-002",
+        "doc-005",
+        "doc-007",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-028",
+        "doc-029",
+        "doc-031",
+        "doc-032",
+        "doc-034",
+        "doc-035",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-046",
+        "doc-047",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 35
+    },
+    {
+      "why": "ne-string",
+      "selector": {
+        "firstName": {
+          "$ne": "alice"
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$ne": "alice"
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-019",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-057",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 62
+    },
+    {
+      "why": "ne-null",
+      "selector": {
+        "firstName": {
+          "$ne": null
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$ne": null
+        }
+      },
+      "matchingIds": [
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-007",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-019",
+        "doc-024",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-031",
+        "doc-032",
+        "doc-034",
+        "doc-035",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-046",
+        "doc-047",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 42
+    },
+    {
+      "why": "nin-list",
+      "selector": {
+        "firstName": {
+          "$nin": [
+            "alice",
+            "bob"
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$nin": [
+            "alice",
+            "bob"
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-019",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-057",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061"
+      ],
+      "matchCount": 57
+    },
+    {
+      "why": "not-gt",
+      "selector": {
+        "age": {
+          "$not": {
+            "$gt": 20
+          }
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$not": {
+            "$gt": 20
+          }
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-021",
+        "doc-023",
+        "doc-027",
+        "doc-028",
+        "doc-031",
+        "doc-032",
+        "doc-034",
+        "doc-036",
+        "doc-038",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-045",
+        "doc-046",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-054",
+        "doc-057",
+        "doc-063"
+      ],
+      "matchCount": 36
+    },
+    {
+      "why": "not-eq",
+      "selector": {
+        "firstName": {
+          "$not": {
+            "$eq": "alice"
+          }
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$not": {
+            "$eq": "alice"
+          }
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-019",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-057",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 62
+    },
+    {
+      "why": "in-strings",
+      "selector": {
+        "firstName": {
+          "$in": [
+            "alice",
+            "bob",
+            ""
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$in": [
+            "alice",
+            "bob",
+            ""
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-001",
+        "doc-004",
+        "doc-009",
+        "doc-011",
+        "doc-012",
+        "doc-019",
+        "doc-024",
+        "doc-027",
+        "doc-029",
+        "doc-035",
+        "doc-041",
+        "doc-044",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 14
+    },
+    {
+      "why": "in-numbers",
+      "selector": {
+        "age": {
+          "$in": [
+            0,
+            20,
+            150
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$in": [
+            0,
+            20,
+            150
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-002",
+        "doc-004",
+        "doc-006",
+        "doc-007",
+        "doc-010",
+        "doc-014",
+        "doc-015",
+        "doc-017",
+        "doc-027",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-043",
+        "doc-045",
+        "doc-046",
+        "doc-049",
+        "doc-052",
+        "doc-053",
+        "doc-056",
+        "doc-060",
+        "doc-062"
+      ],
+      "matchCount": 22
+    },
+    {
+      "why": "in-with-null",
+      "selector": {
+        "firstName": {
+          "$in": [
+            null
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$in": [
+            null
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-003",
+        "doc-006",
+        "doc-008",
+        "doc-014",
+        "doc-018",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-025",
+        "doc-026",
+        "doc-030",
+        "doc-033",
+        "doc-036",
+        "doc-045",
+        "doc-048",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-057",
+        "doc-060"
+      ],
+      "matchCount": 22
+    },
+    {
+      "why": "in-empty",
+      "selector": {
+        "age": {
+          "$in": []
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$in": []
+        }
+      },
+      "matchingIds": [],
+      "matchCount": 0
+    },
+    {
+      "why": "in-mixed",
+      "selector": {
+        "age": {
+          "$in": [
+            20,
+            "twenty"
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$in": [
+            20,
+            "twenty"
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-002",
+        "doc-004",
+        "doc-010",
+        "doc-036",
+        "doc-043",
+        "doc-045",
+        "doc-046"
+      ],
+      "matchCount": 8
+    },
+    {
+      "why": "exists-true",
+      "selector": {
+        "firstName": {
+          "$exists": true
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$exists": true
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-019",
+        "doc-022",
+        "doc-024",
+        "doc-025",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-053",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 54
+    },
+    {
+      "why": "exists-false",
+      "selector": {
+        "firstName": {
+          "$exists": false
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$exists": false
+        }
+      },
+      "matchingIds": [
+        "doc-003",
+        "doc-020",
+        "doc-021",
+        "doc-023",
+        "doc-026",
+        "doc-048",
+        "doc-052",
+        "doc-054",
+        "doc-057",
+        "doc-060"
+      ],
+      "matchCount": 10
+    },
+    {
+      "why": "exists-nested",
+      "selector": {
+        "address.street": {
+          "$exists": true
+        }
+      },
+      "normalizedSelector": {
+        "address.street": {
+          "$exists": true
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-019",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-033",
+        "doc-034",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-045",
+        "doc-048",
+        "doc-050",
+        "doc-052",
+        "doc-053",
+        "doc-055",
+        "doc-057",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 52
+    },
+    {
+      "why": "type-string",
+      "selector": {
+        "firstName": {
+          "$type": "string"
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$type": "string"
+        }
+      },
+      "matchingIds": [
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-007",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-019",
+        "doc-024",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-031",
+        "doc-032",
+        "doc-034",
+        "doc-035",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-046",
+        "doc-047",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 42
+    },
+    {
+      "why": "type-number",
+      "selector": {
+        "age": {
+          "$type": "number"
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$type": "number"
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-010",
+        "doc-011",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-019",
+        "doc-020",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 58
+    },
+    {
+      "why": "type-null",
+      "selector": {
+        "firstName": {
+          "$type": "null"
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$type": "null"
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-006",
+        "doc-008",
+        "doc-014",
+        "doc-018",
+        "doc-022",
+        "doc-025",
+        "doc-030",
+        "doc-033",
+        "doc-036",
+        "doc-045",
+        "doc-053"
+      ],
+      "matchCount": 12
+    },
+    {
+      "why": "type-array",
+      "selector": {
+        "tags": {
+          "$type": "array"
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$type": "array"
+        }
+      },
+      "matchingIds": [
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-018",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-032",
+        "doc-033",
+        "doc-035",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-057",
+        "doc-059",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 51
+    },
+    {
+      "why": "type-boolean",
+      "selector": {
+        "active": {
+          "$type": "bool"
+        }
+      },
+      "normalizedSelector": {
+        "active": {
+          "$type": "bool"
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-033",
+        "doc-034",
+        "doc-036",
+        "doc-037",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-050",
+        "doc-052",
+        "doc-053",
+        "doc-055",
+        "doc-057",
+        "doc-059",
+        "doc-060",
+        "doc-061"
+      ],
+      "matchCount": 47
+    },
+    {
+      "why": "size-one",
+      "selector": {
+        "tags": {
+          "$size": 1
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$size": 1
+        }
+      },
+      "matchingIds": [
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-009",
+        "doc-010",
+        "doc-013",
+        "doc-015",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-035",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-051",
+        "doc-052",
+        "doc-054",
+        "doc-055"
+      ],
+      "matchCount": 25
+    },
+    {
+      "why": "size-two",
+      "selector": {
+        "tags": {
+          "$size": 2
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$size": 2
+        }
+      },
+      "matchingIds": [
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-011",
+        "doc-014",
+        "doc-018",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-032",
+        "doc-033",
+        "doc-043",
+        "doc-045",
+        "doc-053",
+        "doc-056",
+        "doc-062"
+      ],
+      "matchCount": 16
+    },
+    {
+      "why": "size-zero",
+      "selector": {
+        "tags": {
+          "$size": 0
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$size": 0
+        }
+      },
+      "matchingIds": [
+        "doc-001",
+        "doc-012",
+        "doc-016",
+        "doc-021",
+        "doc-041",
+        "doc-042",
+        "doc-050",
+        "doc-057",
+        "doc-059",
+        "doc-063"
+      ],
+      "matchCount": 10
+    },
+    {
+      "why": "elemMatch",
+      "selector": {
+        "tags": {
+          "$elemMatch": {
+            "$eq": "a"
+          }
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$elemMatch": {
+            "$eq": "a"
+          }
+        }
+      },
+      "matchingIds": [
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-018",
+        "doc-022",
+        "doc-024",
+        "doc-026",
+        "doc-032",
+        "doc-033",
+        "doc-035",
+        "doc-037",
+        "doc-043",
+        "doc-047",
+        "doc-051",
+        "doc-053",
+        "doc-056"
+      ],
+      "matchCount": 19
+    },
+    {
+      "why": "array-contains-scalar",
+      "selector": {
+        "tags": {
+          "$eq": "a"
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$eq": "a"
+        }
+      },
+      "matchingIds": [
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-018",
+        "doc-022",
+        "doc-024",
+        "doc-026",
+        "doc-032",
+        "doc-033",
+        "doc-035",
+        "doc-037",
+        "doc-043",
+        "doc-047",
+        "doc-051",
+        "doc-053",
+        "doc-056"
+      ],
+      "matchCount": 19
+    },
+    {
+      "why": "regex-prefix",
+      "selector": {
+        "firstName": {
+          "$regex": "^a"
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$regex": "^a"
+        }
+      },
+      "matchingIds": [
+        "doc-029",
+        "doc-034",
+        "doc-035",
+        "doc-049",
+        "doc-050",
+        "doc-056"
+      ],
+      "matchCount": 6
+    },
+    {
+      "why": "regex-ci",
+      "selector": {
+        "firstName": {
+          "$regex": "^A",
+          "$options": "i"
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$regex": "^A",
+          "$options": "i"
+        }
+      },
+      "matchingIds": [
+        "doc-007",
+        "doc-013",
+        "doc-015",
+        "doc-028",
+        "doc-029",
+        "doc-034",
+        "doc-035",
+        "doc-037",
+        "doc-042",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-055",
+        "doc-056"
+      ],
+      "matchCount": 14
+    },
+    {
+      "why": "regex-substring",
+      "selector": {
+        "lastName": {
+          "$regex": "s"
+        }
+      },
+      "normalizedSelector": {
+        "lastName": {
+          "$regex": "s"
+        }
+      },
+      "matchingIds": [
+        "doc-015",
+        "doc-019",
+        "doc-026",
+        "doc-027",
+        "doc-035",
+        "doc-038",
+        "doc-041",
+        "doc-052",
+        "doc-056"
+      ],
+      "matchCount": 9
+    },
+    {
+      "why": "regex-unicode",
+      "selector": {
+        "firstName": {
+          "$regex": "^ä"
+        }
+      },
+      "normalizedSelector": {
+        "firstName": {
+          "$regex": "^ä"
+        }
+      },
+      "matchingIds": [
+        "doc-016",
+        "doc-031",
+        "doc-043",
+        "doc-058",
+        "doc-061"
+      ],
+      "matchCount": 5
+    },
+    {
+      "why": "mod-even",
+      "selector": {
+        "age": {
+          "$mod": [
+            2,
+            0
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$mod": [
+            2,
+            0
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-010",
+        "doc-014",
+        "doc-015",
+        "doc-017",
+        "doc-020",
+        "doc-022",
+        "doc-024",
+        "doc-026",
+        "doc-027",
+        "doc-033",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-039",
+        "doc-043",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-052",
+        "doc-053",
+        "doc-056",
+        "doc-059",
+        "doc-060",
+        "doc-062"
+      ],
+      "matchCount": 33
+    },
+    {
+      "why": "mod-odd",
+      "selector": {
+        "age": {
+          "$mod": [
+            2,
+            1
+          ]
+        }
+      },
+      "normalizedSelector": {
+        "age": {
+          "$mod": [
+            2,
+            1
+          ]
+        }
+      },
+      "matchingIds": [
+        "doc-016",
+        "doc-019",
+        "doc-025",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-040",
+        "doc-042",
+        "doc-044",
+        "doc-055",
+        "doc-058",
+        "doc-061"
+      ],
+      "matchCount": 14
+    },
+    {
+      "why": "and-two",
+      "selector": {
+        "$and": [
+          {
+            "age": {
+              "$gt": 20
+            }
+          },
+          {
+            "active": {
+              "$eq": true
+            }
+          }
+        ]
+      },
+      "normalizedSelector": {
+        "$and": [
+          {
+            "age": {
+              "$gt": 20
+            }
+          },
+          {
+            "active": {
+              "$eq": true
+            }
+          }
+        ]
+      },
+      "matchingIds": [
+        "doc-005",
+        "doc-015",
+        "doc-020",
+        "doc-026",
+        "doc-029",
+        "doc-030",
+        "doc-052",
+        "doc-059",
+        "doc-061"
+      ],
+      "matchCount": 9
+    },
+    {
+      "why": "or-two",
+      "selector": {
+        "$or": [
+          {
+            "firstName": {
+              "$eq": "alice"
+            }
+          },
+          {
+            "active": {
+              "$eq": false
+            }
+          }
+        ]
+      },
+      "normalizedSelector": {
+        "$or": [
+          {
+            "firstName": {
+              "$eq": "alice"
+            }
+          },
+          {
+            "active": {
+              "$eq": false
+            }
+          }
+        ]
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-004",
+        "doc-007",
+        "doc-008",
+        "doc-013",
+        "doc-016",
+        "doc-017",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-027",
+        "doc-029",
+        "doc-031",
+        "doc-033",
+        "doc-034",
+        "doc-035",
+        "doc-037",
+        "doc-039",
+        "doc-042",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-053",
+        "doc-055",
+        "doc-060"
+      ],
+      "matchCount": 28
+    },
+    {
+      "why": "nor",
+      "selector": {
+        "$nor": [
+          {
+            "firstName": {
+              "$eq": "alice"
+            }
+          }
+        ]
+      },
+      "normalizedSelector": {
+        "$nor": [
+          {
+            "firstName": {
+              "$eq": "alice"
+            }
+          }
+        ]
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-019",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-057",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 62
+    },
+    {
+      "why": "and-inside-or",
+      "selector": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "age": {
+                  "$gt": 20
+                }
+              },
+              {
+                "active": {
+                  "$eq": true
+                }
+              }
+            ]
+          },
+          {
+            "firstName": {
+              "$eq": null
+            }
+          }
+        ]
+      },
+      "normalizedSelector": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "age": {
+                  "$gt": 20
+                }
+              },
+              {
+                "active": {
+                  "$eq": true
+                }
+              }
+            ]
+          },
+          {
+            "firstName": {
+              "$eq": null
+            }
+          }
+        ]
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-003",
+        "doc-005",
+        "doc-006",
+        "doc-008",
+        "doc-014",
+        "doc-015",
+        "doc-018",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-025",
+        "doc-026",
+        "doc-029",
+        "doc-030",
+        "doc-033",
+        "doc-036",
+        "doc-045",
+        "doc-048",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-057",
+        "doc-059",
+        "doc-060",
+        "doc-061"
+      ],
+      "matchCount": 27
+    },
+    {
+      "why": "or-inside-and",
+      "selector": {
+        "$and": [
+          {
+            "$or": [
+              {
+                "age": {
+                  "$gt": 100
+                }
+              },
+              {
+                "age": {
+                  "$lt": 2
+                }
+              }
+            ]
+          },
+          {
+            "_deleted": {
+              "$eq": false
+            }
+          }
+        ]
+      },
+      "normalizedSelector": {
+        "$and": [
+          {
+            "$or": [
+              {
+                "age": {
+                  "$gt": 100
+                }
+              },
+              {
+                "age": {
+                  "$lt": 2
+                }
+              }
+            ]
+          },
+          {
+            "_deleted": {
+              "$eq": false
+            }
+          }
+        ]
+      },
+      "matchingIds": [
+        "doc-006",
+        "doc-007",
+        "doc-011",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-018",
+        "doc-027",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-035",
+        "doc-037",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-047",
+        "doc-049",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-059",
+        "doc-060",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 27
+    },
+    {
+      "why": "and-empty",
+      "selector": {
+        "$and": []
+      },
+      "normalizedSelector": {
+        "$and": []
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-001",
+        "doc-002",
+        "doc-003",
+        "doc-004",
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-009",
+        "doc-010",
+        "doc-011",
+        "doc-012",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-016",
+        "doc-017",
+        "doc-018",
+        "doc-019",
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-057",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 64
+    },
+    {
+      "why": "or-empty",
+      "selector": {
+        "$or": []
+      },
+      "normalizedSelector": {
+        "$or": []
+      },
+      "matchingIds": [],
+      "matchCount": 0
+    },
+    {
+      "why": "not-outside-field",
+      "selector": {
+        "$not": {
+          "age": {
+            "$gt": 20
+          }
+        }
+      },
+      "kind": "rejection",
+      "rejected": true,
+      "errorName": "MingoError2",
+      "errorCode": null,
+      "rxdbError": false,
+      "rawMessage": "unknown top level operator: $not",
+      "upstreamBehaviour": {
+        "class": "upstream-rejects-negative-logical-operator",
+        "detail": "$not is a field-level operator in Mango, not a top-level one. Upstream passes the selector to mingo unmodified, which rejects it as an unknown top-level operator.",
+        "rustExpectation": "reject with a typed error naming the operator"
+      },
+      "rustExpectation": "reject with a typed error naming the operator"
+    },
+    {
+      "why": "deleted-tombstones",
+      "selector": {
+        "_deleted": {
+          "$eq": true
+        }
+      },
+      "normalizedSelector": {
+        "_deleted": {
+          "$eq": true
+        }
+      },
+      "matchingIds": [
+        "doc-017",
+        "doc-023",
+        "doc-024",
+        "doc-028",
+        "doc-029",
+        "doc-038",
+        "doc-050",
+        "doc-056",
+        "doc-057"
+      ],
+      "matchCount": 9
+    },
+    {
+      "why": "replication-changed-since",
+      "selector": {
+        "$or": [
+          {
+            "_meta.lwt": {
+              "$gt": 1020
+            }
+          },
+          {
+            "_meta.lwt": {
+              "$eq": 1020
+            },
+            "id": {
+              "$gt": "doc-010"
+            }
+          }
+        ],
+        "_meta.lwt": {
+          "$gte": 1020
+        }
+      },
+      "normalizedSelector": {
+        "$or": [
+          {
+            "_meta.lwt": {
+              "$gt": 1020
+            }
+          },
+          {
+            "_meta.lwt": {
+              "$eq": 1020
+            },
+            "id": {
+              "$gt": "doc-010"
+            }
+          }
+        ],
+        "_meta.lwt": {
+          "$gte": 1020
+        }
+      },
+      "matchingIds": [
+        "doc-020",
+        "doc-021",
+        "doc-022",
+        "doc-023",
+        "doc-024",
+        "doc-025",
+        "doc-026",
+        "doc-027",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-031",
+        "doc-032",
+        "doc-033",
+        "doc-034",
+        "doc-035",
+        "doc-036",
+        "doc-037",
+        "doc-038",
+        "doc-039",
+        "doc-040",
+        "doc-041",
+        "doc-042",
+        "doc-043",
+        "doc-044",
+        "doc-045",
+        "doc-046",
+        "doc-047",
+        "doc-048",
+        "doc-049",
+        "doc-050",
+        "doc-051",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-057",
+        "doc-058",
+        "doc-059",
+        "doc-060",
+        "doc-061",
+        "doc-062",
+        "doc-063"
+      ],
+      "matchCount": 44
+    },
+    {
+      "why": "exists-false-nested",
+      "selector": {
+        "address.street": {
+          "$exists": false
+        }
+      },
+      "normalizedSelector": {
+        "address.street": {
+          "$exists": false
+        }
+      },
+      "matchingIds": [
+        "doc-017",
+        "doc-018",
+        "doc-023",
+        "doc-024",
+        "doc-032",
+        "doc-044",
+        "doc-046",
+        "doc-047",
+        "doc-049",
+        "doc-051",
+        "doc-054",
+        "doc-056"
+      ],
+      "matchCount": 12
+    },
+    {
+      "why": "eq-nested-missing-number",
+      "selector": {
+        "address.number": {
+          "$eq": 0
+        }
+      },
+      "normalizedSelector": {
+        "address.number": {
+          "$eq": 0
+        }
+      },
+      "matchingIds": [
+        "doc-000",
+        "doc-006",
+        "doc-008",
+        "doc-015",
+        "doc-026",
+        "doc-029",
+        "doc-050",
+        "doc-059"
+      ],
+      "matchCount": 8
+    },
+    {
+      "why": "and-with-impossible-arm",
+      "selector": {
+        "$and": [
+          {
+            "age": {
+              "$gt": 1000
+            }
+          },
+          {
+            "_deleted": {
+              "$eq": false
+            }
+          }
+        ]
+      },
+      "normalizedSelector": {
+        "$and": [
+          {
+            "age": {
+              "$gt": 1000
+            }
+          },
+          {
+            "_deleted": {
+              "$eq": false
+            }
+          }
+        ]
+      },
+      "matchingIds": [],
+      "matchCount": 0
+    },
+    {
+      "why": "elemMatch-comparison",
+      "selector": {
+        "tags": {
+          "$elemMatch": {
+            "$gt": "a"
+          }
+        }
+      },
+      "normalizedSelector": {
+        "tags": {
+          "$elemMatch": {
+            "$gt": "a"
+          }
+        }
+      },
+      "matchingIds": [
+        "doc-005",
+        "doc-006",
+        "doc-007",
+        "doc-008",
+        "doc-011",
+        "doc-013",
+        "doc-014",
+        "doc-015",
+        "doc-018",
+        "doc-023",
+        "doc-025",
+        "doc-028",
+        "doc-029",
+        "doc-030",
+        "doc-032",
+        "doc-033",
+        "doc-038",
+        "doc-039",
+        "doc-043",
+        "doc-045",
+        "doc-046",
+        "doc-048",
+        "doc-049",
+        "doc-052",
+        "doc-053",
+        "doc-054",
+        "doc-055",
+        "doc-056",
+        "doc-062"
+      ],
+      "matchCount": 29
+    },
+    {
+      "why": "unregistered-$all",
+      "selector": {
+        "tags": {
+          "$all": [
+            "a"
+          ]
+        }
+      },
+      "kind": "rejection",
+      "rejected": true,
+      "errorName": "MingoError2",
+      "errorCode": null,
+      "rxdbError": false,
+      "rawMessage": "unknown query operator $all",
+      "upstreamBehaviour": {
+        "class": "upstream-does-not-register-operator",
+        "detail": "$all exists in MongoDB but RxDB registers a closed set of eighteen operators in src/rx-query-mingo.ts. $all is not among them, so mingo throws \"unknown query operator\" instead of behaving like MongoDB.",
+        "rustExpectation": "reject with a typed error, do not silently implement MongoDB parity"
+      },
+      "rustExpectation": "reject with a typed error, do not silently implement MongoDB parity"
+    },
+    {
+      "why": "unregistered-$where",
+      "selector": {
+        "$where": "true"
+      },
+      "kind": "rejection",
+      "rejected": true,
+      "errorName": "MingoError2",
+      "errorCode": null,
+      "rxdbError": false,
+      "rawMessage": "unknown query operator $where",
+      "upstreamBehaviour": {
+        "class": "upstream-does-not-register-operator",
+        "detail": "$where evaluates a JavaScript expression in MongoDB. Registering it would mean executing caller-supplied code, so RxDB does not, and mingo rejects it.",
+        "rustExpectation": "reject with a typed error; never evaluate code from a selector"
+      },
+      "rustExpectation": "reject with a typed error; never evaluate code from a selector"
+    }
+  ]
+}
