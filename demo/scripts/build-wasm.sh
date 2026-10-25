@@ -5,8 +5,9 @@
 #
 #  1. Compilation goes through the workspace Makefile / cargo-remote-3000 to the
 #     shared Fly build server. Nothing compiles locally (docs/PLAN.md 7.4,
-#     docs/WORKTREES.md). The remote invocation takes the same flock the Makefile
-#     takes, so it queues behind other lanes instead of thrashing the box.
+#     docs/WORKTREES.md). The remote invocation goes through cargo-remote to the
+#     shared box. The Makefile owns the build lock (reentrantly, via
+#     xtask/with-build-lock.sh); this script deliberately takes no lock of its own.
 #  2. The `wasm-bindgen` CLI version must equal the `wasm-bindgen` crate version.
 #     A mismatch does not fail at build time; it traps at instantiation with a
 #     message about versions that gives no hint where to look. So we check first.
@@ -22,7 +23,6 @@ REPO_DIR="$(cd "${DEMO_DIR}/.." && pwd)"
 PKG_DIR="${DEMO_DIR}/pkg"
 ARTIFACT="target/wasm32-unknown-unknown/release/dxdb_js.wasm"
 TOOLCHAIN="1.95.0"
-LOCK="/tmp/dxdb-remote-build.lock"
 
 cd "${REPO_DIR}"
 
@@ -49,11 +49,20 @@ fi
 
 if [ "${1:-}" != "--no-remote" ]; then
   echo "== building ${ARTIFACT} on the shared Fly box =="
-  # The remote build root is keyed on the absolute local project path, so this
-  # worktree has its own build dir; the lock keeps concurrent lanes serialised.
-  flock "${LOCK}" cargo remote-3000 -r fly -d "${TOOLCHAIN}" \
-    --copy-back=wasm32-unknown-unknown/release/dxdb_js.wasm \
-    build -p dxdb-js --release --target wasm32-unknown-unknown
+  # Two things this invocation must get right:
+  #
+  # 1. `--copy-back` takes a **directory relative to target/**, not a file. It
+  #    appends a trailing slash, so a file path fails with "Not a directory".
+  # 2. `-p dxdb-js` must come after the cargo subcommand, because cargo-remote
+  #    parses a leading `-p` as its own `--ssh-port` and dies with "invalid digit
+  #    found in string".
+  #
+  # No outer `flock`: the Makefile targets take the reentrant build lock
+  # themselves, and wrapping them is what deadlocked the fleet. See
+  # xtask/with-build-lock.sh.
+  cargo remote-3000 -r fly -d "${TOOLCHAIN}" \
+    --copy-back=wasm32-unknown-unknown/release \
+    build --release --target wasm32-unknown-unknown -p dxdb-js
 fi
 
 if [ ! -f "${ARTIFACT}" ]; then

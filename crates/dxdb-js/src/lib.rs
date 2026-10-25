@@ -5,19 +5,26 @@
 //! know nothing about JS, and they must keep knowing nothing, so they stay
 //! buildable for every target in the capability matrix (PLAN.md 3.4).
 //!
-//! # Status: M4 tranche 1, size baseline only
+//! # Status: M4 tranche 2
 //!
-//! What is here today is deliberately the smallest thing that is a real
-//! `wasm-bindgen` module: it exists to pin the toolchain pairing and to put a
-//! measured floor under the 250 KiB brotli core budget (PLAN.md 5.3). The
-//! exported surface, the `Observable` adapter and the storage bindings arrive
-//! once `dxdb-storage` publishes the traits — see
-//! `docs/lanes/m4-browser-plan.md` for the contract they will satisfy.
+//! What exists today:
+//!
+//! - the `wasm-bindgen` ABI pin and a smoke surface, which put a measured floor
+//!   under the 250 KiB brotli core budget (PLAN.md 5.3);
+//! - the [`observable`] adapter — the highest-risk piece, because "no callback
+//!   after unsubscribe" is an ordering discipline that has to hold across the JS
+//!   boundary. It is built and tested ahead of the storages on purpose: it needs
+//!   `futures`, not the storage traits.
+//!
+//! The exported database/collection surface and the storages arrive once
+//! `dxdb-storage` publishes the traits — see `docs/lanes/m4-browser-plan.md`.
 //!
 //! `no_std`-style dependency discipline still applies from day one: nothing may
 //! be added here that breaks `wasm32-unknown-unknown` on stable 1.95.0.
 
 #![forbid(unsafe_code)]
+
+pub mod observable;
 
 use wasm_bindgen::prelude::*;
 

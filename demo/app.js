@@ -17,6 +17,7 @@
  */
 
 import { runCapabilityProbe } from './harness/capabilities.js';
+import { runAdapterCases } from './harness/adapter-cases.js';
 import { runConformanceSuite, summarize } from './harness/conformance.js';
 
 const results = {
@@ -25,6 +26,7 @@ const results = {
   capabilities: [],
   /** @type {Record<string, unknown>} */
   wasm: { available: false, error: null },
+  adapter: [],
   conformance: [],
   consoleErrors: [],
 };
@@ -114,6 +116,13 @@ async function main() {
       results.wasm.echo = echoed;
       results.wasm.asyncValue = asyncValue;
       results.wasm.asyncResolved = asyncValue === 42;
+
+      // ---- 3b. the Observable adapter, in this engine -------------------
+      // Written to a separate table because it is a different thing from a
+      // capability: these are assertions about our own code.
+      const adapter = await runAdapterCases(module);
+      results.adapter = adapter;
+      for (const c of adapter) renderRow('adapter', [c.name, c.status, c.detail]);
     }
 
     // ---- 4. conformance suite -------------------------------------------
@@ -123,9 +132,14 @@ async function main() {
 
     // ---- 5. final status ------------------------------------------------
     const suiteStatus = summarize(conformance);
+    const adapterFailed = results.adapter.some((c) => c.status !== 'pass');
     if (!results.wasm.available) {
       results.status = 'failed';
     } else if (results.wasm.asyncResolved !== true) {
+      results.status = 'failed';
+    } else if (adapterFailed) {
+      // The adapter is our own code under assertion, so a failure here is a
+      // failure of the harness, unambiguously.
       results.status = 'failed';
     } else if (results.consoleErrors.length > 0) {
       results.status = 'failed';

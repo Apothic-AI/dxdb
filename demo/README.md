@@ -11,11 +11,13 @@ wiring end to end in **Chromium, Firefox and WebKit**.
 | Test | Asserts |
 | --- | --- |
 | `page loads` | the harness page serves, the module graph parses, no console errors |
-| `wasm module instantiates` | the release `.wasm` instantiates and `abiVersion()` returns the crate version |
+| `wasm module instantiates` | the release `.wasm` instantiates and `abi_version()` returns the crate version |
 | `calling across the boundary works` | `echo()` round-trips UTF-16-sensitive text through wasm |
 | `async boundary works` | the exported `async fn` resolves through a real JS `Promise` |
+| `Observable adapter` | **14 cases**, all passing in this engine (see below) |
 | `storage capability probe` | reports which browser APIs each engine actually exposes (see below) |
-| `conformance suite` | **skipped** until `dxdb-testkit` is published by lane D |
+| `conformance suite` | **skipped** until `dxdb-testkit` is published |
+| `typecheck` | `types/` compiles and matches the generated `.d.ts` (runs before the suite) |
 
 The last one is a `test.skip` with the reason inline rather than a
 half-implemented assertion, so the moment the suite exists the run turns red and
@@ -25,15 +27,36 @@ the wiring gets finished instead of quietly passing.
 
 ```
 demo/
-  index.html              # the harness page; one <script type="module">
-  app.js                  # page bootstrap: instantiate wasm, publish results
-  harness/conformance.js  # the suite runner (stub with an explicit contract today)
-  scripts/build-wasm.sh   # remote build via ../../Makefile, then wasm-bindgen
-  scripts/serve.mjs       # static server; .wasm gets application/wasm
-  tests/harness.spec.js   # Playwright spec, three browser projects
-  playwright.config.js    # chromium + firefox + webkit projects
-  pkg/                    # build output (gitignored)
+  index.html                  # the harness page; one <script type="module">
+  app.js                      # bootstrap: probe, instantiate wasm, adapter cases, suite
+  harness/capabilities.js     # per-engine capability probe (main thread + worker)
+  harness/sync-handle-worker.js  # the worker half of the OPFS evidence
+  harness/adapter-cases.js    # 14 Observable-adapter cases, run in each engine
+  harness/conformance.js      # storage suite runner (stub with an explicit contract)
+  types/dxdb.d.ts             # the authored TypeScript surface (no `any`)
+  types/consumer.ts           # compiles against it; carries @ts-expect-error negatives
+  types/assignability.ts      # drift guard against the generated .d.ts
+  types/tsconfig.json         # strict, noEmit
+  scripts/build-wasm.sh       # remote build via ../../Makefile, then wasm-bindgen
+  scripts/check-types.mjs     # stale-pkg guard + tsc --noEmit
+  scripts/serve.mjs           # static server; .wasm gets application/wasm
+  scripts/collect-capabilities.mjs  # prints each engine's probe + version
+  tests/harness.spec.js       # Playwright spec, three browser projects
+  playwright.config.js        # chromium + firefox + webkit projects
+  pkg/                        # build output (gitignored)
 ```
+
+## The two things worth knowing before you edit this
+
+**`reuseExistingServer` is `false` on purpose.** A server left over from a previous
+session serves the *old* `pkg/` and the old JS, and the resulting failure looks
+like a wasm or adapter bug rather than a stale process. If you have
+`npm run serve` running, stop it before `npm test`.
+
+**`pkg/` is a build artifact and is checked for staleness.** `scripts/check-types.mjs`
+fails if `pkg/dxdb_js.d.ts` is older than `pkg/dxdb_js_bg.wasm`, because the
+assignability assertions compare the authored types against the generated ones and
+a stale generated file makes them pass for the wrong reason.
 
 ## Running it
 
@@ -80,6 +103,24 @@ The page probes and reports, per engine:
 The probe results are written to `probe.json` as a Playwright attachment, so a
 run leaves a record of which browser build reported which capabilities. That is
 the evidence the plan file cites.
+
+## The Observable adapter cases
+
+`harness/adapter-cases.js` is the browser half of the adapter proof. The Rust half
+is `crates/dxdb-js/src/observable/state.rs` (14 host tests over the delivery
+policy). The split is deliberate: the policy is an ordering discipline and is
+tested exhaustively where that is cheap; the browser cases prove the
+`#[wasm_bindgen]` shell faithfully implements it across the real boundary.
+
+Each case reports `pass`/`fail` individually, and the spec asserts the **count**
+as well as the outcomes, so a suite that silently shrinks is a failure rather
+than a smaller green run.
+
+The cases include the ones that are easy to get wrong and hard to notice: a
+callback queued at the moment of `unsubscribe` must be dropped (asserted after
+awaiting a microtask, since the bug only shows up a turn later); `unsubscribe`
+called from *inside* a callback; and a consumer callback that throws, which must
+not trap the module or wedge the subscription.
 
 ## Adding the conformance suite
 

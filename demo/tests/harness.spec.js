@@ -65,6 +65,32 @@ test('async exports resolve through a real JS Promise', async () => {
   expect(result.wasm.asyncValue).toBe(42);
 });
 
+test('Observable adapter: every case passes in this engine', async () => {
+  // The adapter is our own code under assertion, in the real JS boundary, in this
+  // engine. Each case is reported individually rather than as one aggregate, so a
+  // failure names the rule that broke. The Rust policy tests in
+  // crates/dxdb-js/src/observable/state.rs cover the same rules exhaustively on
+  // the host; this proves the *binding* faithfully implements them.
+  const result = await harness();
+  expect(Array.isArray(result.adapter), 'adapter results missing').toBe(true);
+  expect(result.adapter.length, 'no adapter cases ran').toBeGreaterThan(0);
+
+  const failures = result.adapter.filter((c) => c.status !== 'pass');
+  expect(
+    failures,
+    `adapter cases failed: ${failures.map((c) => `${c.name} -> ${c.detail}`).join('; ')}`,
+  ).toEqual([]);
+
+  // Guard against a suite that silently shrinks: the count is part of the
+  // contract, so losing a case is a failure rather than a smaller green run.
+  expect(result.adapter.length).toBe(14);
+
+  await test.info().attach('adapter-cases.json', {
+    contentType: 'application/json',
+    body: JSON.stringify(result.adapter, null, 2),
+  });
+});
+
 test('capability probe produces a complete record', async () => {
   const result = await harness();
   expect(Array.isArray(result.capabilities)).toBe(true);

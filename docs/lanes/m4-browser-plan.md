@@ -532,17 +532,157 @@ not yet measured in WebKit.
 
 ---
 
-## 9. Open questions this tranche could not close
+## 9. Tranche 2: the storage traits, and the two things I was asked to verify
 
-1. **`web-sys` / `idb-sys` bundle cost.** The one number that could invalidate
-   the 400 KiB OPFS budget. Probe first after unblocking (§6).
-2. **Provider of cross-tab change events.** Upstream's localStorage plugin uses
-   the `storage` event and *redistributes* it through a `Subject`
-   (`:78-100`) explicitly because the event does not fire in the originating tab.
-   dxdb's `BroadcastChannel` choice has the same gap in Safari private mode; the
-   fallback needs measuring per engine.
-3. **Whether lane D's `change_stream` is a `Stream` with a cancellation
-   protocol**, or a broadcast channel. §2.2's "no callback after unsubscribe"
-   requirement is cheap on a `Stream` and needs an unsubscribe message on a
-   channel, so the adapter implementation depends on this answer. It is the one
-   thing in §2 that could change shape.
+`dxdb-storage` merged. Read `crates/dxdb-storage/src/traits.rs` (448 lines) and
+the modules it re-exports. Verdict on the two named questions first, because one
+of them found a bug.
+
+### 9.1 Checkpoint encoding — **the type is right, the obvious serializer is a trap**
+
+`Checkpoint { id: String, lwt: f64 }` (`changes.rs:91-97`) is the right shape: the
+typed pair rather than opaque bytes, so every storage compares it the same way,
+and `lwt` as a number so it survives `JSON.stringify`. `beginning()` uses
+`META_LWT_MINIMUM = 1.0` and an empty id, which is the lowest possible checkpoint.
+
+The problem is `Checkpoint::to_json` (`changes.rs:113`). Its doc comment says the
+value *"must round-trip through `JSON.stringify` and back without drift — hence
+`dxdb-jsnum`"*, and then the body builds a `serde_json::Number` with
+`Number::from_f64` and never calls `dxdb-jsnum`. That is only correct if the
+serializer downstream formats numbers the JavaScript way, and the obvious one does
+not: `serde_json`'s own writer emits `1.0` where JavaScript emits `1`.
+
+Measured, not argued — `crates/dxdb-js/tests/checkpoint_contract.rs`, 6 tests:
+
+| Case | Result |
+| --- | --- |
+| `checkpoint_json_uses_javascript_number_formatting` | pass |
+| `checkpoint_roundtrips_through_json` | pass |
+| `minimum_lwt_renders_without_a_trailing_zero` | pass |
+| **`serde_json_alone_diverges_from_javascript`** | **pass — asserts the divergence** |
+| `beginning_checkpoint_is_the_lowest_possible` | pass |
+| `malformed_checkpoints_are_rejected` | pass |
+
+The divergence test asserts both halves:
+`Checkpoint::new("", 1.0).to_json().to_string()` is `{"id":"","lwt":1.0}` while
+`to_js_json(...)` is `{"id":"","lwt":1}`. Both parse to the same `f64`, so the
+round trip is *numerically* fine — the drift is in the bytes.
+
+**Where this actually bites:** anywhere a checkpoint is emitted as a string rather
+than as a `serde_json::Value` handed to a JS-aware writer. Concretely, the
+`dxdb-js` boundary, the replication transcript vectors (which compare bytes), and
+any storage that persists a checkpoint as a stringified key. `1.0` vs `1` in a
+checkpoint that is compared as text is a real ordering bug, not cosmetics.
+
+**Not fixed here**, because `dxdb-storage` is lane D's crate and this lane does not
+edit it. Two options for whoever owns it:
+
+1. Change `to_json` to return the JavaScript-formatted rendering (make the
+   `dxdb-jsnum` mention in its doc comment true), or
+2. Keep returning a `Value` and add a `to_json_string()` that uses
+   `dxdb_json::to_js_json`, so there is no value-typed path for a caller to
+   render wrongly.
+
+Option 2 is better: it leaves the typed value (which storages compare) intact and
+removes the trap rather than documenting it. Until then this lane's code goes
+through `dxdb_json::to_js_json`, and the contract tests fail loudly if a future
+`serde_json` makes the divergence disappear.
+
+### 9.2 Async form — **`impl Future` is usable, no dynosaur needed at my call sites**
+
+The trait methods return `-> impl Future`, per PLAN.md 3.3, and `#[dynosaur]`
+generates `DynRxStorageInstance`/`DynRxStorage` for the wrapper stack.
+
+For this lane's call sites:
+
+- **`dxdb-js` async exports** call concrete methods on a concrete storage, so
+  `impl Future` is fine and dynosaur is not involved. `wasm-bindgen-futures`
+  adapts the future to a `Promise` directly.
+- **`dxdb-remote`** dispatches by method name over `DynRxStorageInstance`, because
+  it forwards whatever trait member the message names. That is exactly what the
+  dynosaur twin is for, and it is the one place this lane needs it.
+- **`Observable::from_stream`** needs `Stream`, not the trait, so the storage's
+  async shape never reaches the adapter.
+
+So: usable, and the mirror is needed in precisely one crate. No workaround
+required, and nothing to report as wrong here.
+
+Two related notes from reading the trait, both of which affect how I implement:
+
+- `change_stream()` returns `Pin<Box<dyn Stream<Item = EventBulk>>>` with no
+  lifetime parameter, i.e. `'static`. That settles §2.2's open question: the
+  adapter gets a `Stream` to drive, and **dropping it is the unsubscribe**, so
+  "no callback after unsubscribe" is implementable without a cancellation message.
+  The adapter's `from_stream` path is therefore the real one, and the polling note
+  in `observable/bind.rs` is a limitation of the *current* pump (it does not drop
+  the stream on unsubscribe) rather than of the trait.
+- `get_changed_documents_since` has a working default body that builds an exact
+  range plan. A storage that overrides it must keep the same exclusivity
+  (`inclusive_start: false`) or the checkpoint document is returned twice.
+
+### 9.3 The adapter, implemented and proven
+
+`crates/dxdb-js/src/observable/` splits into:
+
+- `state.rs` — the delivery **policy**, pure Rust, 14 host tests, no
+  `wasm-bindgen`. Covers all five hard cases from the brief plus ordering,
+  stale-token, re-subscribe, and before-subscribe behaviour.
+- `bind.rs` — the `#[wasm_bindgen]` shell (`Observable`, `Subscription`,
+  `Emitter`) plus `from_stream`, `wasm32` only.
+
+`Submit` returns a `Delivery` the caller must honour rather than performing the
+call itself. That is deliberate: it makes it *impossible* for the shell to
+duplicate the policy without visibly throwing a `Delivery` away.
+
+Browser-side, `demo/harness/adapter-cases.js` runs 14 cases in each engine, so the
+binding itself is proven, not just the policy. Cases: ordered delivery; error
+exactly once; complete suppressed after error; error suppressed after complete;
+completion once and closing; no callback after unsubscribe; a **queued** callback
+dropped after unsubscribe; unsubscribe from inside a callback; a throwing callback
+not wedging the subscription; the observer-object form; missing callbacks as
+no-ops and a late subscriber getting a pre-closed subscription; re-subscribe
+surviving a stale unsubscribe; synchronous `Emitter` re-entrancy being bounded and
+lossless; a 500-value storm arriving in order.
+
+### 9.4 The typed surface
+
+`demo/types/dxdb.d.ts` is the authored surface — no `any` in the public API, with
+the one unavoidable boundary typed as `unknown` (`Observable<T = unknown>`) so it
+cannot silently flow into a typed variable the way `any` can.
+
+It is compiled, not just written: `demo/types/consumer.ts` consumes every
+declaration and carries negative assertions as `@ts-expect-error`, and
+`demo/types/assignability.ts` asserts the authored types and the **generated**
+`pkg/dxdb_js.d.ts` agree in the direction that matters (generated → authored), so
+a Rust signature change this file has not followed is a compile error.
+
+The gate was mutation-tested rather than assumed green:
+
+| Mutation | Result |
+| --- | --- |
+| remove `closed` from the authored `Subscription` | 3 errors, exit 2 |
+| delete a `@ts-expect-error` | 1 error (the now-unasserted line), exit 2 |
+| widen authored `subscribe` to `any` | 4 errors incl. 3 implicit-any, exit 2 |
+| restored | exit 0 |
+
+`scripts/check-types.mjs` also refuses to run against a stale `pkg/`: if
+`dxdb_js.d.ts` is older than the `.wasm` it describes, it fails and says to
+rebuild. A `.d.ts` compiled against a stale module is worse than an unchecked one,
+because it is wrong confidently.
+
+### 9.5 Still open
+
+1. **`web-sys` / `idb-sys` bundle cost** (§9.1 above is separate). The one number
+   that could invalidate the 400 KiB OPFS budget. Probe before writing the
+   indexeddb storage.
+2. **Cross-tab change events.** Upstream uses the `storage` event and redistributes
+   it because it does not fire in the originating tab. `BroadcastChannel` has the
+   same gap in Safari private mode; needs measuring per engine.
+3. **`from_stream` does not drop the current stream on unsubscribe.** It stops
+   *delivery* (the contract holds) but keeps polling an abandoned stream until it
+   ends. Fixing it needs the pump to hold a cancellation handle it can trip — cheap
+   once a storage's stream is known to be `Unpin`, so it waits for the first real
+   stream rather than being guessed at now.
+4. **`Emitter::next` is synchronous**, matching RxJS `Subject`. The non-re-entrant
+   guarantee belongs to the `from_stream` path (`spawn_local` = one delivery per
+   microtask). Worth documenting for users once both paths are public.

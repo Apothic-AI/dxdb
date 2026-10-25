@@ -51,11 +51,15 @@ export default defineConfig({
   ],
 
   // Playwright starts and stops this server itself, so `npm test` is one
-  // command. `reuseExistingServer` keeps a hand-started `npm run serve` usable.
+  // command. `reuseExistingServer` is deliberately **false even locally**: a
+  // server left running from a previous session serves the old `pkg/` and the
+  // old JS, and the resulting failure looks like a wasm or adapter bug rather
+  // than a stale process. That cost one debugging session; it should not cost
+  // another. Kill a hand-started `npm run serve` before running the suite.
   webServer: {
     command: 'node scripts/serve.mjs',
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 30_000,
     stdout: 'pipe',
     stderr: 'pipe',

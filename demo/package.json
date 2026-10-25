@@ -7,14 +7,16 @@
   "scripts": {
     "build:wasm": "./scripts/build-wasm.sh",
     "serve": "node scripts/serve.mjs",
-    "test": "npm run build:wasm && playwright test",
-    "test:chromium": "npm run build:wasm && playwright test --project=chromium",
-    "test:firefox": "npm run build:wasm && playwright test --project=firefox",
-    "test:webkit": "npm run build:wasm && playwright test --project=webkit",
+    "test": "npm run build:wasm && npm run typecheck && playwright test",
+    "test:chromium": "npm run build:wasm && npm run typecheck && playwright test --project=chromium",
+    "test:firefox": "npm run build:wasm && npm run typecheck && playwright test --project=firefox",
+    "test:webkit": "npm run build:wasm && npm run typecheck && playwright test --project=webkit",
     "install-browsers": "playwright install --with-deps chromium firefox webkit",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "typecheck": "node scripts/check-types.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1"
+    "@playwright/test": "1.64.1",
+    "typescript": "5.9.3"
   }
 }

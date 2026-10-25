@@ -24,3 +24,22 @@ wasm-bindgen = "=0.2.129"
 # 0.4.79 is the release whose manifest requires `wasm-bindgen =0.2.129`; an
 # older patch release would pull a second, mismatched `wasm-bindgen`.
 wasm-bindgen-futures = "0.4.79"
+
+# The stream half of the Observable adapter (PLAN.md 3.3: `futures::Stream` in
+# Rust, adapted to `Observable` at the JS boundary, no RxJS). A workspace
+# dependency already, and it links on the host, which is what lets the delivery
+# policy be unit-tested without a browser.
+futures = { workspace = true }
+
+# `js_sys::Function` is how the adapter holds JS callbacks. `wasm-bindgen` pulls
+# `js-sys` transitively but relying on that is how a version skew appears.
+js-sys = "0.3.106"
+
+# Tests only: the checkpoint-contract tests assert the trait surface's encoding
+# against the ordered-JSON writer, which is exactly the pairing a storage has to
+# get right. Lane D's crate is consumed, never edited.
+[dev-dependencies]
+dxdb-storage = { path = "../dxdb-storage" }
+dxdb-json = { path = "../dxdb-json" }
+dxdb-jsnum = { path = "../dxdb-jsnum" }
+serde_json = { workspace = true }
