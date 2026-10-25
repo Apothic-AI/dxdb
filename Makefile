@@ -25,10 +25,10 @@ BUSY := 'ps -eo comm= | grep -qxE "rustc|cargo" && echo BUSY || echo IDLE'
 # worktrees do not thrash the shared box's 4 build jobs. See docs/WORKTREES.md.
 LOCK := /tmp/dxdb-remote-build.lock
 
-.PHONY: help check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness
+.PHONY: help check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size
 
 help:
-	@echo "check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness"
+	@echo "check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size"
 
 check:
 	@flock $(LOCK) $(CARGO) check --workspace --all-targets
@@ -82,5 +82,14 @@ gate-query-correctness:
 vectors-check:
 	@node xtask/vectors/generate.mjs --check
 
+# The upstream checkout location. Overridable so CI can clone a shallow copy
+# instead of depending on a developer's ~/Code/rxdb existing.
+RXDB_UPSTREAM ?= $(HOME)/Code/rxdb
+
 status:
-	@python3 xtask/status.py
+	@RXDB_UPSTREAM="$(RXDB_UPSTREAM)" python3 xtask/status.py
+
+# Enforce a WASM size budget from PLAN.md 5.3, e.g.
+#   make size BUDGET_WASM=target/wasm32-unknown-unknown/release/dxdb_js.wasm BUDGET_KIB=250
+size:
+	@xtask/size-budget.sh "$(BUDGET_WASM)" "$(BUDGET_KIB)"
