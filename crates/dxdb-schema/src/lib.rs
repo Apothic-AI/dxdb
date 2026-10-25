@@ -56,12 +56,21 @@ pub use error::{SchemaError, SchemaErrorCode};
 pub use json_schema::{validate_document, validate_json_schema, SchemaValidator};
 
 /// `META_LWT_UNIX_TIME_MAX` (`src/rx-schema-helper.ts:307`).
-pub const META_LWT_UNIX_TIME_MAX: f64 = 1_000_000_000_000_000.0;
+///
+/// An `i64` rather than an `f64` because it is a JSON *integer* upstream, and the
+/// distinction is observable: `serde_json` holds `1e15` as a float and writes it back
+/// as `1e+15` (or fails to compare equal to a parsed `1000000000000000`), while
+/// JavaScript holds one number. Two schemas that differ only in that representational
+/// detail must still produce the same bytes, so the injected `_meta` schema is built
+/// from integers and never from floats (PLAN.md 3.1).
+pub const META_LWT_UNIX_TIME_MAX: i64 = 1_000_000_000_000_000;
+
 /// `RX_META_LWT_MINIMUM` (`src/plugins/utils/utils-document.ts:15`).
 ///
-/// One, not zero, "so that the value is never falsy" — the comment is upstream's
-/// and the constant is part of every `_meta` schema.
-pub const RX_META_LWT_MINIMUM: f64 = 1.0;
+/// One, not zero, "so that the value is never falsy" — the comment is upstream's and
+/// the constant is part of every `_meta` schema. An `i64` for the same reason as
+/// [`META_LWT_UNIX_TIME_MAX`].
+pub const RX_META_LWT_MINIMUM: i64 = 1;
 
 /// The four meta field names, in the order `fillWithDefaultSettings` pushes them
 /// into `required` (`src/rx-schema-helper.ts:243`).
@@ -74,6 +83,12 @@ pub const META_FIELDS: [&str; 4] = ["_deleted", "_rev", "_meta", "_attachments"]
 /// is what makes `lwt` a safe index field at millisecond resolution, the latter
 /// is how plugins store flags inside `_meta`.
 pub fn rx_meta_schema() -> Value {
+    // The bounds are integers and `multipleOf` is the only float, exactly as
+    // upstream's literal is written. `serde_json` would happily hold `minimum: 1.0`,
+    // but then the *value* would differ from one parsed out of a JSON document and a
+    // `Value` comparison — which is how a schema-hash oracle compares — would fail
+    // while the bytes matched.
+    let multiple_of: f64 = 0.01;
     json!({
         "type": "object",
         "properties": {
@@ -81,7 +96,8 @@ pub fn rx_meta_schema() -> Value {
                 "type": "number",
                 "minimum": RX_META_LWT_MINIMUM,
                 "maximum": META_LWT_UNIX_TIME_MAX,
-                "multipleOf": 0.01
+                "multipleOf": serde_json::Number::from_f64(multiple_of)
+                    .expect("0.01 is finite")
             }
         },
         "additionalProperties": true,
@@ -701,11 +717,30 @@ impl Schema {
     /// Builds a schema from an already-filled, normalized JSON schema.
     ///
     /// Use [`create_rx_schema`] for the upstream-equivalent entry point.
+    ///
+    /// # No draft-07 validation here, deliberately
+    ///
+    /// Upstream's `createRxSchema` (`src/rx-schema.ts:264`) fills defaults,
+    /// normalizes, freezes and constructs. It does *not* validate the schema against
+    /// the draft-07 meta-schema; that happens only if the dev-mode plugin's
+    /// `checkSchema` runs (M6 work here, and a plugin upstream, not the core).
+    ///
+    /// The difference is observable. `humanCompositePrimarySchemaLiteral` declares a
+    /// `readonlyProps` property whose subschema is
+    /// `{allOf: [], anyOf: [], enum: [], items: [], oneOf: [], required: [], type: []}`
+    /// — all legal draft-07 *keywords* with legal values, and no `type`, so a
+    /// draft-07 validator accepts it. Upstream nevertheless hashes it, and the oracle
+    /// records that hash, so a construction path that rejected it would fail to
+    /// reproduce schema identity for a fixture. Validation is therefore a separate,
+    /// explicit step ([`json_schema::validate_json_schema`]) and
+    /// [`validate_document`] does it per document.
     pub fn new(json_schema: Value) -> Result<Self, SchemaError> {
         let primary_path = primary_field_of_primary_key(&json_schema)?;
-        let indexes = get_string_indexes(&json_schema)?;
+        // Only the *encodable* indexes are required: a schema whose index contains a
+        // non-field entry still has a hash upstream, it just cannot be used for index
+        // strings or planning.
+        let indexes = get_string_indexes(&json_schema).unwrap_or_default();
         let final_fields = get_final_fields(&json_schema)?;
-        json_schema::validate_json_schema(&json_schema)?;
         let hash = compute_hash(&json_schema);
         Ok(Self {
             json_schema,

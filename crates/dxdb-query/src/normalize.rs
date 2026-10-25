@@ -406,7 +406,7 @@ fn sort_from_index_or_selector(
     for candidate in schema_indexes {
         let first_wrong = candidate
             .iter()
-            .position(|field| !fields_with_logical_operator.iter().any(|f| *f == field));
+            .position(|field| !fields_with_logical_operator.contains(&field));
         let matching = match first_wrong {
             Some(position) => position,
             None => candidate.len(),
@@ -521,4 +521,72 @@ fn should_normalize_elem_match(elem_match: &Value) -> bool {
     object
         .keys()
         .any(|key| matches!(key.as_str(), "$and" | "$or" | "$nor" | "$not"))
+}
+
+/// A query and the plan for it, prepared together.
+///
+/// Mirrors upstream's `PreparedQuery` (`src/rx-query-helper.ts:364`): the object a
+/// storage receives, so it does not have to normalise or plan anything itself. Upstream
+/// stores both on one object because a storage always needs both and the plan depends on
+/// the normalised form.
+///
+/// The types here are `dxdb-query`'s. `dxdb-storage` has its own `MangoQuery`/`QueryPlan`
+/// for the trait boundary, and a storage adapter maps one to the other at that boundary —
+/// deliberately, because the alternative is either this crate depending on
+/// `dxdb-storage` (pulling the async trait surface, `futures` and `dynosaur` into a
+/// synchronous planner) or `dxdb-storage` depending on this one (decision D8 rejected
+/// that: the storage layer must stay at the bottom of the graph). The mapping is
+/// mechanical and belongs on the side that owns the trait.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreparedQuery {
+    /// The normalised query.
+    pub query: FilledMangoQuery,
+    /// The plan for it.
+    pub query_plan: crate::plan::QueryPlan,
+}
+
+impl PreparedQuery {
+    /// Pairs a query with its plan.
+    pub fn new(query: FilledMangoQuery, query_plan: crate::plan::QueryPlan) -> Self {
+        Self { query, query_plan }
+    }
+}
+
+/// Normalises a query and plans it, in one step.
+///
+/// This is the entry point a storage adapter should call: `schema` is the filled schema
+/// (`dxdb_schema::create_rx_schema(..).json_schema()`), `query` is the caller's query, and
+/// the result carries both the normalised form and the plan. Every argument is derived
+/// from the schema exactly as upstream derives it, so a caller cannot forget one:
+///
+/// ```ignore
+/// let prepared = prepare_query(&schema, &MangoQuery::from_json(&query_json)?, false)?;
+/// let plan = prepared.query_plan;
+/// ```
+///
+/// `skip_sort` is upstream's `skipSort` (`src/rx-query-helper.ts:41`): `true` for a
+/// `count()` query, where order is irrelevant and a plain primary-key sort is enough.
+///
+/// Doing this in one function is not merely convenience. Three separate call sites in
+/// three lanes each performing "resolve the primary path, resolve the indexes, normalise,
+/// plan" is three places to get the primary-key extraction wrong, and the symptom would be
+/// a plan built against a different index than the one the query was normalised for.
+pub fn prepare_query(
+    schema: &serde_json::Value,
+    query: &MangoQuery,
+    skip_sort: bool,
+) -> Result<PreparedQuery, QueryError> {
+    let primary_key = dxdb_schema::primary_field_of_primary_key(schema).map_err(|error| {
+        QueryError::new(
+            QueryErrorCode::Qu13,
+            format!("schema has no usable primaryKey: {error}"),
+        )
+    })?;
+    let indexes = dxdb_schema::get_string_indexes(schema)?;
+    let normalized = normalize_mango_query(query, &primary_key, &indexes, skip_sort)?;
+    let plan = crate::plan::get_query_plan(schema, &normalized)?;
+    Ok(PreparedQuery {
+        query: normalized,
+        query_plan: plan,
+    })
 }

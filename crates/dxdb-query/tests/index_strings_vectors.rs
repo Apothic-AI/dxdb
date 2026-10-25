@@ -277,69 +277,146 @@ fn probe_bound(case: &Value) -> BoundValue {
     }
 }
 
-/// The schemas upstream rejects must be rejected here.
+/// `kind: "rejection"` — the schemas where upstream itself throws.
 ///
-/// The vector's `skipped` array names four such schemas with the reason upstream
-/// itself failed on them:
+/// The family records four of these, each carrying the *class* of failure in
+/// `why`/`upstreamBehaviour.class`:
 ///
-/// - `compoundIndexNoString`: the index contains the literal number `10` instead of
-///   a field path.
-/// - `noStringIndex`: a numeric indexed field declares no `minimum`/`maximum`, so
-///   there is no digit budget for the encoding.
-/// - `notExistingIndex`: the index names `address.apartment`, which is not in the
-///   schema — upstream's error carries code `CI1`.
+/// - `upstream-rejects-non-string-index-entry` — the index array holds a literal number,
+///   so upstream calls a string method on it and throws `TypeError` before any schema
+///   lookup (`compoundIndexNoString`).
+/// - `upstream-requires-numeric-index-bounds` — a numeric or object-typed field is indexed
+///   without `minimum`/`maximum`. Those bounds size the fixed-width digit budget, so there
+///   is no valid index string (`noStringIndex`, twice).
+/// - `upstream-rejects-missing-indexed-field` — the index names a path the schema does not
+///   declare, which upstream raises as error `CI1` (`notExistingIndex`).
 ///
-/// Accepting any of them would mean producing index strings upstream cannot, which
-/// is worse than failing: a store written by dxdb would be unreadable by RxDB.
+/// A port that *accepts* any of these would produce index strings upstream cannot, so a
+/// store written by dxdb would be unreadable by RxDB. Both the encoder and the width
+/// query must reject.
+///
+/// The rejection must appear at the encoder, not at fill time: upstream fills and *hashes*
+/// every one of these schemas, and the `schema-hashes` family contains a hash for each
+/// (see `dxdb_schema`'s `fill_keeps_a_non_string_index_entry`).
+///
+/// `caseCount` counts these rejection cases, so the total of
+/// produced + rejected must equal it.
 #[test]
 fn rejected_schemas_are_rejected_here() {
     let vector = load();
-    let skipped = vector["skipped"].as_array().expect("skipped array");
+    let lookup = schema_lookup();
+    let cases = vector["cases"].as_array().expect("cases array");
+
+    let rejection_cases: Vec<&Value> = cases
+        .iter()
+        .filter(|case| case["kind"].as_str() == Some("rejection"))
+        .collect();
     assert!(
-        !skipped.is_empty(),
-        "the family must record the schemas upstream rejects"
+        !rejection_cases.is_empty(),
+        "the family must record the schemas upstream rejects; rejectionCaseCount is {}",
+        vector["rejectionCaseCount"]
+    );
+    assert_eq!(
+        rejection_cases.len() as u64,
+        vector["rejectionCaseCount"].as_u64().unwrap_or_default(),
+        "rejectionCaseCount must agree with the number of rejection cases"
+    );
+    // The generator also checks that every rejection it saw was expected.
+    let unexpected = vector["unexpectedRejections"]
+        .as_array()
+        .expect("unexpectedRejections array");
+    assert!(
+        unexpected.is_empty(),
+        "the generator recorded rejections it did not expect, which means a fixture changed \
+         shape: {unexpected:?}"
     );
 
-    let lookup = schema_lookup();
-    for entry in skipped {
-        let schema_name = entry["schema"].as_str().expect("schema");
-        let index: Vec<String> = entry["index"]
-            .as_array()
-            .expect("index array")
-            .iter()
-            .map(|field| {
-                // A skipped entry can name a literal number, which is exactly the
-                // entry that has no field name; it is represented by its JSON text.
-                match field {
-                    Value::String(name) => name.clone(),
-                    other => dxdb_json::to_js_json(other),
-                }
-            })
-            .collect();
-        let reason = entry["reason"].as_str().unwrap_or_default();
+    let expected_count = rejection_cases.len();
+    let mut checked = 0;
+    let mut failures = Vec::new();
+
+    for case in &rejection_cases {
+        let schema_name = case["schema"].as_str().expect("schema");
+        let class = case["upstreamBehaviour"]["class"]
+            .as_str()
+            .or_else(|| case["why"].as_str())
+            .unwrap_or_default();
+        let index: Vec<Value> = case["index"].as_array().expect("index array").to_vec();
 
         let Some(schema_input) = lookup.get(schema_name) else {
-            // `noStringIndex` is one of the fixtures; if a fixture is missing the
-            // oracle above already fails loudly.
             continue;
         };
-        // Filling may already fail (a numeric index field with no bounds), or the
-        // failure may only appear when the index is used. Either is a rejection.
-        // Filling is permissive by design (upstream fills these schemas too), so the
-        // rejection has to appear at the encoder.
-        let filled = dxdb_schema::fill_with_default_settings(schema_input)
-            .expect("upstream fills this schema; only encoding fails");
-        let document = entry["document"].clone();
-        let result = get_indexable_string(&filled, &index, &document);
-        assert!(
-            result.is_err(),
-            "{schema_name} {index:?} must be rejected (upstream: {reason}), but it produced {result:?}"
-        );
-        // The length query must reject it too: an index with no width is not
-        // representable.
-        assert!(
-            get_index_string_length(&filled, &index).is_err(),
-            "{schema_name} {index:?}: width must be rejected as well"
-        );
+        // Filling is permissive by design: upstream fills and hashes these too.
+        let filled = match dxdb_schema::fill_with_default_settings(schema_input) {
+            Ok(filled) => filled,
+            Err(error) => {
+                failures.push(format!(
+                    "{schema_name} {class}: filling failed ({error}), but upstream fills and \
+                     hashes this schema"
+                ));
+                continue;
+            }
+        };
+
+        // An index entry that is not a field name has no field-name form at all, and
+        // that absence *is* the rejection: there is no `Vec<String>` to hand the encoder.
+        // Upstream reaches the same conclusion by calling `.replace` on the number.
+        let field_names: Option<Vec<String>> = index
+            .iter()
+            .map(|entry| entry.as_str().map(str::to_owned))
+            .collect();
+        let Some(declared) = field_names else {
+            let whole_schema = dxdb_schema::get_string_indexes(&filled);
+            if whole_schema.is_ok() {
+                failures.push(format!(
+                    "{schema_name} {class}: an index containing a non-string entry must not \
+                     yield field names, but get_string_indexes returned {whole_schema:?}"
+                ));
+            } else {
+                checked += 1;
+            }
+            continue;
+        };
+
+        // The declared index may be pre-fill; find the filled form (with `_deleted`
+        // prepended and the primary key appended) that contains those fields.
+        let filled_indexes = dxdb_schema::get_string_indexes(&filled).unwrap_or_default();
+        let matching = filled_indexes.iter().find(|candidate| {
+            declared
+                .iter()
+                .all(|field| candidate.iter().any(|entry| entry == field))
+        });
+        let Some(candidate) = matching else {
+            // No filled form exists, so there is nothing to encode: also a rejection.
+            checked += 1;
+            continue;
+        };
+
+        let document = case["document"].clone();
+        let encoded = get_indexable_string(&filled, candidate, &document);
+        let width = get_index_string_length(&filled, candidate);
+        if encoded.is_err() && width.is_err() {
+            checked += 1;
+        } else if encoded.is_ok() {
+            failures.push(format!(
+                "{schema_name} {class}: index {candidate:?} must be rejected, but it encoded to \
+                 {:?}",
+                encoded.ok()
+            ));
+        } else {
+            failures.push(format!(
+                "{schema_name} {class}: index {candidate:?} has no valid encoding, but its width \
+                 was reported as {:?}",
+                width.ok()
+            ));
+        }
     }
+
+    assert!(
+        failures.is_empty(),
+        "{} rejection cases diverged:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+    assert_eq!(checked, expected_count, "every rejection case must be asserted");
 }

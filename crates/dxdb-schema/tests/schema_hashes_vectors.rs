@@ -118,14 +118,30 @@ fn hashes_match_upstream_oracle() {
             continue;
         }
 
-        // And the public entry point must agree with the composition above.
-        let schema = create_rx_schema(input).expect("creates");
-        if schema.hash() != expected_hash {
-            failures.push(format!(
-                "{name}: Schema::hash {} != upstream {expected_hash}",
-                schema.hash()
-            ));
-            continue;
+        // An unencodable schema still hashes upstream, because hashing only
+        // serialises the object — `compoundIndexNoString` is the case, and the family
+        // carries its hash. `Schema::new` is the *encodable*-schema type and rejects
+        // it, which is asserted here rather than left implicit: the two behaviours are
+        // different on purpose and both are observable.
+        if let Ok(schema) = create_rx_schema(input) {
+            if schema.hash() != expected_hash {
+                failures.push(format!(
+                    "{name}: Schema::hash {} != upstream {expected_hash}",
+                    schema.hash()
+                ));
+                continue;
+            }
+        } else {
+            // Only an index entry that is not a field name may be rejected after a
+            // successful fill; any other rejection is a bug.
+            let filled_indexes = dxdb_schema::get_string_indexes(&normalized);
+            if filled_indexes.is_ok() {
+                failures.push(format!(
+                    "{name}: Schema::new rejected a schema whose indexes are all field \
+                     names, which upstream accepts"
+                ));
+                continue;
+            }
         }
         checked += 1;
     }
@@ -143,28 +159,64 @@ fn hashes_match_upstream_oracle() {
 /// `relations`: which edits must and must not move the hash.
 ///
 /// This is the part of schema identity that matters in practice — a client that
-/// re-encodes a schema with keys in a different order, or spells out the index the
+/// re-encodes a schema with its keys in a different order, or spells out the index the
 /// defaults would have produced, must land on the same hash or it cannot talk to the
-/// same store.
+/// same store. The counterpart matters just as much: a real semantic change must move
+/// the hash, or two different schemas would share one storage.
+///
+/// The relation schemas are literals inside the generator
+/// (`xtask/vectors/families/schema-hashes.mjs:206`), not separate cases, so they are
+/// reproduced here rather than looked up. Each one is a one-line edit of the `plain`
+/// base, which is what makes the relation meaningful.
 #[test]
 fn hash_relations_hold() {
     let vector = load();
     let relations = vector["relations"].as_array().expect("relations array");
     assert!(!relations.is_empty(), "relations must be present");
 
-    // The two schemas named in a relation are the synthetic cases by name.
-    let cases = vector["cases"].as_array().expect("cases array");
-    let by_name = |name: &str| -> Value {
-        cases
-            .iter()
-            .find(|case| {
-                case["name"]
-                    .as_str()
-                    .map(|candidate| candidate == name || candidate == format!("synthetic:{name}"))
-                    .unwrap_or(false)
-            })
-            .unwrap_or_else(|| panic!("relation names a missing case: {name}"))["input"]
-            .clone()
+    let plain = base_schema();
+    let variants = |name: &str| -> Value {
+        match name {
+            "plain" => plain.clone(),
+            // Same schema, keys in a different order.
+            "reordered" => serde_json::json!({
+                "required": ["id"],
+                "primaryKey": "id",
+                "properties": { "id": { "maxLength": 100, "type": "string" } },
+                "type": "object",
+                "version": 0
+            }),
+            // The index the defaults would add, written out.
+            "explicitIndex" => {
+                let mut schema = plain.as_object().cloned().expect("object");
+                schema.insert(
+                    "indexes".into(),
+                    serde_json::json!([["_deleted", "id"]]),
+                );
+                Value::Object(schema)
+            }
+            // A duplicate `required` entry, which de-duplication must absorb.
+            "redundantRequired" => {
+                let mut schema = plain.as_object().cloned().expect("object");
+                schema.insert("required".into(), serde_json::json!(["id", "id"]));
+                Value::Object(schema)
+            }
+            // A real semantic change: a shorter primary key.
+            "differentMaxLength" => serde_json::json!({
+                "version": 0,
+                "type": "object",
+                "primaryKey": "id",
+                "properties": { "id": { "type": "string", "maxLength": 99 } },
+                "required": ["id"]
+            }),
+            // Another real semantic change: a version bump.
+            "versionBump" => {
+                let mut schema = plain.as_object().cloned().expect("object");
+                schema.insert("version".into(), serde_json::json!(1));
+                Value::Object(schema)
+            }
+            other => panic!("relation names a variant this test does not model: {other}"),
+        }
     };
 
     for relation in relations {
@@ -178,29 +230,42 @@ fn hash_relations_hold() {
                 .unwrap_or_else(|error| panic!("{why}: schema does not build: {error}"));
             schema.hash().to_string()
         };
-        let hash_a = hash_of(&by_name(a_name));
-        let hash_b = hash_of(&by_name(b_name));
+        let hash_a = hash_of(&variants(a_name));
+        let hash_b = hash_of(&variants(b_name));
+        let recorded = relation["hash"].as_str().expect("hash");
+
         if equal {
             assert_eq!(
                 hash_a, hash_b,
                 "{why}: {a_name} and {b_name} must hash the same"
             );
-            // The relation also carries the shared hash; asserting it ties the
-            // relation to the recorded digest.
-            let recorded = relation["hash"].as_str().expect("hash");
             assert_eq!(hash_a, recorded, "{why}: recorded shared hash");
         } else {
             assert_ne!(
                 hash_a, hash_b,
-                "{why}: {a_name} and {b_name} must hash differently"
+                "{why}: {a_name} and {b_name} must hash differently, or two distinct \
+                 schemas would share one storage"
             );
-            let recorded = relation["hash"].as_str().expect("hash");
-            assert!(
-                hash_a == recorded || hash_b == recorded,
-                "{why}: neither side matches the recorded hash {recorded}"
+            // The recorded hash is the hash of the changed side, which is how the
+            // generator wrote it.
+            assert_eq!(
+                hash_b, recorded,
+                "{why}: the changed schema's hash ({b_name}) must be the recorded one"
             );
         }
     }
+}
+
+/// The `plain` base schema the relations are edits of
+/// (`xtask/vectors/families/schema-hashes.mjs:206`).
+fn base_schema() -> Value {
+    serde_json::json!({
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": { "id": { "type": "string", "maxLength": 100 } },
+        "required": ["id"]
+    })
 }
 
 /// `hashStringCases`: the hash primitive itself, on known inputs.
