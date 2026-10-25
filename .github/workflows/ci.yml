@@ -1,0 +1,68 @@
+name: ci
+
+# Everything compiles on the shared Fly build server, never on a laptop. CI runs
+# the same Makefile targets a developer does, against a self-hosted runner that
+# is the build box, so there is exactly one build path and no "works on CI only".
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # The box is shared: 8 cores, [build] jobs = 4 in the shared cargo config.
+  # Never raise this to get a faster queue; queue behind the lock instead.
+  CARGO_BUILD_JOBS: "4"
+  TOOLCHAIN: "1.95.0"
+
+jobs:
+  fmt:
+    # Formatting needs no compiler, so it runs anywhere.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install "$TOOLCHAIN" --profile minimal --component rustfmt
+      - run: rustup default "$TOOLCHAIN"
+      - run: cargo fmt --all -- --check
+
+  remote:
+    # check, clippy, test, and the wasm target, all through cargo-remote-3000 on
+    # the shared build box.
+    runs-on: [self-hosted, fly-builder]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Headroom gate
+        # A cold dependency graph for this workspace is several GB. Fail loudly
+        # rather than fill a shared volume.
+        run: make headroom
+
+      - name: Busy gate
+        # Informational: another project may be compiling. We queue on our own
+        # lock, so this reports rather than blocks.
+        run: make busy || true
+
+      - name: check
+        run: make check
+
+      - name: clippy
+        run: make clippy
+
+      - name: test
+        run: make test
+
+      - name: wasm32-unknown-unknown
+        run: make wasm
+
+  vectors:
+    # The cross-language oracle: regenerate expected outputs from upstream RxDB
+    # in Node and assert the committed vectors have not drifted.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: make vectors-check

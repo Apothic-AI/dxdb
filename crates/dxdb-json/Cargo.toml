@@ -1,0 +1,12 @@
+[package]
+name = "dxdb-json"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb: ordered-JSON document encoding with JavaScript number semantics"
+
+[dependencies]
+serde_json.workspace = true
+dxdb-jsnum = { path = "../dxdb-jsnum" }

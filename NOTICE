@@ -1,0 +1,25 @@
+dxdb
+====
+
+dxdb is a Rust reimplementation of RxDB, an unaffiliated port of its
+Apache-2.0 core with independently specified replacements for its paid
+features.
+
+Portions of this work are derived from RxDB (https://github.com/pubkey/rxdb),
+which is licensed under the Apache License, Version 2.0. The upstream copyright
+notice is preserved here as required by Section 4(c) and 4(d) of that license:
+
+    Copyright 2015-2025 Netflix, Inc., Microsoft Corp. and contributors
+
+Upstream source pin: pubkey/rxdb at commit
+3b763ee17d62bc96cfae556ea0ccf92f9891c8c1 (2026-10-25), version 17.6.0.
+
+Crates under crates/cleanroom/ are NOT derived from upstream. They are
+independently specified from public documentation only; no upstream
+closed-source or premium source was consulted in their design or
+implementation. See docs/CLEANROOM.md.
+
+dxdb is not endorsed by, affiliated with, or connected to RxDB's maintainer.
+"RxDB" is used only to describe provenance.
+
+Licensed under the Apache License, Version 2.0. See LICENSE.

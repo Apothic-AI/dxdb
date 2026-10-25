@@ -1,0 +1,14 @@
+[package]
+name = "dxdb-jsnum"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb: ECMAScript Number::toString semantics (a core module, not a helper)"
+
+[dependencies]
+
+[dev-dependencies]
+# The oracle test reads the committed vector file, so the harness needs a parser.
+serde_json.workspace = true

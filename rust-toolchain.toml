@@ -1,0 +1,14 @@
+# Informational only.
+#
+# The shared Fly build server is the compiler for this workspace and it has
+# exactly one toolchain installed, 1.95.0. cargo-remote ignores this file in
+# favour of its -d/--rustup-default flag, so `make` passes -d 1.95.0 explicitly
+# and that is the pin that counts. This file is here so a developer who runs
+# bare `cargo` locally gets the same compiler instead of their default stable.
+#
+# Do not bump this without reading docs/TOOLCHAIN.md first: moving the pin on
+# the shared box changes the compiler for every other project on it.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

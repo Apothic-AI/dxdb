@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+# Globs so a lane can add its own crate without editing this file — that is what
+# keeps parallel worktrees from conflicting here. The intermediate grouping
+# directories are excluded because they hold no crate of their own.
+#
+# Cargo fails hard when a member glob matches nothing, so a group glob is added
+# only once the group holds its first crate: `crates/plugins/*` arrives with the
+# first M6 plugin and `crates/cleanroom/*` with the first clean-room crate. Those
+# two edits are leader-owned (docs/WORKTREES.md); everything inside the groups
+# below needs no edit at all.
+members = ["crates/*", "crates/storages/*", "xtask"]
+exclude = ["crates/storages"]
+default-members = ["crates/dxdb-core"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.95"
+license = "Apache-2.0"
+repository = "https://github.com/Apothic-AI/dxdb"
+authors = ["dxdb contributors"]
+
+# Dependency notes live in docs/PLAN.md section 9. Do not add a dependency here
+# without recording its reason there.
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+thiserror = "2"
+futures = "0.3.34"
+regress = "0.12"
+sha2 = "0.11.1"
+dynosaur = "0.3.1"
+proptest = "1"
+hex = "0.4"
+
+# The release profile is the WASM size-budget profile (PLAN.md 5.3). Host builds
+# inherit it; the budgets are measured from this.
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"

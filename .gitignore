@@ -1,3 +1,6 @@
 /target
 **/target
 .dagr/
+
+# graft local graph cache (regenerable)
+/graft/

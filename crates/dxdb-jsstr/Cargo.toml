@@ -1,0 +1,10 @@
+[package]
+name = "dxdb-jsstr"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb: see docs/PLAN.md"
+
+[dependencies]

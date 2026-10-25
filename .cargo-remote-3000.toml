@@ -1,0 +1,25 @@
+# Pin the remote and keep the upload small, so nobody has to remember flags.
+#
+# There is deliberately no `toolchain` key: cargo-remote has no such field and
+# ignores unknown keys, so it would read like a guarantee while pinning nothing.
+# The toolchain comes only from -d/--rustup-default, which the Makefile passes.
+#
+# There is deliberately no `env` key either: `env` is a list of files to source,
+# not KEY=VALUE, and setting it replaces the default ~/.cargo/env so every build
+# then fails with "cargo: command not found".
+
+[[remote]]
+name = "fly"
+host = "fly-builder"
+ssh_port = 2222
+# Excludes keep the transfer small. target/ is excluded by cargo-remote itself.
+exclude = [
+  # Upstream RxDB checkout used only to read as a reference; never compiled.
+  "upstream/",
+  # Node modules for the vector generator.
+  "node_modules/",
+  # Vector generator scratch output.
+  "testdata/vectors/*.tmp",
+  ".dagr/",
+  "graft/",
+]

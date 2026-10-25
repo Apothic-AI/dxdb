@@ -1,0 +1,10 @@
+[package]
+name = "dxdb-memory"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb reference in-memory storage; the parity oracle for every other storage"
+
+[dependencies]
