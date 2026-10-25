@@ -1,0 +1,39 @@
+# CODEOWNERS — who may touch the clean-room boundary
+#
+# The clean-room claim (docs/CLEANROOM.md section 2) is a process claim, and a
+# process claim is only auditable if the diff cannot straddle the boundary by
+# accident. This file makes the boundary a review gate rather than a promise.
+#
+# Two roles, separated by knowledge:
+#
+#   specification author -> writes specs/**, reads public docs + Apache-2.0 source
+#   implementer          -> writes crates/cleanroom/**, reads the spec + prior art
+#
+# Neither role may read rxdb-premium in any form. specs/READING-LIST.md records
+# who read what, per crate, and a PR that changes a clean-room crate must fill in
+# the provenance question in .github/PULL_REQUEST_TEMPLATE.md.
+#
+# The dxdb-cleanroom team is the review gate. Members are added by the leader
+# after reading specs/READING-LIST.md and confirming they have not seen the
+# closed source. An implementer who has seen it does not work on the matching
+# crate; they can work on the Apache-2.0 port instead (CLEANROOM.md section 2).
+
+# Clean-room specifications: behavioural contracts written from public docs.
+# Review here is about sufficiency and sourcing, not about code.
+/specs/                          @Apothic-AI/dxdb-cleanroom
+
+# Clean-room implementation crates. Nothing outside this tree may import them
+# except the JS surface crate, and nothing here may import rxdb-premium.
+/crates/cleanroom/               @Apothic-AI/dxdb-cleanroom
+
+# The gap register is the published list of where we diverge from the paid
+# features. It is a deliverable, so it gets the same gate as the code.
+/docs/CLEANROOM-GAPS.md          @Apothic-AI/dxdb-cleanroom
+
+# The governing documents are leader-owned (docs/WORKTREES.md). Listed here so a
+# clean-room change to the rules themselves cannot slip through unreviewed.
+/docs/CLEANROOM.md               @Apothic-AI/dxdb-leaders
+/docs/lanes/m7-cleanroom.md      @Apothic-AI/dxdb-leaders
+
+# The PR template carries the provenance question. Changing it changes the gate.
+/.github/PULL_REQUEST_TEMPLATE.md @Apothic-AI/dxdb-leaders

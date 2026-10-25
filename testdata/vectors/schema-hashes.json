@@ -5,6 +5,10 @@
   "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
   "node": "v22.23.3",
   "format": "schema->{defaultedSchema, sha256}",
+  "determinism": {
+    "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+    "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call"
+  },
   "algorithm": "sha256 hex of JSON.stringify(defaultedSchema)",
   "caseCount": 51,
   "failedSchemas": [],
