@@ -73,11 +73,15 @@ prune-ours:
 	@ssh fly-builder 'for f in $$(grep -l dxdb /data/builds/*/Cargo.toml 2>/dev/null); do d=$$(dirname $$f); echo "removing $$d"; rm -rf "$$d"; done; df -h /data | tail -1'
 
 # Acceptance gates named in docs/GATES.md. These are the commands a lane cites.
+# `--` before the package selector: cargo-remote-3000 parses its own flags after
+# the cargo subcommand and reads `-p` as --ssh-port, so `test -p X` fails before
+# cargo runs. PLAN.md 7.4 records the rule ("`--` before cargo flags when using
+# -p"); these two recipes were written without it and were dead targets.
 gate-storage:
-	@flock $(LOCK) $(CARGO) test -p dxdb-testkit --test storage_implementations
+	@flock $(LOCK) $(CARGO) test -- -p dxdb-testkit --test storage_implementations
 
 gate-query-correctness:
-	@flock $(LOCK) $(CARGO) test -p dxdb-testkit --test query_correctness
+	@flock $(LOCK) $(CARGO) test -- -p dxdb-testkit --test query_correctness
 
 vectors-check:
 	@node xtask/vectors/generate.mjs --check
