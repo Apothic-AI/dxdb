@@ -1,0 +1,10 @@
+[package]
+name = "dxdb-sqlite"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb SQLite storage: rusqlite on native, sqlite-wasm-rs on wasm, behind one SqliteDriver trait"
+
+[dependencies]

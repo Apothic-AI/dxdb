@@ -26,7 +26,15 @@ name = "dxdb-jsstr"
 version = "0.0.0"
 
 [[package]]
+name = "dxdb-node"
+version = "0.0.0"
+
+[[package]]
 name = "dxdb-storage"
+version = "0.0.0"
+
+[[package]]
+name = "dxdb-wasi"
 version = "0.0.0"
 
 [[package]]

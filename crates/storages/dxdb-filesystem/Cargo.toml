@@ -1,0 +1,10 @@
+[package]
+name = "dxdb-filesystem"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb filesystem storage: redb on native (clean-room, no upstream source read)"
+
+[dependencies]
