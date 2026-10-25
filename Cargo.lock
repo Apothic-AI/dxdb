@@ -3,10 +3,6 @@
 version = 4
 
 [[package]]
-name = "dxdb-attachments"
-version = "0.0.0"
-
-[[package]]
 name = "dxdb-core"
 version = "0.0.0"
 
@@ -30,7 +26,7 @@ name = "dxdb-jsstr"
 version = "0.0.0"
 
 [[package]]
-name = "dxdb-replication"
+name = "dxdb-memory"
 version = "0.0.0"
 
 [[package]]

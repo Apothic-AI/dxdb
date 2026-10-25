@@ -39,13 +39,38 @@ Measure the release profile already in `Cargo.toml` (`opt-level="s"`, `lto="fat"
 
 | Artifact | Budget (brotli) | Measured | Date | Status |
 | --- | --- | --- | --- | --- |
-| `dxdb-js` core only, no storages | 250 KiB | not yet measured | — | pending M4 |
+| `dxdb-js` core only, no storages | 250 KiB | 5.3 KiB floor / 13.6 KiB with async plumbing | 2026-10-25 | measured, budget barely engaged |
 | `dxdb-js` + memory storage | 320 KiB | not yet measured | — | pending M4 |
 | `dxdb-js` + OPFS storage | 400 KiB | not yet measured | — | pending M4 |
 | `dxdb-js` + SQLite storage | 900 KiB | not yet measured | — | pending M4 |
 
+Full method and the three-engine verification are in
+`docs/lanes/m4-browser-plan.md` section 6.
+
 A budget that is exceeded gets revised **with the measured number and a reason**,
 or the bundle gets smaller. It does not get quietly ignored.
+
+### Measurement 2026-10-25: the wasm-bindgen floor
+
+Method: `crates/dxdb-js` with the real dependency set (`wasm-bindgen =0.2.129`,
+`wasm-bindgen-futures 0.4.79`), workspace release profile, `wasm32-unknown-unknown`,
+shared Fly box with `-d 1.95.0`, bindings from the matching `wasm-bindgen` CLI
+0.2.129 (mismatched versions trap at instantiation), `brotli -q 11`, round-trip
+verified with `brotli -d | cmp`.
+
+| Variant | Raw | Brotli q11 | JS glue (brotli) | Total |
+| --- | ---: | ---: | ---: | ---: |
+| Fixed floor (`abi_version` + `echo`), no futures | 13,554 B | 5,373 B | 1,957 B | 7,330 B |
+| With async plumbing, as in `crates/dxdb-js` today | 43,226 B | 13,927 B | 3,264 B | 17,191 B |
+
+**What this establishes:** `wasm-bindgen` plus the async plumbing is ~5% of the 250 KiB
+core budget, so the binding layer is not the size risk. The budget has to be spent on
+schema parsing, the query planner, index-string construction, and reactivity.
+
+**What it does not establish:** whether the 250 KiB target is achievable, because none
+of that code exists yet. The number to watch is the first measurement that includes
+`dxdb-schema` and `dxdb-query`; that is when this budget becomes a real constraint
+rather than a formality.
 
 ## Storage performance
 
