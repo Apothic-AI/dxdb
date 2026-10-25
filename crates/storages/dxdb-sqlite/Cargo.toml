@@ -1,0 +1,74 @@
+[package]
+name = "dxdb-sqlite"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb SQLite storage: rusqlite on native, sqlite-wasm-rs on wasm, behind one SqliteDriver trait"
+
+[dependencies]
+thiserror.workspace = true
+
+# Default features on purpose: `default = ["cache", "ffi-sqlite-wasm-rs"]`, so the
+# same dependency line swaps FFI to `sqlite-wasm-rs` on wasm32 with no fork and no
+# `cfg`-driven feature surgery. Verified by probe on 1.95.0 for native,
+# wasm32-unknown-unknown, wasm32-wasip1 and wasm32-wasip2 (docs/lanes/m5-port-plan.md 7.4).
+#
+# NOT `bundled` here, and that is a correction worth keeping. The shared Fly box has
+# libsqlite3.so.0 but not libsqlite3-dev, so a native link needs SQLite compiled from
+# source. But `bundled` on `rusqlite` also applies to wasm32-wasip1/wasip2, where it
+# makes libsqlite3-sys compile sqlite3.c with `clang --target=wasm32-wasip1`; that
+# fails with "fatal error: 'bits/libc-header-start.h' file not found" because there is
+# no WASI SDK on the box (`WASI_SDK_PATH = None`). Since cargo unifies features
+# globally, a feature cannot be conditional on the target from this table alone — so
+# `bundled` lives on the target-specific libsqlite3-sys dependency below instead,
+# which resolver = "2" only pulls in when the target actually matches.
+rusqlite = "0.41"
+
+[features]
+# Reads/writes files through the WASI preopens instead of the in-memory VFS.
+#
+# **Required** on wasm32-wasip1/wasip2 for a persistent database. Without it the
+# resolved VFS is in-memory, so a file path silently becomes an ephemeral
+# database. `driver::Vfs::describe_selection` reports which VFS is in force so a
+# caller can assert on it rather than guess. Enabling it on a non-WASI target is
+# harmless: rusqlite only consults it for `target_os = "wasi"`.
+wasm32-wasi-vfs = ["rusqlite/wasm32-wasi-vfs"]
+
+# The browser OPFS VFS (the SAH pool).
+#
+# **Worker-only**, per PLAN.md 5.4: `FileSystemSyncAccessHandle` exists only in a
+# dedicated worker, so this cannot be enabled on the main thread. It is also not
+# this crate's job to wire it up — lane F owns the browser worker story. The flag
+# exists so `dxdb-opfs` can select the VFS without forking this crate.
+#
+# Note this is a *different crate* from `rusqlite`'s `wasm32-wasi-vfs` above:
+# `rusqlite` has no `sqlite-wasm-vfs` feature at all (checked against the 0.41.0
+# manifest). The SAH pool ships as `sqlite-wasm-vfs` 0.3.0, feature `sahpool`, and
+# it is wasm32-unknown-unknown only, so it is a target-gated optional dependency
+# rather than a feature of the FFI crate.
+opfs-sah-pool = ["dep:sqlite-wasm-vfs"]
+
+[target.'cfg(all(target_arch = "wasm32", not(target_os = "wasi")))'.dependencies.sqlite-wasm-vfs]
+version = "0.3"
+optional = true
+features = ["sahpool"]
+
+# Compile SQLite from source on native only.
+#
+# The shared Fly box has libsqlite3.so.0 but no libsqlite3-dev, so there is no
+# `libsqlite3.so` for the linker and a native link fails with "unable to find
+# library -lsqlite3". Installing a system package on a shared box is not this
+# lane's call, and a hermetic build is better anyway.
+#
+# Target-scoped rather than a feature on `rusqlite` above because cargo unifies
+# features globally: putting `bundled` there also applies it to wasm32-wasip1/2,
+# where libsqlite3-sys then tries to compile sqlite3.c with
+# `clang --target=wasm32-wasip1` and dies on a missing WASI SDK
+# ("'bits/libc-header-start.h' file not found", WASI_SDK_PATH = None). With
+# resolver = "2" and a target-specific table, this line is only considered when the
+# host target matches, so the wasm builds keep using sqlite-wasm-rs.
+[target.'cfg(not(target_family = "wasm"))'.dependencies.libsqlite3-sys]
+version = "0.39"
+features = ["bundled"]
