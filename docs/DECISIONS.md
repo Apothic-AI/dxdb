@@ -189,3 +189,50 @@ implementors.
 
 **Consequence:** a lane that finds `Checkpoint` inconvenient for the protocol has found
 a real constraint, not a bug. The generic parameter is the answer.
+
+---
+
+## D8: `INDEX_MIN` is defined once, in `dxdb-query`; `dxdb-storage` re-exports it
+
+**Decided:** 2026-10-25. **Raised by:** lanes B and D independently.
+
+Both lanes correctly derived the same reading of `src/query-planner.ts:25`:
+`INDEX_MIN` is `Number.MIN_SAFE_INTEGER` (`-9007199254740991`), not `-Infinity`,
+because `-Infinity` becomes `null` under `JSON.stringify` and a query plan is sent to a
+storage worker as JSON in several plugins, where a `null` start key breaks the scan.
+`INDEX_MAX` is `String.fromCharCode(65535)`, i.e. the string `"\u{FFFF}"`.
+
+Both then defined the constant in their own crate, with different Rust types:
+`dxdb-query` as `i64`, `dxdb-storage` as `f64`. `"\u{FFFF}"` as a `&str` in one and as a
+`PlanKey::String` in the other.
+
+**Problem:** these are not two independent constants that happen to agree. They are one
+sentinel that must compare equal across the planner-to-storage boundary. Two definitions
+in two types is a latent divergence: a future change to one, or a rounding difference in
+the `f64` variant, would make the planner emit a bound the storage does not recognise,
+and the symptom would be a slow full scan or an incorrect range rather than a failure.
+
+**Decision:** the constant is defined once, in `dxdb-query`, where the planner that
+produces it lives. `dxdb-storage` re-exports it rather than defining its own. Where
+`dxdb-storage` needs a typed key, it converts explicitly at the boundary, in one place,
+with the conversion tested.
+
+**Why `dxdb-query` and not `dxdb-storage`:** the plan is *produced* by the planner, and
+the value's whole purpose is to survive serialisation of that plan. The crate that owns
+plan construction owns the sentinel. Storage consumes plans; it does not author them.
+
+**Dependency note:** this means `dxdb-storage` gains a dependency on `dxdb-query`, or the
+constant moves to a crate both can share. Neither is free: `dxdb-storage` currently
+depends only on the encoding crates. The cheaper of the two is a thin shared crate
+(`dxdb-plan`), and that is the expected resolution if the conversion boundary turns out
+to be more than one line. **This choice is deferred to whoever implements the boundary**,
+on the condition that there is exactly one definition of the value in the workspace, and
+that the reason it is what it is stays recorded next to it.
+
+**What must be true either way:**
+
+1. Exactly one definition of `INDEX_MIN` and one of `INDEX_MAX` in the workspace.
+2. The definition carries upstream's reason for its value, verbatim in spirit: not
+   `-Infinity`, because `JSON.stringify` turns it into `null`.
+3. A test asserts that a plan survives `to_js_json` -> parse -> compare with its bounds
+   intact, since surviving JSON round-trip is the entire point of the value.

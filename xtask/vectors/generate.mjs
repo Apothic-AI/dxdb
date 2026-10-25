@@ -19,7 +19,7 @@
  * `~/.cache/dxdb-vectors/` and bundles its TypeScript sources with esbuild. See
  * that file for why the npm tarball and the built `dist/` are both rejected.
  */
-import { readFileSync } from 'node:fs';
+
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
