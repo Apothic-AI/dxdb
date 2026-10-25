@@ -1,0 +1,10 @@
+[package]
+name = "dxdb-attachments"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb attachment data model: stubs, digest, and blob access"
+
+[dependencies]
