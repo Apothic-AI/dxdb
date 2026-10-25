@@ -28,7 +28,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,15 +76,26 @@ function run(cmd, args, cwd) {
 /**
  * Clone only the pinned commit. `--filter=blob:none --no-checkout` first keeps
  * the transfer to the commit we need instead of the full history.
+ *
+ * A cached checkout is verified twice: HEAD must be the pin, and the work tree
+ * must be clean. The second check matters because these files are the oracle. An
+ * edit to a cached checkout would leave HEAD at the pin and silently change every
+ * vector generated afterwards, which is precisely the failure the pin exists to
+ * prevent.
  */
 function ensureCheckout() {
   if (existsSync(join(checkoutDir, '.git'))) {
     const head = run('git', ['rev-parse', 'HEAD'], checkoutDir).trim();
-    if (head === PIN.commit) {
+    const dirty = run('git', ['status', '--porcelain'], checkoutDir).trim();
+    if (head === PIN.commit && dirty === '') {
       return { dir: checkoutDir, fetched: false };
     }
-    log(`cached checkout is at ${head}, expected ${PIN.commit}; refetching`);
-    execFileSync('rm', ['-rf', checkoutDir]);
+    if (head === PIN.commit && dirty !== '') {
+      log('cached upstream checkout has local modifications; discarding it');
+    } else {
+      log(`cached checkout is at ${head}, expected ${PIN.commit}; refetching`);
+    }
+    rmSync(checkoutDir, { recursive: true, force: true });
   }
   mkdirSync(dirname(checkoutDir), { recursive: true });
   log(`fetching ${PIN.repo} at ${PIN.commit.slice(0, 12)} (one-time, ~20s)`);
@@ -95,6 +106,10 @@ function ensureCheckout() {
   const head = run('git', ['rev-parse', 'HEAD'], checkoutDir).trim();
   if (head !== PIN.commit) {
     throw new Error(`upstream checkout landed on ${head}, expected the pin ${PIN.commit}`);
+  }
+  const dirty = run('git', ['status', '--porcelain'], checkoutDir).trim();
+  if (dirty !== '') {
+    throw new Error(`freshly fetched upstream checkout is unexpectedly modified:\n${dirty}`);
   }
   return { dir: checkoutDir, fetched: true };
 }
