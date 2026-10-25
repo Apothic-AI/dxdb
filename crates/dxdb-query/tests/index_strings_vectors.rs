@@ -294,14 +294,21 @@ fn probe_bound(case: &Value) -> BoundValue {
 #[test]
 fn rejected_schemas_are_rejected_here() {
     let vector = load();
-    let skipped = vector["skipped"].as_array().expect("skipped array");
+    // The family records these as first-class `rejections` with the observable error
+    // identity, not as a `skipped` list: accepting any of them would mean producing
+    // index strings upstream cannot, which is worse than failing, because a store
+    // written by dxdb would then be unreadable by RxDB. The field was renamed when the
+    // vectors lane made rejections assertable rather than merely noted.
+    let rejections = vector["rejections"]
+        .as_array()
+        .expect("rejections array: the family must record the schemas upstream rejects");
     assert!(
-        !skipped.is_empty(),
+        !rejections.is_empty(),
         "the family must record the schemas upstream rejects"
     );
 
     let lookup = schema_lookup();
-    for entry in skipped {
+    for entry in rejections {
         let schema_name = entry["schema"].as_str().expect("schema");
         let index: Vec<String> = entry["index"]
             .as_array()
@@ -316,7 +323,9 @@ fn rejected_schemas_are_rejected_here() {
                 }
             })
             .collect();
-        let reason = entry["reason"].as_str().unwrap_or_default();
+        // The new shape names the observable failure class and error name rather than a
+        // free-text reason, so the assertion can cite what upstream actually did.
+        let reason = entry["class"].as_str().unwrap_or_default();
 
         let Some(schema_input) = lookup.get(schema_name) else {
             // `noStringIndex` is one of the fixtures; if a fixture is missing the
