@@ -1,0 +1,24 @@
+[package]
+name = "dxdb-testkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb conformance testkit: the ported storage contract from upstream RxDB's two suites"
+
+# Deliberately tiny. This crate is generic over the storage traits and must not
+# name a concrete storage crate (lane brief, "Fidelity rules" 5), so the only
+# workspace dependency is `dxdb-storage` itself. `dxdb-core` is *not* a
+# dependency even in dev-dependencies: PLAN.md 4.1 allows `dxdb-core` to name
+# `dxdb-memory`, not the other way round.
+[dependencies]
+dxdb-storage = { path = "../dxdb-storage" }
+serde_json.workspace = true
+futures.workspace = true
+
+[dev-dependencies]
+# The reference storage. `dxdb-core` may name it in dev-dependencies (PLAN.md
+# 4.1); the testkit is the layer above the storage traits, so it uses it the same
+# way to run the suites against a real implementation.
+dxdb-memory = { path = "../storages/dxdb-memory" }
