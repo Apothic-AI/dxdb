@@ -26,6 +26,10 @@ name = "dxdb-jsstr"
 version = "0.0.0"
 
 [[package]]
+name = "dxdb-memory"
+version = "0.0.0"
+
+[[package]]
 name = "dxdb-plugin-query-builder"
 version = "0.0.0"
 
