@@ -297,6 +297,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-migration-schema"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-query-builder"
 version = "0.0.0"
 dependencies = [
