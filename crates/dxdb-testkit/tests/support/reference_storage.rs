@@ -37,10 +37,9 @@ use std::rc::Rc;
 
 use dxdb_storage::{
     BulkWriteResponse, BulkWriteRow, ChangeEvent, ChangedDocuments, Checkpoint, CountMode,
-    CountResult, DocumentData, DocumentWriteData, DynRxStorage, DynRxStorageInstance,
+    CountResult, DocumentData, DynRxStorageInstance,
     EventBulk, FindAttachmentResult, InstanceCreationParams, Operation, PreparedQuery,
     RxStorage, RxStorageInstance, SortDirection, StorageError, StorageSchema, WriteError,
-    WRITE_ERROR_CONFLICT,
 };
 use serde_json::Value;
 
@@ -104,10 +103,6 @@ impl ReferenceStorage {
         Self::default()
     }
 
-    /// Every collection key currently open, for the "does not mix up" cases.
-    pub fn open_collections(&self) -> Vec<String> {
-        self.registry.borrow().keys().cloned().collect()
-    }
 }
 
 impl RxStorage for ReferenceStorage {
@@ -376,7 +371,7 @@ impl RxStorageInstance for ReferenceInstance {
             .attachments
             .get(&(document_id, attachment_id.clone()))
             .cloned()
-            .ok_or_else(|| StorageError::MissingAttachment(attachment_id))
+            .ok_or(StorageError::MissingAttachment(attachment_id))
     }
 
     async fn get_changed_documents_since(
@@ -616,11 +611,9 @@ fn matches_condition(value: Option<&Value>, condition: &Value) -> bool {
         "$options" => true,
         "$type" => match operand.as_str().expect("$type takes a string") {
             "string" => value.map(Value::is_string).unwrap_or(false),
-            "number" => value
-                .map(|v| v.is_number() && !is_integral_float(v))
-                .or_else(|| Some(false))
-                .unwrap_or(false)
-                || value.map(Value::is_f64).unwrap_or(false),
+            // `$type: "number"` in Mango means a JSON number written with a decimal
+            // point, not an integer. `serde_json` distinguishes them by backing type.
+            "number" => value.map(|v| v.is_f64() && !is_integral_float(v)).unwrap_or(false),
             "integer" => value.map(|v| v.is_i64() || v.is_u64()).unwrap_or(false),
             "boolean" => value.map(Value::is_boolean).unwrap_or(false),
             "array" => value.map(Value::is_array).unwrap_or(false),

@@ -396,6 +396,16 @@ fn fixture_operators_are_in_the_documented_set() {
         .iter()
         .filter(|operator| !DOCUMENTED.contains(&operator.as_str()))
         .collect();
+    // And the reference scaffold must be able to evaluate every one of them, or a group
+    // would fail for a reason that has nothing to do with the storage contract.
+    let unimplemented: Vec<&String> = seen
+        .iter()
+        .filter(|operator| !support::reference_storage::SUPPORTED_OPERATORS.contains(&operator.as_str()))
+        .collect();
+    assert!(
+        unimplemented.is_empty(),
+        "the fixtures use operators the reference scaffold cannot evaluate: {unimplemented:?}"
+    );
     assert!(
         undocumented.is_empty(),
         "the fixtures use operators not in PLAN.md 4.3: {undocumented:?}. Either the \

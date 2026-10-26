@@ -229,8 +229,23 @@ const IMPLEMENTATIONS_RANGES: &[LineRange] = &[
     },
     LineRange {
         from: 422,
+        to: 726,
+        what: "`.bulkWrite()`: deleted docs, property unset, tombstone updates",
+        accounting: Accounting::PortedAndExercised,
+    },
+    LineRange {
+        from: 727,
+        to: 772,
+        what: concat!(
+            "`.bulkWrite()`: `should be able to store a complex document with key ",
+            "compression` (needs the key-compression wrapper)"
+        ),
+        accounting: Accounting::DeclaredNotPorted,
+    },
+    LineRange {
+        from: 773,
         to: 1178,
-        what: "`.bulkWrite()`: deleted docs, meta-only writes, umlauts, #9145",
+        what: "`.bulkWrite()`: meta-only writes, umlauts, #9145",
         accounting: Accounting::PortedAndExercised,
     },
     LineRange {
