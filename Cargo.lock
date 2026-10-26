@@ -613,6 +613,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-pipeline"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-storage",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-query-builder"
 version = "0.0.0"
 dependencies = [
