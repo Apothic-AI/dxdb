@@ -268,6 +268,24 @@ name = "dxdb-jsstr"
 version = "0.0.0"
 
 [[package]]
+name = "dxdb-localstorage"
+version = "0.0.0"
+dependencies = [
+ "dxdb-jsnum",
+ "dxdb-json",
+ "dxdb-query",
+ "dxdb-storage",
+ "futures",
+ "futures-channel",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "dxdb-logger"
 version = "0.0.0"
 dependencies = [
