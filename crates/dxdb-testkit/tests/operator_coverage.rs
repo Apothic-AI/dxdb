@@ -101,8 +101,10 @@ fn fixture_documents() -> Vec<Value> {
         json!({"id": "b4", "name": "epsilon","score": 45, "tags": ["z"],           "opt": "present"}),
         // No `opt` at all: the document `$exists: false` must find.
         json!({"id": "c1", "name": "zeta",   "score": 55, "tags": ["x"]}),
-        // A string where the others are numbers, for `$type`.
-        json!({"id": "c2", "name": "zeta",   "score": "sixty", "tags": ["y"]}),
+        // A string in a string field, for `$type: "string"`; and `score` absent, for
+        // `$exists: false` on an indexed field, which is the case an index-based scan
+        // gets wrong most easily.
+        json!({"id": "c2", "name": "sixty",  "tags": ["y"]}),
     ]
 }
 
@@ -137,6 +139,10 @@ fn cases() -> Vec<OperatorCase> {
         // `$options` rides with `$regex` by definition: it is the flag set.
         OperatorCase { operator: "$options", selector: json!({"name": {"$regex": "^A", "$options": "i"}}), expect_empty: false },
         OperatorCase { operator: "$exists", selector: json!({"opt": {"$exists": false}}), expect_empty: false },
+        // `score` is a number on every document that has it, and absent on `c2`, so
+        // `$type: "number"` matches 11 of 12 -- not vacuous, and not everything (which
+        // is what the guard requires, because a selector matching everything would hide
+        // a too-permissive matcher).
         OperatorCase { operator: "$type", selector: json!({"score": {"$type": "number"}}), expect_empty: false },
         OperatorCase { operator: "$mod", selector: json!({"score": {"$mod": [20, 10]}}), expect_empty: false },
         OperatorCase { operator: "$not", selector: json!({"name": {"$not": {"$eq": "alpha"}}}), expect_empty: false },
@@ -176,7 +182,15 @@ async fn run_case<S: RxStorage>(storage: &S, case: &OperatorCase) {
         "properties": {
             "id":    { "type": "string", "maxLength": 10 },
             "name":  { "type": "string", "maxLength": 20 },
-            "score": { "type": ["number", "string"] },
+            // A single type, deliberately: `score` is indexed, and an index string is
+            // built per field type, so a union type has no encoding and the schema is
+            // rejected (CI2). `$type` gets its string case from `name` instead, which is
+            // a string throughout, and from `score` being absent on `c1`.
+            // A numeric index field must declare its digit budget: the index string
+            // zero-pads numbers around a schema-declared minimum and maximum, so without
+            // them there is no width to pad to (CI2, and the reason `INDEX_MIN` is
+            // MIN_SAFE_INTEGER rather than -Infinity -- see docs/DECISIONS.md D8).
+            "score": { "type": "number", "minimum": 0, "maximum": 100, "multipleOf": 1 },
             "tags":  { "type": "array", "items": { "type": "string" } },
             "opt":   { "type": "string" }
         },
