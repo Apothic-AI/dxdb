@@ -750,22 +750,11 @@ fn regex_matches(value: Option<&Value>, pattern: &str, options: &str) -> bool {
     let atoms = parse_atoms(&core, &pattern);
 
     // Try every start offset the anchors permit; a match is a full run of atoms.
+    // With `^`, only offset 0 is allowed; without it, any offset up to and including
+    // the empty position past the end (which only an empty atom list could match).
     let haystack: Vec<char> = text.chars().collect();
-    let first_start = if anchored_start { 0 } else { 0 };
-    let last_start = if anchored_start {
-        0
-    } else {
-        haystack.len()
-    };
-    if first_start > haystack.len() {
-        return false;
-    }
-    for start in first_start..=last_start {
-        if match_at(&atoms, &haystack, start, anchored_end) {
-            return true;
-        }
-    }
-    false
+    let last_start = if anchored_start { 0 } else { haystack.len() };
+    (0..=last_start).any(|start| match_at(&atoms, &haystack, start, anchored_end))
 }
 
 /// One pattern atom: a literal character or a character class.
@@ -896,6 +885,11 @@ fn compare_values(a: Option<&Value>, b: Option<&Value>) -> std::cmp::Ordering {
 
 /// Every operator this scaffold supports, so a test can assert the set is the one
 /// PLAN.md 4.3 names and not accidentally narrower.
+///
+/// Compiled into both gate binaries (they share this module), but only
+/// `query_correctness.rs` reads it; `#[allow(dead_code)]` records that rather than
+/// splitting the support module in two for one constant.
+#[allow(dead_code)]
 pub const SUPPORTED_OPERATORS: &[&str] = &[
     "$eq", "$gt", "$gte", "$lt", "$lte", "$ne", "$in", "$nin", "$exists", "$type", "$mod",
     "$not", "$size", "$elemMatch", "$regex", "$options", "$and", "$or", "$nor",
