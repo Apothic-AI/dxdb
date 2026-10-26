@@ -22,6 +22,9 @@ dxdb-json = { path = "../dxdb-json" }
 # parser here rather than depending on the (leader-owned) feature flag.
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
+# The workspace's single typed reader for testdata/vectors. Using it instead of a local
+# serde_json traversal keeps field names and nullability in one place.
+dxdb-vectors = { path = "../dxdb-vectors" }
 
 [features]
 # `serde` derives on the wire-shaped types. Off by default so the core build

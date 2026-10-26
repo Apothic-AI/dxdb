@@ -620,6 +620,7 @@ dependencies = [
  "dxdb-jsnum",
  "dxdb-json",
  "dxdb-jsstr",
+ "dxdb-vectors",
  "dynosaur",
  "futures",
  "serde",

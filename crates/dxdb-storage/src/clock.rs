@@ -216,10 +216,19 @@ mod tests {
     #[test]
     fn lwt_shape_is_ms_plus_sub_tick() {
         // 7 * 0.01 in IEEE-754 is what JS also computes for `7 * 0.01`.
-        assert_eq!(lwt_from_parts(1_700_000_000_000, 7), 1_700_000_000_000.0 + 7.0 * 0.01);
+        assert_eq!(
+            lwt_from_parts(1_700_000_000_000, 7),
+            1_700_000_000_000.0 + 7.0 * 0.01
+        );
         // Two decimals, formatted the JS way.
-        assert_eq!(format_lwt(lwt_from_parts(1_700_000_000_000, 7)), "1700000000000.07");
-        assert_eq!(format_lwt(lwt_from_parts(1_700_000_000_000, 1)), "1700000000000.01");
+        assert_eq!(
+            format_lwt(lwt_from_parts(1_700_000_000_000, 7)),
+            "1700000000000.07"
+        );
+        assert_eq!(
+            format_lwt(lwt_from_parts(1_700_000_000_000, 1)),
+            "1700000000000.01"
+        );
     }
 
     #[test]
