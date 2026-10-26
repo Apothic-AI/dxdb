@@ -756,6 +756,84 @@ number we cannot reproduce.
 
 **Would resolve it.** Our own bench, run per `docs/BENCHMARKS.md`.
 
+### G-045: attachment ciphertexts are not revision-bound, because a read has no document
+
+**Question.** `specs/encryption.md` INV-6 binds a field ciphertext to the document's
+`_rev`, which defeats replaying an older value. Can attachments get the same binding?
+
+**Public evidence.** None: the port's `get_attachment_data(document_id,
+attachment_id, digest)` returns bytes and has no document, so there is no `_rev` to
+bind at read time.
+
+**Decision.** An attachment's AAD binds the document id and the attachment id, and
+carries `revision: None` on both the seal and the open path. Consequence, stated
+plainly: rollback protection covers encrypted document fields and **not** attachment
+payloads. An attacker with storage write access can replay an older attachment
+ciphertext for the same document and attachment, and it will open.
+
+**Risk if wrong.** A replayed attachment returns stale bytes. It cannot return another
+document's or another attachment's bytes, and it cannot be forged, because the AEAD tag
+still covers the content.
+
+**Would resolve it.** Carrying the document's revision into the attachment read, which
+means either changing the trait signature (a port change, `dxdb-storage`) or storing
+the revision alongside the attachment in `_attachments`. Both are port decisions, not
+envelope decisions, so this is recorded rather than invented here.
+
+### G-046: the KDF cost was 15x the estimate until it was measured
+
+**Question.** `specs/encryption.md` section 3.3 argued that Argon2id at
+`m = 64 MiB, t = 3, p = 1` costs "on the order of 200 ms" on a machine sustaining
+~1 GB/s of per-core Argon2 throughput, and section 8 recorded that as an unmeasured
+target. What is it actually?
+
+**Public evidence.** RFC 9106 gives parameter recommendations but no throughput
+figure; the 200 ms estimate was arithmetic from an assumed throughput.
+
+**Decision.** Measured on the shared build box, three runs each: **289 ms in release**,
+**2.93 s in debug**. The release figure is inside the target, so the parameters stand —
+but the estimate was right by coincidence, not by method, and the assumed 1 GB/s is
+really ~0.7 GB/s. More importantly, a debug build is ~10x slower, which on a slower
+CPU would be several seconds and would read to a user as a hang. So the crate now
+carries a test that asserts a **profile-dependent** budget (8 s debug, 500 ms release)
+and prints its samples, turning "how slow is unlock" into something a gate answers.
+
+**Risk if wrong.** The budget is calibrated to one machine. A target much slower than
+this box (a low-end phone) could exceed the release budget, at which point the choice
+is between lowering `t`/`m` — which weakens T1 — and accepting a multi-second unlock.
+That trade belongs in a decision, not in a silent retune, so the test failing is the
+intended prompt to have it.
+
+**Would resolve it.** A measurement on the slowest target we intend to support. Until
+then the numbers above are the only ones that may appear in prose.
+
+### G-047: `dxdb-memory` is still a scaffold, so the wrapper is tested against a double
+
+**Question.** `specs/encryption.md`'s strongest verification claim is the cross-check
+against the open-source baseline (CLEANROOM.md section 6): a clean-room storage runs
+the same conformance suite as `dxdb-memory`. That suite does not exist yet, and
+`crates/storages/dxdb-memory` is a ten-line scaffold.
+
+**Public evidence.** The trait contract in `crates/dxdb-storage/src/traits.rs` is
+complete and merged, including the documented `count`/`query` relationship and the
+change-feed fallback; the engine is not.
+
+**Decision.** The encryption tests run against a local recording double
+(`tests/fake.rs`) that implements the trait contract faithfully — real storage by
+primary key, real conflict detection, real `with_deleted` filtering, and a real
+`(_meta.lwt, primary)` change feed. The last one was implemented rather than inherited
+from the trait's default body, because the default runs a planned range query that the
+double's `query` does not honour, and a double that quietly ignores a checkpoint makes
+a multi-pass consumer look broken when the double is what is wrong.
+
+**Risk if wrong.** The double could agree with a wrappper bug. That risk is real and is
+why this row exists: **the conformance cross-check is an obligation for this crate, not
+a finished claim.** When `dxdb-memory` lands, `dxdb-encryption` must be re-run against
+it through `make gate-storage`.
+
+**Would resolve it.** `dxdb-memory` becoming a real storage. Tracked here so the
+obligation is not quietly forgotten when the tests go green against the double.
+
 ## Closed by fact, not by decision
 
 ### G-027: which upstream modules are in the Apache-2.0 tree (recorded, not decided)
