@@ -1,0 +1,383 @@
+{
+  "generatedBy": "upstream RxDB via getRxStorageDexie(), in Chromium",
+  "rxdbVersion": "17.6.0",
+  "schema": {
+    "title": "dexie migration probe",
+    "version": 0,
+    "primaryKey": "passportId",
+    "type": "object",
+    "properties": {
+      "passportId": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "firstName": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "age": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 150,
+        "multipleOf": 1
+      }
+    },
+    "required": [
+      "passportId",
+      "firstName",
+      "age"
+    ],
+    "indexes": [
+      "firstName",
+      "age"
+    ]
+  },
+  "filledSchema": {
+    "additionalProperties": false,
+    "encrypted": [],
+    "indexes": [
+      [
+        "_deleted",
+        "firstName",
+        "passportId"
+      ],
+      [
+        "_deleted",
+        "age",
+        "passportId"
+      ],
+      [
+        "_meta.lwt",
+        "passportId"
+      ]
+    ],
+    "keyCompression": false,
+    "primaryKey": "passportId",
+    "properties": {
+      "_attachments": {
+        "type": "object"
+      },
+      "_deleted": {
+        "type": "boolean"
+      },
+      "_meta": {
+        "additionalProperties": true,
+        "properties": {
+          "lwt": {
+            "maximum": 1000000000000000,
+            "minimum": 1,
+            "multipleOf": 0.01,
+            "type": "number"
+          }
+        },
+        "required": [
+          "lwt"
+        ],
+        "type": "object"
+      },
+      "_rev": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "age": {
+        "maximum": 150,
+        "minimum": 0,
+        "multipleOf": 1,
+        "type": "number"
+      },
+      "firstName": {
+        "maxLength": 100,
+        "type": "string"
+      },
+      "passportId": {
+        "maxLength": 100,
+        "type": "string"
+      }
+    },
+    "required": [
+      "passportId",
+      "firstName",
+      "age",
+      "_deleted",
+      "_rev",
+      "_meta",
+      "_attachments"
+    ],
+    "title": "dexie migration probe",
+    "type": "object",
+    "version": 0
+  },
+  "schemaHash": "c52c451ce8b54fa44141ec167ace5378b8eb24e28455a92f836dc433c05ca9cd",
+  "schemaHashError": null,
+  "hashInput": "{\"additionalProperties\":false,\"encrypted\":[],\"indexes\":[[\"_deleted\",\"firstName\",\"passportId\"],[\"_deleted\",\"age\",\"passportId\"],[\"_meta.lwt\",\"passportId\"]],\"keyCompression\":false,\"primaryKey\":\"passportId\",\"properties\":{\"_attachments\":{\"type\":\"object\"},\"_deleted\":{\"type\":\"boolean\"},\"_meta\":{\"additionalProperties\":true,\"properties\":{\"lwt\":{\"maximum\":1000000000000000,\"minimum\":1,\"multipleOf\":0.01,\"type\":\"number\"}},\"required\":[\"lwt\"],\"type\":\"object\"},\"_rev\":{\"minLength\":1,\"type\":\"string\"},\"age\":{\"maximum\":150,\"minimum\":0,\"multipleOf\":1,\"type\":\"number\"},\"firstName\":{\"maxLength\":100,\"type\":\"string\"},\"passportId\":{\"maxLength\":100,\"type\":\"string\"}},\"required\":[\"passportId\",\"firstName\",\"age\",\"_deleted\",\"_rev\",\"_meta\",\"_attachments\"],\"title\":\"dexie migration probe\",\"type\":\"object\",\"version\":0}",
+  "documentsInput": [
+    {
+      "passportId": "h1",
+      "firstName": "Alice",
+      "age": 30
+    },
+    {
+      "passportId": "h2",
+      "firstName": "Bob 🦀",
+      "age": 41
+    },
+    {
+      "passportId": "h3",
+      "firstName": "Ünïcodé 世界",
+      "age": 150
+    },
+    {
+      "passportId": "h4",
+      "firstName": "Zero",
+      "age": 0
+    }
+  ],
+  "documentsAsRxdbSeesThem": [
+    {
+      "passportId": "h1",
+      "firstName": "Alice",
+      "age": 30,
+      "_deleted": false,
+      "_attachments": {},
+      "_meta": {
+        "lwt": 1792987118135.01
+      },
+      "_rev": "1-zbdtfxxavy"
+    },
+    {
+      "passportId": "h2",
+      "firstName": "Bob 🦀",
+      "age": 41,
+      "_deleted": false,
+      "_attachments": {},
+      "_meta": {
+        "lwt": 1792987118135.01
+      },
+      "_rev": "1-zbdtfxxavy"
+    },
+    {
+      "passportId": "h3",
+      "firstName": "Ünïcodé 世界",
+      "age": 150,
+      "_deleted": false,
+      "_attachments": {},
+      "_meta": {
+        "lwt": 1792987118135.01
+      },
+      "_rev": "1-zbdtfxxavy"
+    },
+    {
+      "passportId": "h4",
+      "firstName": "Zero",
+      "age": 0,
+      "_deleted": false,
+      "_attachments": {},
+      "_meta": {
+        "lwt": 1792987118135.01
+      },
+      "_rev": "1-zbdtfxxavy"
+    }
+  ],
+  "databases": [
+    {
+      "name": "rxdb-dexie-dexieprobe--0--_rxdb_internal",
+      "version": 10,
+      "storeNames": [
+        "attachments",
+        "changes",
+        "docs"
+      ],
+      "stores": {
+        "attachments": [],
+        "changes": [],
+        "docs": [
+          {
+            "key": "collection|humans-0",
+            "value": {
+              "id": "collection|humans-0",
+              "key": "humans-0",
+              "context": "collection",
+              "data": {
+                "name": "humans",
+                "schemaHash": "c52c451ce8b54fa44141ec167ace5378b8eb24e28455a92f836dc433c05ca9cd",
+                "schema": {
+                  "additionalProperties": false,
+                  "encrypted": [],
+                  "indexes": [
+                    [
+                      "_deleted",
+                      "firstName",
+                      "passportId"
+                    ],
+                    [
+                      "_deleted",
+                      "age",
+                      "passportId"
+                    ],
+                    [
+                      "_meta.lwt",
+                      "passportId"
+                    ]
+                  ],
+                  "keyCompression": false,
+                  "primaryKey": "passportId",
+                  "properties": {
+                    "_attachments": {
+                      "type": "object"
+                    },
+                    "_deleted": {
+                      "type": "boolean"
+                    },
+                    "_meta": {
+                      "additionalProperties": true,
+                      "properties": {
+                        "lwt": {
+                          "maximum": 1000000000000000,
+                          "minimum": 1,
+                          "multipleOf": 0.01,
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "lwt"
+                      ],
+                      "type": "object"
+                    },
+                    "_rev": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "age": {
+                      "maximum": 150,
+                      "minimum": 0,
+                      "multipleOf": 1,
+                      "type": "number"
+                    },
+                    "firstName": {
+                      "maxLength": 100,
+                      "type": "string"
+                    },
+                    "passportId": {
+                      "maxLength": 100,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "passportId",
+                    "firstName",
+                    "age",
+                    "_deleted",
+                    "_rev",
+                    "_meta",
+                    "_attachments"
+                  ],
+                  "title": "dexie migration probe",
+                  "type": "object",
+                  "version": 0
+                },
+                "version": 0,
+                "connectedStorages": []
+              },
+              "_deleted": "0",
+              "_meta": {
+                "lwt": 1792987118114.01
+              },
+              "_rev": "1-zbdtfxxavy",
+              "_attachments": {}
+            }
+          },
+          {
+            "key": "storage-token|storageToken",
+            "value": {
+              "id": "storage-token|storageToken",
+              "context": "storage-token",
+              "key": "storageToken",
+              "data": {
+                "rxdbVersion": "17.6.0",
+                "token": "kfcetgiccz",
+                "instanceToken": "zbdtfxxavy"
+              },
+              "_deleted": "0",
+              "_meta": {
+                "lwt": 1792987118103.01
+              },
+              "_rev": "1-zbdtfxxavy",
+              "_attachments": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "rxdb-dexie-dexieprobe--0--humans",
+      "version": 10,
+      "storeNames": [
+        "attachments",
+        "changes",
+        "docs"
+      ],
+      "stores": {
+        "attachments": [],
+        "changes": [],
+        "docs": [
+          {
+            "key": "h1",
+            "value": {
+              "passportId": "h1",
+              "firstName": "Alice",
+              "age": 30,
+              "_deleted": "0",
+              "_attachments": {},
+              "_meta": {
+                "lwt": 1792987118135.01
+              },
+              "_rev": "1-zbdtfxxavy"
+            }
+          },
+          {
+            "key": "h2",
+            "value": {
+              "passportId": "h2",
+              "firstName": "Bob 🦀",
+              "age": 41,
+              "_deleted": "0",
+              "_attachments": {},
+              "_meta": {
+                "lwt": 1792987118135.01
+              },
+              "_rev": "1-zbdtfxxavy"
+            }
+          },
+          {
+            "key": "h3",
+            "value": {
+              "passportId": "h3",
+              "firstName": "Ünïcodé 世界",
+              "age": 150,
+              "_deleted": "0",
+              "_attachments": {},
+              "_meta": {
+                "lwt": 1792987118135.01
+              },
+              "_rev": "1-zbdtfxxavy"
+            }
+          },
+          {
+            "key": "h4",
+            "value": {
+              "passportId": "h4",
+              "firstName": "Zero",
+              "age": 0,
+              "_deleted": "0",
+              "_attachments": {},
+              "_meta": {
+                "lwt": 1792987118135.01
+              },
+              "_rev": "1-zbdtfxxavy"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
