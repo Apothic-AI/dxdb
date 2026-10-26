@@ -198,6 +198,14 @@ impl Harness {
             .expect("find_documents_by_id failed")
     }
 
+    /// Builds a prepared query against **this instance's** schema.
+    ///
+    /// The right way for a case to build a query: the plan picks an index the schema
+    /// actually has, so a correct storage cannot fail it with `UnknownIndex`.
+    pub fn prepare(&self, query: &Value) -> PreparedQuery {
+        build_prepared_query_for_schema(query, self.instance.schema())
+    }
+
     /// Runs a prepared query.
     pub async fn query(&self, prepared: PreparedQuery) -> Vec<DocumentData> {
         self.instance.as_ref()
@@ -313,28 +321,89 @@ pub fn mango_query(query: &Value, primary_path: &str) -> MangoQuery {
     }
 }
 
-/// The index a query would use: the forced index if one is given, else the sort
-/// fields, with `_deleted` first — the shape `fillWithDefaultSettings` produces.
+/// Chooses an index **the schema actually materialised** for this query.
 ///
-/// This is not the planner. It is the *identity* of the index a plan would name, so
-/// a storage that materialised that index can be handed a plan for it. Choosing a
-/// better index than the sort order requires costs information (`getQueryPlan`).
-fn planned_index(query: &MangoQuery, primary_path: &str) -> Vec<String> {
-    let mut index: Vec<String> = Vec::new();
+/// This replaces an earlier version that synthesized an index name from the sort fields
+/// (`_deleted` + sort parts + primary key). That produced plans naming indexes the schema
+/// never had — `UnknownIndex("_deleted,value,key")` — which failed three `dxdb-memory`
+/// cases and would have failed every storage that correctly refuses an index it does not
+/// have. The storage was right; the harness was asking for something imaginary.
+///
+/// The rule now, matching what a real planner guarantees:
+///
+/// 1. If the query forces an `index`, use it **only if the schema has it**. A query that
+///    names a missing index is a bug in the query, and upstream's planner returns a plan
+///    for a schema index instead of erroring, so falling through to (2) is faithful.
+/// 2. Otherwise pick the schema index whose field list is a prefix-compatible match for the
+///    sort: every sort field must appear, in order, at the start of the index. That is the
+///    only condition under which an index can satisfy a sort.
+/// 3. Otherwise the change-feed index, which every filled schema has, and which is a
+///    valid total order (`_meta.lwt`, primary) — the storage will re-sort, which is
+///    correct and is what `sort_satisfied_by_index: false` tells it to do.
+///
+/// Every branch returns an index from [`StorageSchema::indexes`], so a plan can never name
+/// an index the storage does not have.
+fn planned_index(query: &MangoQuery, schema: &StorageSchema) -> Vec<String> {
+    let primary = &schema.primary_path;
+
+    // (1) A forced index, if the schema has it.
     if let Some(forced) = &query.index {
-        index.extend(forced.iter().cloned());
-    } else {
-        for part in &query.sort {
-            index.push(part.field.clone());
+        let mut wanted = forced.clone();
+        // Upstream prepends `_deleted` to a forced index in the correctness suite; accept
+        // both spellings so a fixture written either way resolves.
+        let mut candidates = vec![wanted.clone()];
+        if wanted.first().map(String::as_str) != Some("_deleted") {
+            wanted.insert(0, "_deleted".to_string());
+            candidates.push(wanted);
+        }
+        for candidate in candidates {
+            if let Some(actual) = schema.indexes.iter().find(|index| **index == candidate) {
+                return actual.clone();
+            }
         }
     }
-    if index.first().map(String::as_str) != Some("_deleted") {
-        index.insert(0, "_deleted".to_string());
+
+    // (2) An index that can satisfy the sort: the sort fields must be a prefix of it.
+    let sort_fields: Vec<&str> = query.sort.iter().map(|part| part.field.as_str()).collect();
+    for index in &schema.indexes {
+        // Skip the change-feed index here; it is the fallback in (3) and would otherwise
+        // match any query sorted by `_meta.lwt` before a user index gets a chance.
+        if index.first().map(String::as_str) == Some("_meta.lwt") {
+            continue;
+        }
+        // The index begins with `_deleted` and ends with the primary key; compare only the
+        // user field run against the sort.
+        let user_run: Vec<&str> = index
+            .iter()
+            .map(String::as_str)
+            .filter(|field| *field != "_deleted")
+            .collect();
+        let mut matched = 0;
+        for field in &sort_fields {
+            if field == primary {
+                // The primary key is appended by normalisation, so it never needs to
+                // appear in the compared prefix.
+                break;
+            }
+            if user_run.get(matched).map(|candidate| *candidate) == Some(*field) {
+                matched += 1;
+            } else {
+                break;
+            }
+        }
+        if matched == sort_fields.iter().filter(|field| **field != primary).count() {
+            return index.clone();
+        }
     }
-    if !index.iter().any(|field| field == primary_path) {
-        index.push(primary_path.to_string());
+
+    // (3) The change-feed index: always present after filling, and a valid total order.
+    if let Some(change_feed) = schema.change_feed_index() {
+        return change_feed.clone();
     }
-    index
+
+    // (4) Nothing to offer. Fall back to a `_deleted`-prefixed primary-key index, which
+    // filling guarantees, and which a storage can always scan.
+    vec!["_deleted".to_string(), primary.clone()]
 }
 
 /// Builds the `PreparedQuery` a case hands to `query()` / `count()`.
@@ -343,23 +412,41 @@ fn planned_index(query: &MangoQuery, primary_path: &str) -> Vec<String> {
 /// storage must do the filtering and the sorting itself. That is the approximation,
 /// and it is the conservative direction — it can fail a correct storage for being
 /// slow, but it cannot pass an incorrect one.
+///
+/// Prefer [`build_prepared_query_for_schema`] wherever a `StorageSchema` is in hand: this
+/// form cannot see which indexes exist, so it must guess, and a guess that names an index
+/// the storage does not have fails against a *correct* storage (`UnknownIndex`). It is kept
+/// for call sites that only have a primary path.
 pub fn build_prepared_query(query: &Value, primary_path: &str) -> PreparedQuery {
     let mango = mango_query(query, primary_path);
-    let index = planned_index(&mango, primary_path);
-    let plan = QueryPlan {
-        // No bounds: a full scan of the named index.
-        start_keys: vec![
-            PlanKey::index_min();
-            index.len()
-        ],
+    // Without a schema, the only index that is guaranteed to exist is the change-feed
+    // index, so use it rather than synthesizing one from the sort.
+    let index = vec!["_meta.lwt".to_string(), primary_path.to_string()];
+    PreparedQuery::new(mango, unrestricted_plan(index))
+}
+
+/// Builds a `PreparedQuery` using the indexes `schema` actually materialised.
+///
+/// This is the form a suite should use. It picks an index the storage has — see
+/// [`planned_index`] for the rule — so the plan can never name an index that does not
+/// exist, which is how three `dxdb-memory` cases were failing against a correct storage.
+pub fn build_prepared_query_for_schema(query: &Value, schema: &StorageSchema) -> PreparedQuery {
+    let mango = mango_query(query, &schema.primary_path);
+    let index = planned_index(&mango, schema);
+    PreparedQuery::new(mango, unrestricted_plan(index))
+}
+
+/// A plan that bounds nothing and claims nothing: the storage filters and sorts.
+fn unrestricted_plan(index: Vec<String>) -> QueryPlan {
+    QueryPlan {
+        start_keys: vec![PlanKey::index_min(); index.len()],
         end_keys: vec![PlanKey::index_max(); index.len()],
         selector_satisfied_by_index: false,
         sort_satisfied_by_index: false,
         index,
         inclusive_start: true,
         inclusive_end: true,
-    };
-    PreparedQuery::new(mango, plan)
+    }
 }
 
 /// Builds the `PreparedQuery` the **query-correctness suite** hands to a storage.
@@ -474,113 +561,44 @@ pub fn operations(bulks: &[EventBulk]) -> Vec<&'static str> {
         .collect()
 }
 
-/// Fills a schema the way `fillWithDefaultSettings` does *for the fields a storage
-/// reads*: `_deleted`, `_rev`, `_meta`, `_attachments` in `properties`/`required`,
-/// and `_deleted` prepended to every index.
+/// Fills a schema the way a real database does, by calling `dxdb-schema`.
 ///
-/// This is a stopgap with a named owner. `dxdb-schema` (lane B) owns the real
-/// `fill_with_default_settings`, including hashing and the meta defaults, and this
-/// function is deleted when it lands. It exists now because a storage reads
-/// `StorageSchema.indexes` and upstream's fixtures carry *unfilled* indexes; without
-/// it, every case would fail for a reason that has nothing to do with the storage.
+/// This used to be a local stopgap that injected `_deleted`, `_rev`, `_meta` and
+/// `_attachments` itself, on the stated reasoning that `dxdb-schema` was another lane's
+/// crate and guessing at hashing would produce a schema whose hash disagreed with the
+/// real one. That reasoning was right at the time and became wrong the moment
+/// `dxdb-schema` landed, because the guess was **not** conservative — it injected `_meta`
+/// as a bare `{"type": "object"}` with no `lwt`, while the fixtures' indexes reference
+/// `_meta.lwt` (PLAN.md 4.3 prepends it to essentially every index as the change-feed
+/// sort key). The result was a schema whose own index could not be resolved:
 ///
-/// Deliberately does **not** hash the schema or inject `default` values: those parts
-/// of filling are only observable through `dxdb-schema`, and guessing them here
-/// would produce a schema whose hash disagrees with the real one.
-pub fn fill_with_default_settings(mut schema: Value) -> Value {
-    let Some(object) = schema.as_object_mut() else {
-        panic!("fill_with_default_settings() needs an object schema")
-    };
-
-    // properties
-    let properties = object
-        .entry("properties".to_string())
-        .or_insert_with(|| Value::Object(Map::new()));
-    let Some(properties) = properties.as_object_mut() else {
-        panic!("schema.properties is not an object")
-    };
-    properties
-        .entry("_deleted".to_string())
-        .or_insert_with(|| serde_json::json!({ "type": "boolean" }));
-    properties
-        .entry("_attachments".to_string())
-        .or_insert_with(|| serde_json::json!({ "type": "object" }));
-    properties
-        .entry("_rev".to_string())
-        .or_insert_with(|| serde_json::json!({ "type": "string", "minLength": 1, "maxLength": 100 }));
-    properties
-        .entry("_meta".to_string())
-        .or_insert_with(|| serde_json::json!({ "type": "object" }));
-    properties
-        .entry("_rev".to_string())
-        .or_insert_with(|| serde_json::json!({ "type": "string" }));
-
-    // required
-    let required = object
-        .entry("required".to_string())
-        .or_insert_with(|| Value::Array(Vec::new()));
-    let Some(required) = required.as_array_mut() else {
-        panic!("schema.required is not an array")
-    };
-    for field in ["_deleted", "_attachments", "_rev", "_meta"] {
-        if !required.iter().any(|item| item.as_str() == Some(field)) {
-            required.push(Value::String(field.to_string()));
-        }
-    }
-
-    let primary_path = match object.get("primaryKey") {
-        Some(Value::String(path)) => path.clone(),
-        Some(Value::Object(map)) => map
-            .get("key")
-            .and_then(Value::as_str)
-            .unwrap_or("id")
-            .to_string(),
-        _ => panic!("schema has no primaryKey"),
-    };
-
-    // indexes: `_deleted` prepended unless already first, primary key appended
-    // unless already present, then the mandatory change-feed index.
-    let mut indexes: Vec<Value> = match object.remove("indexes") {
-        Some(Value::Array(list)) => list,
-        Some(Value::Null) | None => Vec::new(),
-        Some(other) => panic!("schema.indexes is not an array: {other}"),
-    };
-    let mut filled: Vec<Value> = Vec::new();
-    for index in indexes.drain(..) {
-        let mut fields: Vec<String> = match index {
-            Value::String(field) => vec![field],
-            Value::Array(parts) => parts
-                .iter()
-                .filter_map(|part| part.as_str().map(str::to_string))
-                .collect(),
-            other => panic!("schema index entry is neither a string nor an array: {other}"),
-        };
-        // Upstream's rule: `_deleted` first (before the primary key is appended, so
-        // a schema that already begins with the primary key still gets `_deleted`
-        // in front).
-        if fields.first().map(String::as_str) != Some("_deleted") {
-            fields.insert(0, "_deleted".to_string());
-        }
-        if !fields.iter().any(|field| field == &primary_path) {
-            fields.push(primary_path.clone());
-        }
-        filled.push(Value::Array(
-            fields.into_iter().map(Value::String).collect(),
-        ));
-    }
-    let change_feed = Value::Array(vec![
-        Value::String("_meta.lwt".to_string()),
-        Value::String(primary_path.clone()),
-    ]);
-    if !filled
-        .iter()
-        .any(|index| index.as_array().and_then(|parts| parts.first()).and_then(Value::as_str) == Some("_meta.lwt"))
-    {
-        filled.push(change_feed);
-    }
-    object.insert("indexes".to_string(), Value::Array(filled));
-
-    schema
+/// ```text
+/// CI1: index field `_meta.lwt` is not in the schema
+/// ```
+///
+/// which failed 43 of 49 `dxdb-indexeddb` cases before any storage code ran. A fixture
+/// that builds its own schema and gets it wrong makes every storage look broken, so this
+/// now defers to the crate that owns schema defaulting.
+///
+/// # What is *not* delegated, and why
+///
+/// Nothing. The whole body is a call to [`dxdb_schema::fill_with_default_settings`],
+/// including the meta defaults and the schema hash, because every part of filling is
+/// observable: the hash is part of schema identity, `_meta.lwt` is referenced by the
+/// indexes, and `_deleted` is referenced by every index's first key. A partial fill is a
+/// schema that is not the one a database would produce, and a suite running against a
+/// schema no database would produce is testing schema validation instead of storage
+/// behaviour.
+///
+/// # Panics
+///
+/// Panics on a schema `dxdb-schema` rejects. These are test fixtures written by hand, so
+/// a rejection is a bug in the fixture and should fail loudly at the point it is used
+/// rather than being threaded through as a `Result` that every case would have to unwrap.
+pub fn fill_with_default_settings(schema: Value) -> Value {
+    dxdb_schema::fill_with_default_settings(&schema).unwrap_or_else(|err| {
+        panic!("fixture schema is not one dxdb-schema accepts: {err}\n  schema: {schema}")
+    })
 }
 
 /// A one-line summary of a document, for a failure message.

@@ -473,15 +473,28 @@ impl RxStorageInstance for ReferenceInstance {
     async fn cleanup(&self, minimum_deleted_time: f64) -> Result<bool, StorageError> {
         self.ensure_usable()?;
         let mut state = self.state_mut();
-        // Purge every tombstone whose `_meta.lwt` is at or before the threshold. A
-        // batch-purge storage would return `false` here; this one does it in a pass, so
-        // it returns `true` — and the suite's "false means more work remains" case
-        // accepts either as long as the loop terminates.
+
+        // `minimum_deleted_time` is a **duration in milliseconds**, not an absolute
+        // deadline: the trait says "purges tombstones older than
+        // `minimum_deleted_time` milliseconds", upstream calls `cleanup(0)` to purge
+        // everything and `cleanup(1000 * 60 * 6)` to purge only six-minute-old
+        // tombstones (`rx-storage-implementations.test.ts:3441`, `:3451`).
+        //
+        // This scaffold read it as an absolute `lwt` threshold at first, which made
+        // `cleanup(0)` purge nothing (every real `lwt` is greater than 0) and failed three
+        // cases that a correct storage passes. Reading it as a duration is the fix.
+        let cutoff = dxdb_storage::now() - minimum_deleted_time;
         let doomed: Vec<String> = state
             .documents
             .iter()
             .filter(|(_, document)| {
-                document.is_deleted() && document.lwt().map(|lwt| lwt <= minimum_deleted_time).unwrap_or(true)
+                document.is_deleted()
+                    && document
+                        .lwt()
+                        .map(|lwt| lwt <= cutoff)
+                        // A tombstone with no readable `lwt` cannot be aged, so purge it
+                        // rather than keeping it forever.
+                        .unwrap_or(true)
             })
             .map(|(id, _)| id.clone())
             .collect();

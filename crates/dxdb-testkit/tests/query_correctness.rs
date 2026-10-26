@@ -38,7 +38,7 @@ mod support;
 
 use dxdb_testkit::fixtures::correctness;
 use dxdb_testkit::fixtures::correctness_support::{Group, Query};
-use dxdb_testkit::harness::{build_prepared_query, fill_with_default_settings, Harness, InstanceSpec};
+use dxdb_testkit::harness::{fill_with_default_settings, Harness, InstanceSpec};
 use dxdb_testkit::schemas;
 use support::reference_storage::ReferenceStorage;
 
@@ -97,7 +97,9 @@ async fn assert_query(harness: &Harness, group: &Group, query: &Query) {
         .map(|id| (*id).to_string())
         .collect();
 
-    let prepared = build_prepared_query(&query.query, group.primary_path);
+    // Build against the *instance's* schema so the plan names an index the storage has.
+    // A synthesized index name fails a correct storage with `UnknownIndex`.
+    let prepared = harness.prepare(&query.query);
     let actual = harness.query_ids(prepared.clone()).await;
 
     assert_eq!(
