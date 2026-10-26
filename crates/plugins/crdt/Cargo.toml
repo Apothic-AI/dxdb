@@ -1,0 +1,21 @@
+[package]
+name = "dxdb-plugin-crdt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: conflict-free replicated documents via an operation log (RxDB src/plugins/crdt)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-core = { path = "../../dxdb-core" }
+dxdb-json = { path = "../../dxdb-json" }
+dxdb-schema = { path = "../../dxdb-schema" }
+dxdb-plugin-update = { path = "../update" }
+dxdb-jsstr = { path = "../../dxdb-jsstr" }
+
+[dev-dependencies]
+serde_json.workspace = true
+dxdb-jsstr = { path = "../../dxdb-jsstr" }

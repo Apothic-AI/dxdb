@@ -147,6 +147,38 @@ function pruneToSchema(schema, query) {
   if (pruned.selector) {
     pruned.selector = pruneSelector(pruned.selector);
   }
+
+  /**
+   * `sort` and `index` must be pruned too, and until they were, this family recorded
+   * queries that are not valid against the schema they name.
+   *
+   * The corpus is a set of query *shapes* applied to whichever fixture schemas were
+   * chosen, so a shape that sorts on `firstName` was being handed to `compoundIndex`
+   * (which has no `firstName`) unchanged. It still produced a plan, because upstream
+   * will happily plan an index over fields the schema does not declare — so nothing
+   * failed and 216 case field-references across the family pointed at fields their own
+   * schema does not have. The per-family `--check` could never see it.
+   *
+   * One case is deliberately exempt: `index-unknown-field` exists precisely to record
+   * what upstream does with an index naming a missing field, so it is kept as written.
+   */
+  if (query.index) {
+    const indexList = Array.isArray(query.index) ? query.index : [query.index];
+    pruned.index = indexList.filter((field) => typeof field === 'string' && has(field));
+  }
+  if (Array.isArray(pruned.sort)) {
+    const keptSort = pruned.sort.filter((part) => {
+      if (!part || typeof part !== 'object') return false;
+      return Object.keys(part).every((field) => has(field));
+    });
+    if (keptSort.length > 0) {
+      pruned.sort = keptSort;
+    } else {
+      // A sort entirely over undeclared fields describes nothing about this schema;
+      // drop it so normalisation derives one from the schema's own indexes.
+      delete pruned.sort;
+    }
+  }
   return pruned;
 }
 
@@ -175,7 +207,12 @@ export async function run({ check, repo }) {
     const schema = rxSchema.createRxSchema(JSON.parse(JSON.stringify(literal)), utilsHash.defaultHashSha256).jsonSchema;
 
     for (const shape of QUERY_SHAPES) {
-      const query = pruneToSchema(schema, shape.query);
+      // `index-unknown-field` is the one shape that must NOT be pruned: it records how
+      // upstream handles an index naming a field the schema lacks.
+      const query =
+        shape.why === 'index-unknown-field'
+          ? JSON.parse(JSON.stringify(shape.query))
+          : pruneToSchema(schema, shape.query);
       let normalized;
       let plan;
       let error;

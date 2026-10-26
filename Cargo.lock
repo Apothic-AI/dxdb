@@ -544,6 +544,7 @@ dependencies = [
  "dxdb-query",
  "dxdb-schema",
  "dxdb-storage",
+ "dxdb-testkit",
  "futures",
  "serde",
  "serde_json",
@@ -608,6 +609,19 @@ name = "dxdb-plugin-cleanup"
 version = "0.0.0"
 dependencies = [
  "dxdb-core",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-crdt"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-json",
+ "dxdb-jsstr",
+ "dxdb-plugin-update",
+ "dxdb-schema",
  "serde_json",
  "thiserror",
 ]
@@ -812,8 +826,11 @@ dependencies = [
 name = "dxdb-testkit"
 version = "0.0.0"
 dependencies = [
+ "dxdb-filesystem",
+ "dxdb-indexeddb",
  "dxdb-localstorage",
  "dxdb-memory",
+ "dxdb-opfs",
  "dxdb-schema",
  "dxdb-storage",
  "futures",
