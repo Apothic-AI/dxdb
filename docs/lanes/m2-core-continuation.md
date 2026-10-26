@@ -123,10 +123,19 @@ What *was* done instead of guessing, all by reading source:
   to `dxdb-testkit` and no new manifest entry (`dxdb-memory` is already a dev-dependency there);
 - no literal counts: totals come from `correctness::groups()`.
 
-**First action after RESUME:** run it. If it fails, the likely causes in order are a
-`&[Group]` vs `Vec<Group>` coercion detail at the `query_count` call, and the `for group in
-groups` loop moving a `&'static [Group]` element. Both are one-line fixes. Do not fold the
-result into any report until it has actually run.
+**First action after RESUME:** run it. Two risks were then retired by matching the *compiling*
+code rather than by judgement:
+
+- the `for group in groups` loop over `&'static [Group]` is the exact idiom
+  `crates/dxdb-testkit/tests/query_correctness.rs` uses at four sites, so it is not a
+  move-out-of-borrow;
+- `query_count` is called as `dxdb_testkit::fixtures::query_count(groups)`, which is both the
+  re-export path in `fixtures/mod.rs` and the form the proven testkit test uses. I had written
+  the `correctness_support::` sub-path; it would likely have compiled, but matching proven code
+  costs nothing.
+
+If it still fails, the remaining likely cause is a `Vec` vs slice coercion inside the
+`catch_unwind` closure. One-line fix. Do not fold the result into any report until it has run.
 
 
 ## 3. Things learned that are not written down in the repo
