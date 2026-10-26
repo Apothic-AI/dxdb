@@ -1,0 +1,62 @@
+[package]
+name = "dxdb-opfs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb OPFS storage: worker sync-access-handle fast path with an explicit main-thread fallback"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# Compiles the in-browser conformance runner (the ported testkit suite driven from a
+# page or worker). Off by default so a bundled app does not carry the suite.
+conformance = ["dep:dxdb-testkit"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json.workspace = true
+thiserror.workspace = true
+futures = { workspace = true }
+futures-channel = "0.3.34"
+
+dxdb-storage = { path = "../../dxdb-storage" }
+dxdb-query = { path = "../../dxdb-query" }
+dxdb-json = { path = "../../dxdb-json" }
+
+# The suite is generic over `RxStorage`, so running it in a browser needs nothing
+# from the testkit beyond its ordinary API. That it compiles for wasm32 is the
+# finding that makes the M4 gate reachable; see the crate docs.
+dxdb-testkit = { path = "../../dxdb-testkit", optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "0.4.79"
+js-sys = "0.3.106"
+# The OPFS surface. `FileSystemSyncAccessHandle` is the worker-only fast path; the
+# `createWritable` members are the main-thread fallback. Both are listed because the
+# whole point of this crate is that it can report which one it got.
+web-sys = { version = "0.3.106", features = [
+  "FileSystemDirectoryHandle",
+  "FileSystemFileHandle",
+  "FileSystemHandle",
+  "FileSystemGetFileOptions",
+  "FileSystemGetDirectoryOptions",
+  "FileSystemRemoveOptions",
+  "FileSystemSyncAccessHandle",
+  "FileSystemWritableFileStream",
+  "FileSystemReadWriteOptions",
+  "StorageManager",
+  "Navigator",
+  "Window",
+  "WorkerGlobalScope",
+  "WorkerNavigator",
+  "DomException",
+] }
+
+[dev-dependencies]
+futures = { workspace = true }
+dxdb-testkit = { path = "../../dxdb-testkit" }

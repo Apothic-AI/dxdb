@@ -559,6 +559,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-opfs"
+version = "0.0.0"
+dependencies = [
+ "dxdb-json",
+ "dxdb-query",
+ "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
+ "futures-channel",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "dxdb-plugin-cleanup"
 version = "0.0.0"
 dependencies = [
