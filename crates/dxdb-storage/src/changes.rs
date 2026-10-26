@@ -99,10 +99,7 @@ pub struct Checkpoint {
 impl Checkpoint {
     /// Builds a checkpoint.
     pub fn new(id: impl Into<String>, lwt: f64) -> Self {
-        Checkpoint {
-            id: id.into(),
-            lwt,
-        }
+        Checkpoint { id: id.into(), lwt }
     }
 
     /// `{ id, lwt }` as JSON, with JavaScript number formatting for `lwt`.

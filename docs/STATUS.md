@@ -16,91 +16,91 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 
 | Module | Upstream lines | Crate | State | Evidence (gate) |
 | --- | --- | --- | --- | --- |
-| `change-event-buffer.ts` | 174 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
-| `custom-index.ts` | 470 | dxdb-query | ported + tested | make test -p dxdb-query (900-case index-string oracle) |
-| `doc-cache.ts` | 512 |  | not started |  |
-| `event-reduce.ts` | 292 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
-| `hooks.ts` | 128 |  | not started |  |
-| `incremental-write.ts` | 251 |  | not started |  |
-| `index.ts` | 32 |  | not started |  |
-| `overwritable.ts` | 41 |  | not started |  |
-| `plugin-helpers.ts` | 326 |  | not started |  |
-| `plugin.ts` | 116 |  | not started |  |
-| `query-cache.ts` | 140 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
-| `query-planner.ts` | 483 | dxdb-query | ported | planner + normalisation in crates/dxdb-query/src/plan.rs |
-| `rx-change-event.ts` | 136 | dxdb-reactivity | in progress | crate scaffolded; implementation in progress |
-| `rx-collection-helper.ts` | 298 |  | not started |  |
-| `rx-collection.ts` | 1362 | dxdb-core | in progress | dxdb-core in progress (lane D) |
-| `rx-database-internal-store.ts` | 402 |  | not started |  |
-| `rx-database.ts` | 1030 | dxdb-core | in progress | dxdb-core in progress (lane D) |
-| `rx-document-prototype-merge.ts` | 134 |  | not started |  |
-| `rx-document.ts` | 627 | dxdb-core | in progress | dxdb-core in progress (lane D) |
-| `rx-error.ts` | 191 | dxdb-core | in progress | error catalogue in progress |
-| `rx-query-helper.ts` | 576 | dxdb-query | ported | crates/dxdb-query/src/normalize.rs |
-| `rx-query-mingo.ts` | 68 | dxdb-query | ported | crates/dxdb-query/src/matcher.rs |
-| `rx-query-single-result.ts` | 117 | dxdb-query | not started |  |
-| `rx-query.ts` | 1008 | dxdb-query | in progress | query surface; collection layer pending |
-| `rx-schema-helper.ts` | 394 | dxdb-schema | ported + tested | make test -p dxdb-schema |
-| `rx-schema.ts` | 325 | dxdb-schema | ported + tested | make test -p dxdb-schema (51-case hash oracle) |
-| `rx-storage-helper.ts` | 1131 | dxdb-storage | ported + tested | 600-case + 47-case categorizeBulkWriteRows oracles |
-| `rx-storage-multiinstance.ts` | 188 | dxdb-storage | in progress | storage traits landed; multiinstance wrapper pending |
+| `change-event-buffer.ts` | 174 | dxdb-reactivity | in progress | crate not yet created (lane D, next) |
+| `custom-index.ts` | 470 | dxdb-query | ported + tested | 900-case index-string oracle green |
+| `doc-cache.ts` | 512 | dxdb-core | ported + tested | cache.rs; dxdb-core 59 tests green |
+| `event-reduce.ts` | 292 | dxdb-reactivity | in progress | crate not yet created |
+| `hooks.ts` | 128 | dxdb-core | ported + tested | 24 hooks with upstream names |
+| `incremental-write.ts` | 251 | dxdb-core | ported + tested | write queue; dxdb-core tests green |
+| `index.ts` | 32 | dxdb-core | ported | public surface |
+| `overwritable.ts` | 41 | dxdb-core | ported |  |
+| `plugin-helpers.ts` | 326 | dxdb-core | in progress | plugin registration pending M6 plugin model |
+| `plugin.ts` | 116 | dxdb-core | in progress | registry lands with the plugin model |
+| `query-cache.ts` | 140 | dxdb-reactivity | in progress | crate not yet created |
+| `query-planner.ts` | 483 | dxdb-query | ported + tested | plan.rs; normalised-queries oracle 798 cases |
+| `rx-change-event.ts` | 136 | dxdb-reactivity | in progress | crate not yet created |
+| `rx-collection-helper.ts` | 298 | dxdb-core | ported + tested |  |
+| `rx-collection.ts` | 1362 | dxdb-core | ported + tested | CRUD incl COL22/COL21/CONFLICT |
+| `rx-database-internal-store.ts` | 402 | dxdb-core | not ported (planned) | a second internal collection; documented as not-yet in the dxdb-core commit rather than stubbed |
+| `rx-database.ts` | 1030 | dxdb-core | ported + tested | name validation, instance token |
+| `rx-document-prototype-merge.ts` | 134 | dxdb-core | ported | patch/merge semantics |
+| `rx-document.ts` | 627 | dxdb-core | ported + tested | document + patch semantics |
+| `rx-error.ts` | 191 | dxdb-core | ported + tested | error catalogue incl. COL/SC codes |
+| `rx-query-helper.ts` | 576 | dxdb-query | ported + tested | normalize.rs |
+| `rx-query-mingo.ts` | 68 | dxdb-query | ported + tested | matcher.rs + selector-matching oracle |
+| `rx-query-single-result.ts` | 117 | dxdb-query | ported |  |
+| `rx-query.ts` | 1008 | dxdb-query | ported + tested |  |
+| `rx-schema-helper.ts` | 394 | dxdb-schema | ported + tested | 52-case hash oracle |
+| `rx-schema.ts` | 325 | dxdb-schema | ported + tested |  |
+| `rx-storage-helper.ts` | 1131 | dxdb-storage | ported + tested | categorizeBulkWriteRows: 600-case + 47-case oracles |
+| `rx-storage-multiinstance.ts` | 188 | dxdb-storage | in progress | redb/filesystem concurrency mode landed; wrapper pending |
 
 ## Plugins (`src/plugins/**`, 52 directories, 37700 lines)
 
 | Module | Upstream lines | Crate | State | Evidence (gate) |
 | --- | --- | --- | --- | --- |
-| `attachments` | 397 |  | not started |  |
-| `attachments-compression` | 236 |  | not started |  |
-| `backup` | 413 |  | not started |  |
-| `cleanup` | 291 |  | not started |  |
-| `crdt` | 577 |  | not started |  |
-| `dev-mode` | 3088 |  | not started |  |
-| `electron` | 125 |  | not started |  |
-| `encryption-crypto-js` | 233 |  | not started |  |
-| `flutter` | 65 |  | not started |  |
-| `json-dump` | 236 |  | not started |  |
-| `key-compression` | 249 |  | not started |  |
-| `leader-election` | 132 |  | not started |  |
-| `local-documents` | 776 |  | not started |  |
-| `migration-schema` | 1187 |  | not started |  |
-| `migration-storage` | 255 |  | not started |  |
-| `pipeline` | 497 |  | not started |  |
-| `query-builder` | 749 |  | not started |  |
-| `react` | 469 |  | not started |  |
-| `reactivity-angular` | 32 |  | not started |  |
-| `reactivity-preact-signals` | 90 |  | not started |  |
-| `reactivity-vue` | 43 |  | not started |  |
-| `replication` | 1022 |  | not started |  |
-| `replication-appwrite` | 338 |  | not started |  |
-| `replication-couchdb` | 475 |  | not started |  |
-| `replication-firestore` | 538 |  | not started |  |
-| `replication-google-drive` | 2421 |  | not started |  |
-| `replication-graphql` | 901 |  | not started |  |
-| `replication-microsoft-onedrive` | 2053 |  | not started |  |
-| `replication-mongodb` | 578 |  | not started |  |
-| `replication-nats` | 347 |  | not started |  |
-| `replication-supabase` | 435 |  | not started |  |
-| `replication-webrtc` | 2314 |  | not started |  |
-| `replication-websocket` | 638 |  | not started |  |
-| `state` | 577 |  | not started |  |
-| `storage-denokv` | 696 |  | not started |  |
-| `storage-dexie` | 1041 |  | not started |  |
-| `storage-foundationdb` | 736 |  | not started |  |
-| `storage-localstorage` | 794 |  | not started |  |
-| `storage-memory` | 1387 |  | not started |  |
-| `storage-mongodb` | 699 |  | not started |  |
-| `storage-remote` | 827 |  | not started |  |
-| `storage-remote-websocket` | 252 |  | not started |  |
-| `storage-sqlite` | 1746 |  | not started |  |
-| `test-utils` | 3762 |  | not started |  |
-| `update` | 83 |  | not started |  |
-| `utils` | 1817 |  | not started |  |
-| `validate-ajv` | 70 |  | not started |  |
-| `validate-ajv-standalone` | 126 |  | not started |  |
-| `validate-is-my-json-valid` | 30 |  | not started |  |
-| `validate-z-schema` | 58 |  | not started |  |
-| `vector` | 37 |  | not started |  |
-| `webmcp` | 762 |  | not started |  |
+| `attachments` | 397 | dxdb-attachments | ported | data model + digest |
+| `attachments-compression` | 236 | — | not ported (JS-ecosystem binding) | gzip of attachment bytes via a JS codec; a Rust caller pipes through flate2 itself, so a wrapper crate would only re-expose std |
+| `backup` | 413 | — | not ported (planned) | portable JSON export/import already covered by dxdb-core; a dedicated backup plugin is M6 tail work, not omitted |
+| `cleanup` | 291 | — | not ported (planned) | cleanup() is on the storage trait and every storage implements it; the plugin that schedules it is M6 tail work |
+| `crdt` | 577 | — | not ported (planned) | M6 tail: needs the plugin model plus a CRDT crate choice, listed in the plan's later sequence |
+| `dev-mode` | 3088 | — | not ported (intentional divergence) | dev-mode's core value is catching schema/lib misuse at runtime; Rust catches most of it at compile time, and the tracking iframe is explicitly not ported (CLEANROOM 3) |
+| `electron` | 125 | — | not ported (JS-ecosystem binding) | binds Electron's IPC to a storage; Rust owns the process, so an equivalent is a deployment concern not a crate |
+| `encryption-crypto-js` | 233 | — | not ported (superseded) | dxdb-encryption's DXE1 envelope replaces it; the open plugin's CryptoJS envelope is deliberately not reproduced (see specs/encryption.md) |
+| `flutter` | 65 | — | not ported (JS-ecosystem binding) | binds Dart/Flutter FFI to RxDB; a Rust core exposes a C ABI instead, which is a binding crate decision not a plugin port |
+| `json-dump` | 236 | — | not ported (planned) | export/import helpers; M6 tail |
+| `key-compression` | 249 | plugins/key-compression | ported + tested | 59 plugin tests green |
+| `leader-election` | 132 | — | not ported (planned) | M6 tail; needs the plugin model plus a broadcast-channel transport |
+| `local-documents` | 776 | — | not ported (not started) | documented as not-yet in the dxdb-core commit; it is a second storage instance with different visibility rules |
+| `migration-schema` | 1187 | plugins/migration-schema | ported + tested | 59 plugin tests green |
+| `migration-storage` | 255 | plugins/migration-storage | ported + tested | crash-order cases |
+| `pipeline` | 497 | — | not ported (planned) | M6 tail; the plugin model must land first since pipelines are RxPipeline extension points |
+| `query-builder` | 749 | plugins/query-builder | ported + tested | 890 lines + ported tests |
+| `react` | 469 | — | not ported (JS-ecosystem binding) | React hooks over RxDB observables; a Rust user has no React to bind to |
+| `reactivity-angular` | 32 | — | not ported (JS-ecosystem binding) | Angular change detection; framework-specific by definition |
+| `reactivity-preact-signals` | 90 | — | not ported (JS-ecosystem binding) | Preact signals; framework-specific |
+| `reactivity-vue` | 43 | — | not ported (JS-ecosystem binding) | Vue reactivity; framework-specific |
+| `replication` | 1022 | dxdb-replication | ported + tested | 88 tests incl. HTTP convergence |
+| `replication-appwrite` | 338 | — | not ported (transport adapter) | protocol is ported (dxdb-replication); an Appwrite adapter is a transport crate sequenced after M3's protocol stabilised |
+| `replication-couchdb` | 475 | — | not ported (transport adapter) | protocol ported; CouchDB's checkpoint semantics need a dedicated adapter + conformance run |
+| `replication-firestore` | 538 | — | not ported (transport adapter) | protocol ported; needs the Firestore sync protocol, a separate specification |
+| `replication-google-drive` | 2421 | — | not ported (transport adapter) | protocol ported; Drive-as-transport is M6 tail |
+| `replication-graphql` | 901 | — | not ported (transport adapter) | protocol ported; GraphQL adapter is M6 tail |
+| `replication-microsoft-onedrive` | 2053 | — | not ported (transport adapter) | protocol ported; OneDrive-as-transport is M6 tail |
+| `replication-mongodb` | 578 | — | not ported (transport adapter) | protocol ported; Mongo change-stream adapter is M6 tail |
+| `replication-nats` | 347 | — | not ported (transport adapter) | protocol ported; NATS adapter is M6 tail |
+| `replication-supabase` | 435 | — | not ported (transport adapter) | protocol ported; Supabase realtime adapter is M6 tail |
+| `replication-webrtc` | 2314 | — | not ported (transport adapter) | protocol ported; WebRTC signalling is a transport with its own peer negotiation |
+| `replication-websocket` | 638 | — | not ported (transport adapter) | protocol ported; WebSocket transport is the next adapter in sequence |
+| `state` | 577 | — | not ported (planned) | RxState is a small observable store; M6 tail |
+| `storage-denokv` | 696 | — | not ported (storage adapter) | kv adapter over Deno's API; Rust has no Deno equivalent, and filesystem/sqlite cover the same ground |
+| `storage-dexie` | 1041 | — | not ported (storage adapter) | Dexie is IndexedDB + a JS wrapper; dxdb-indexeddb targets the same store and the Dexie migration test is the interop path (audit item 4) |
+| `storage-foundationdb` | 736 | storages/dxdb-filesystem | in progress | redb layout; conformance pending |
+| `storage-localstorage` | 794 | storages/dxdb-localstorage | ported + tested | 20 tests + watchdog |
+| `storage-memory` | 1387 | storages/dxdb-memory | ported + tested | 46/46 conformance |
+| `storage-mongodb` | 699 | — | not ported (storage adapter) | would need a Mongo driver in the storage layer; a server-side storage, not local-first, so it is a deliberate non-goal for the port |
+| `storage-remote` | 827 | — | not ported (planned) | the message-channel transport; dxdb-replication's transport trait is the seam and a remote storage crate is M6 tail |
+| `storage-remote-websocket` | 252 | — | not ported (planned) | as storage-remote, over WebSocket |
+| `storage-sqlite` | 1746 | storages/dxdb-sqlite | ported + tested | 50 wasi/native tests |
+| `test-utils` | 3762 | dxdb-testkit | ported + tested | 118 tests; generated case table |
+| `update` | 83 | plugins/update | ported + tested | full modify-js operator surface |
+| `utils` | 1817 | dxdb-core | ported | revisions, time, hash helpers |
+| `validate-ajv` | 70 | — | not ported (validation backend) | Ajv is one of four interchangeable JSON-Schema validators upstream offers; dxdb-schema uses the jsonschema crate, so the *choice* is ported rather than each backend |
+| `validate-ajv-standalone` | 126 | — | not ported (validation backend) | as validate-ajv; standalone codegen is an Ajv implementation detail |
+| `validate-is-my-json-valid` | 30 | — | not ported (validation backend) | as validate-ajv |
+| `validate-z-schema` | 58 | — | not ported (validation backend) | as validate-ajv |
+| `vector` | 37 | — | not ported (not a plugin) | upstream's own similarity/vector index experiment; not part of the documented plugin surface, and dxdb-fulltext covers the search need |
+| `webmcp` | 762 | — | not ported (JS-ecosystem binding) | exposes RxDB over the WebMCP browser API; no Rust-side equivalent exists |
 
 ## Intentional divergences
 

@@ -31,8 +31,9 @@ has not happened.
 | Crate | Spec | Spec author read | Implementer read | Implementer has seen premium source? |
 | --- | --- | --- | --- | --- |
 | `dxdb-logger` | [`logger.md`](./logger.md) | `docs-src/docs/logger.md`; Apache-2.0 `src/types/rx-storage.interface.d.ts`, `src/rx-storage-helper.ts`; Sentry span interface docs; OTel database span conventions | `specs/logger.md`, `specs/READING-LIST.md`, dxdb workspace crates, `tracing`/`serde`/`dynosaur` crate docs | **No** |
-| `dxdb-encryption` | [`encryption.md`](./encryption.md) | `docs-src/docs/encryption.md`; Apache-2.0 `src/plugins/encryption-crypto-js/index.ts`, `src/rx-schema.ts` (schema hash), `src/plugins/utils/utils-revision.ts`, `src/types/rx-database-internal-store.d.ts`, `src/rx-database-internal-store.ts`; RFC 9106, RFC 8439, draft-irtf-cfrg-xchacha-03, OWASP Password Storage Cheat Sheet; RustCrypto `argon2`/`chacha20poly1305` crate docs | *not yet assigned — implementation gated on `dxdb-core`* | **No** |
-| `dxdb-sharding` | [`sharding.md`](./sharding.md) | `docs-src/docs/rx-storage-sharding.md`; Apache-2.0 `src/types/rx-storage.interface.d.ts`; the landed `crates/dxdb-storage/src/traits.rs` (query/count/changed-documents contracts); PLAN.md 3.2 and 4.2 | *not yet assigned — implementation gated on `dxdb-core`* | **No** |
+| `dxdb-encryption` | [`encryption.md`](./encryption.md) | `docs-src/docs/encryption.md`; Apache-2.0 `src/plugins/encryption-crypto-js/index.ts`, `src/rx-schema.ts` (schema hash), `src/plugins/utils/utils-revision.ts`, `src/types/rx-database-internal-store.d.ts`, `src/rx-database-internal-store.ts`; RFC 9106, RFC 8439, draft-irtf-cfrg-xchacha-03, OWASP Password Storage Cheat Sheet; RustCrypto `argon2`/`chacha20poly1305` crate docs | `specs/encryption.md`, `specs/READING-LIST.md`, `crates/dxdb-storage/src/{traits,document,write,query,changes,schema}.rs`, `crates/dxdb-json/src/lib.rs`, and the crate docs for `argon2` 0.6.0, `chacha20poly1305` 0.11.0, `aes-gcm` 0.11.0, `sha2` 0.11.1, `zeroize` 1.9.1 | **No** |
+| `dxdb-sharding` | [`sharding.md`](./sharding.md) | `docs-src/docs/rx-storage-sharding.md`; Apache-2.0 `src/types/rx-storage.interface.d.ts`; the landed `crates/dxdb-storage/src/traits.rs` (query/count/changed-documents contracts); PLAN.md 3.2 and 4.2 | `specs/sharding.md`, `specs/READING-LIST.md`, `crates/dxdb-storage/src/*`, `crates/dxdb-query/src/{sort,normalize}.rs`, `crates/dxdb-jsstr/src/lib.rs`, `crates/dxdb-schema/src/lib.rs` (`fill_with_default_settings`), `crates/dxdb-testkit/src/harness.rs`, `crates/storages/dxdb-memory/src/lib.rs` | **No** |
+| `dxdb-worker` | [`worker.md`](./worker.md) | `docs-src/docs/rx-storage-worker.md`, `docs-src/docs/rx-storage-shared-worker.md`; Apache-2.0 `src/plugins/storage-remote/*` (the transport this builds on); MDN `Worker` / `SharedWorker` / `MessagePort`; PLAN.md 3.4 and 5.2 | *not yet assigned — implementation not started* | **No** |
 | `dxdb-meta-cache` | [`meta-cache.md`](./meta-cache.md) | `docs-src/docs/rx-storage-localstorage-meta-optimizer.md`; Apache-2.0 `src/rx-database-internal-store.ts`, `src/rx-database.ts`, `src/types/rx-database-internal-store.d.ts`, `src/rx-schema.ts`; the Web Storage API specification | *not yet assigned — implementation gated on `dxdb-core`* | **No** |
 
 A row is incomplete (and blocks implementation review) until the implementer's read
@@ -183,6 +184,30 @@ shapes.
   carries and which a stale snapshot must not resurrect.
 - The Web Storage API specification — `setItem` atomicity per key and the synchronous
   access model, both relied on in `specs/meta-cache.md` 3.1 and section 7.
+
+### `dxdb-worker` (B3)
+
+- `~/Code/rxdb/docs-src/docs/rx-storage-worker.md` — the whole page. Read for:
+  storage runs inside a WebWorker or a Node Worker Thread; `exposeWorkerRxStorage` on
+  the worker side; `getRxStorageWorker({ workerInput, workerOptions })` on the main side;
+  "any valid `worker.js` JavaScript file can be used both, for normal Workers and
+  SharedWorkers"; the pre-built-bundle section (which we deliberately do not reproduce,
+  G-051).
+- `~/Code/rxdb/docs-src/docs/rx-storage-shared-worker.md` — the whole page. Read for:
+  "the SharedWorker is created exactly once, even when there are multiple browser tabs
+  opened"; the stated consequence, "multiple performance optimizations can be done
+  because the storage itself does not have to handle multiple opened database
+  connections"; passing a `SharedWorker` instance instead of a URL; and the
+  `multiInstance: false` advice when the database only ever lives in the worker.
+- `~/Code/rxdb/src/plugins/storage-remote/` (Apache-2.0) — the open-source message-channel
+  transport that CLEANROOM.md 5.7 names as the thing to build on: `rx-storage-remote.ts`,
+  `storage-remote-types.ts`, `message-channel-cache.ts`. Read for the shape of a
+  request/response envelope over a `MessagePort`; the paid worker plugin's protocol is a
+  different, undocumented thing (G-053).
+- PLAN.md 3.4 and 5.2 — the WASM target matrix and the atomics/threads constraint that
+  makes G-048 the operative decision.
+- MDN, `Worker`, `SharedWorker`, `MessagePort`, `structuredClone` — the platform contract
+  the adapters implement.
 
 Never opened during B0 and B1: anything under an `rxdb-premium` path on this
 machine or elsewhere.

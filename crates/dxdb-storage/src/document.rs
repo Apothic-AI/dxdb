@@ -471,7 +471,10 @@ mod tests {
             write.document().attachment("att-1"),
             Some(&json!({ "length": 3, "type": "text/plain", "digest": "sha-1" }))
         );
-        assert_eq!(write.attachment_payload("att-1"), Some(&b"payload-bytes"[..]));
+        assert_eq!(
+            write.attachment_payload("att-1"),
+            Some(&b"payload-bytes"[..])
+        );
         assert!(!write.document().to_js_json().contains("payload-bytes"));
     }
 }

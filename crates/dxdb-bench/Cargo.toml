@@ -1,0 +1,34 @@
+[package]
+name = "dxdb-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "dxdb storage benchmarks: one shared scenario, one binary per storage, a JSON artifact per run"
+
+[dependencies]
+dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
+dxdb-sqlite = { path = "../storages/dxdb-sqlite" }
+rusqlite = "0.41"
+redb = { version = "4.4.0", features = ["experimental-multiprocess"] }
+serde_json.workspace = true
+
+# The benchmark binaries.
+#
+# A separate crate rather than `benches/` or a `[[bin]]` inside each storage, for a
+# reason that matters: the shared scenario must be defined exactly once (PLAN.md 7.5
+# -- a number from a different operation mix is comparable to nothing), and the
+# alternative was making `dxdb-sqlite` depend on `dxdb-filesystem` purely to reuse a
+# test helper, which would be a wrong dependency in the shipping graph.
+#
+# `cargo bench` proper needs the unstable bench harness; these are plain release
+# binaries that emit the JSON artifact docs/BENCHMARKS.md records, which CI can diff.
+[[bin]]
+name = "bench-filesystem"
+path = "src/bin/bench-filesystem.rs"
+
+[[bin]]
+name = "bench-sqlite"
+path = "src/bin/bench-sqlite.rs"

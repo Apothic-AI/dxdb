@@ -20,3 +20,7 @@ node_modules/
 /.gemini/
 /.grok/
 /.github/copilot-instructions.md
+
+# Python bytecode from the testkit generators (`gen/*.py`).
+__pycache__/
+*.pyc

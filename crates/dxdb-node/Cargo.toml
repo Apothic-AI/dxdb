@@ -7,4 +7,35 @@ license.workspace = true
 repository.workspace = true
 description = "dxdb Node.js bindings: napi-rs native surface plus a wasm32-wasip1 install-free fallback"
 
+[lib]
+# `cdylib` for the napi addon (Node `require`s it as a `.node` file), `rlib` for
+# the crate's own tests.
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
+dxdb-wasi = { path = "../dxdb-wasi" }
+dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
+serde_json.workspace = true
+
+# napi-rs, native only. A `cfg`-gated dependency rather than a feature, because
+# `napi` cannot compile for any wasm target and PLAN.md 4.1 requires this crate to
+# keep building for `wasm32-unknown-unknown`.
+#
+# The addon itself is behind the `node-addon` **feature**, which is off by default.
+# That is deliberate: with it on, the crate's test binary has to resolve Node's
+# N-API symbols, which only exist inside a Node process. Leaving it off keeps
+# `make check`, `make test`, `make clippy` and `make wasm` free of that
+# requirement, and the addon is proven by building and loading it in the M5
+# conformance run instead (xtask/m5-conformance.sh).
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+napi = { version = "3", default-features = false, features = ["napi8"], optional = true }
+napi-derive = { version = "3", optional = true }
+
+[target.'cfg(not(target_family = "wasm"))'.build-dependencies]
+napi-build = "2"
+
+[features]
+node-addon = ["dep:napi", "dep:napi-derive"]
+
+[dev-dependencies]
+tempfile = "3"

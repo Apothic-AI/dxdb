@@ -1,0 +1,43 @@
+[package]
+name = "dxdb-testkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb conformance testkit: the ported storage contract from upstream RxDB's two suites"
+
+# Deliberately tiny. This crate is generic over the storage traits and must not
+# name a concrete storage crate (lane brief, "Fidelity rules" 5), so the only
+# workspace dependency is `dxdb-storage` itself. `dxdb-core` is *not* a
+# dependency even in dev-dependencies: PLAN.md 4.1 allows `dxdb-core` to name
+# `dxdb-memory`, not the other way round.
+[dependencies]
+dxdb-storage = { path = "../dxdb-storage" }
+# Schema defaulting, meta injection and hashing. The testkit used to guess at these
+# and got `_meta.lwt` wrong, which made every indexeddb case fail before any storage
+# code ran. Owning the real call is the whole fix: a fixture schema must be the schema
+# a database would produce, or the suite tests schema validation instead of storage
+# behaviour.
+dxdb-schema = { path = "../dxdb-schema" }
+serde_json.workspace = true
+futures.workspace = true
+
+[dev-dependencies]
+# The real storages, for `tests/storage_matrix.rs`. These are dev-dependencies on
+# purpose: the brief's fidelity rule 5 says the *library* must not name a concrete
+# storage, and it does not. A matrix whose whole job is to compare storages has to
+# name them, and dev-dependencies keep that out of any published surface.
+dxdb-memory = { path = "../storages/dxdb-memory" }
+dxdb-localstorage = { path = "../storages/dxdb-localstorage" }
+
+[features]
+# Which storages the matrix can open. Default-on so `make gate-matrix` works with no
+# flags; the feature exists so a target that cannot build a storage (dxdb-sqlite pulls
+# rusqlite, which needs a wasm SQLite on wasm32) can still `check` this crate by turning
+# the corresponding feature off.
+#
+# These gate `tests/storage_matrix.rs` only. The library names no storage either way.
+default = ["matrix-memory", "matrix-localstorage"]
+matrix-memory = []
+matrix-localstorage = []

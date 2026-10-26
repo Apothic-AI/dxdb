@@ -92,7 +92,7 @@ mod write;
 pub use categorize::{
     categorize_bulk_write_rows, document_lwt, payloads_by_document, AttachmentAdd,
     AttachmentRemove, AttachmentUpdate, CategorizeBulkWriteRowsOutput, RowDecision,
-    ATTACHMENT_STATUS, DELETED_FIELD, CONFLICT_STATUS, LWT_FIELD,
+    ATTACHMENT_STATUS, CONFLICT_STATUS, DELETED_FIELD, LWT_FIELD,
 };
 pub use changes::{ChangeEvent, ChangeStream, Checkpoint, EventBulk, Operation};
 pub use clock::{

@@ -791,16 +791,93 @@ the header is a fixed size and exhaustive is cheap. INV-13 is exhaustive over al
 invariant is either structural or enumerable, which matters more than sample size
 for a format that must be reproducible byte for byte.
 
+## Verification record
+
+Stage B2's encryption crate landed as `crates/cleanroom/dxdb-encryption`, and every
+invariant and acceptance number above is implemented by a passing test with that
+number in its name.
+
+| Gate | Exit |
+| --- | --- |
+| `make check` | 0 |
+| `make clippy` | 0 |
+| `make test` | 0 |
+| `make wasm` | 0 |
+
+Counts on that run: 46 unit tests, 15 invariant tests, 9 acceptance tests in this
+crate; the workspace total was 464 passing tests across 55 suites.
+
+### The KDF cost, measured
+
+`specs/encryption.md` section 8 previously said "unmeasured; target 100-400 ms".
+It is now measured on the shared build box (x86-64, rustc 1.95.0, Argon2id
+`m = 64 MiB, t = 3, p = 1`, three runs each):
+
+| Profile | Per-derivation | Notes |
+| --- | --- | --- |
+| release (`--release`) | **289 ms** (289.1, 288.5, 289.1) | the number that ships; inside the 100-400 ms target |
+| debug (`make test`) | **2.93 s** (2.94, 2.92, 2.94) | unoptimised Argon2, ~10x slower |
+
+Two conclusions, both recorded rather than glossed:
+
+1. The documented parameters meet their own budget in release, so section 3.3's
+   argument stands on a measurement rather than on an estimate. The estimate in the
+   original text ("on the order of 200 ms") was close by luck: it assumed ~1 GB/s of
+   per-core Argon2 throughput, and the real figure is ~0.7 GB/s.
+2. **Argon2 must not be shipped in a debug build.** A 2.93 s unlock on a mid-range
+   phone's slower CPU would be several seconds, which users would read as a hang.
+   The `kdf_documented_parameters_are_measured` test asserts a profile-dependent
+   budget (8 s debug, 500 ms release) and prints the samples, so a regression in
+   either direction fails a gate instead of being discovered by a user. See
+   `docs/CLEANROOM-GAPS.md` G-046.
+
+The release measurement is reproducible with:
+
+```bash
+xtask/with-build-lock.sh cargo remote-3000 -r fly -d 1.95.0 \
+    test --release -p dxdb-encryption --test invariants kdf_documented -- --nocapture
+```
+
+Still **unmeasured**: field encrypt/decrypt throughput and per-field overhead beyond
+the by-construction 47 bytes (which `acceptance_23` asserts exactly). No bench target
+exists yet, so nothing in this crate may be described as fast.
+
+### Invariants that turned out to need the spec changed
+
+None. All fifteen were testable as written. Two needed the *implementation* to change
+to match the spec, which is the direction the method is supposed to work:
+
+* **INV-2** found that `change_stream` returned documents without decrypting. The
+  spec sentence ("no returned value contains a base64 string parseable as a `DXE1`
+  envelope") already covered the change feed; the first implementation missed it
+  because the change feed is the read path that does not look like one. The wrapper
+  now decrypts change events explicitly, with a comment saying why that is the
+  easiest one to forget.
+* **INV-6** and **INV-7** found the rotation loop reading with the old key ring after
+  a partial rewrite, and spinning forever when a change feed did not advance its
+  checkpoint. Both are now fixed at the mechanism, and `acceptance_14_15` covers the
+  multi-pass case that exposed them.
+
+### One narrowing discovered during implementation
+
+Attachment reads have no document in hand, so the revision is unavailable and an
+attachment's AAD cannot bind one. Attachment ciphertexts therefore bind the document
+id and the attachment id but not a revision, which means the rollback protection of
+INV-6 covers document fields and not attachment payloads. Recorded as G-045; closing
+it needs the attachment read path to carry the document's revision, which is a port
+change rather than an envelope change.
+
 ## Open questions this spec does not settle
 
 Recorded rather than hidden, because an implementer must not invent answers:
 
-1. **The verifier's construction.** Section 3.4 says "a verifier derived from the
-   key" is stored in the internal store. Its exact derivation is deliberately
-   unspecified here: it must be a *one-way* function of the key that does not reveal
-   the key or the password, and the choice interacts with G-036. The implementer
-   proposes it in a revision to this section before writing code; the spec is not
-   ready to be implemented until this line is replaced.
+1. **The verifier's construction — RESOLVED at implementation.** Section 3.4 said "a
+   verifier derived from the key" without naming the derivation. The implementation
+   specifies it: `verifier = SHA-256("dxdb.enc.verifier.v1" || master_key)`, with the
+   comparison done in constant time. It is one-way, it reveals nothing about the key,
+   and testing a password guess against it still costs a full Argon2id derivation, so
+   it is not a cheaper oracle than attempting a decryption. The domain separator
+   keeps it from colliding with any other use of the master key.
 2. **Attachment chunk size.** INV-14 fixes the behaviour, not the framing. Large
    attachments are encrypted as one body in v1 (section 7); the chunking design, if
    it happens, is a `DXE1` v2 layout change and gets its own spec revision.

@@ -74,17 +74,101 @@ rather than a formality.
 
 ## Storage performance
 
-Mirroring upstream's `test/performance.test.ts` shape: per-storage criterion
-benches over the same operation mix, so the numbers are comparable across dxdb
-storages and against upstream.
+Mirroring upstream's `test/performance.test.ts` shape: per-storage benches over the
+same operation mix, so the numbers are comparable across dxdb storages and against
+upstream. The mix is defined once in `crates/dxdb-bench/src/scenario.rs` and both
+bench binaries consume it, which is what makes the two rows below comparable to each
+other at all.
 
-| Storage | insert/s | bulk insert/s | find-by-id/s | query/s | count/s | Date |
+### Measurement 2026-10-26: filesystem and sqlite, native
+
+```
+box:        fly open-surrealdb-ds-builder 87477e0cd01748
+            8 cores, AMD EPYC, shared
+toolchain:  1.95.0 (rustc 59807616e 2026-04-14), release profile
+idle:       yes  (make busy -> IDLE; /proc/loadavg 0.26 0.36 0.36; nproc 8)
+date:       2026-10-26
+artifact:   xtask/bench-storages.sh --runs 5 --out <dir>
+            -> <dir>/{filesystem,sqlite}.json + <dir>/metadata.json
+ran on:     the box (the script rsyncs, builds and runs remotely, fetches JSON back)
+```
+
+Scenario: 3000 documents inserted in 6 batches of 500, 50 serial inserts, 4
+parallel selector queries, document 290 B in upstream's `averageSchemaData()` shape.
+5 independent runs per operation; medians below, min/max in the artifacts.
+
+| Operation | filesystem (redb) | sqlite (rusqlite) | sqlite ÷ filesystem |
+| --- | ---: | ---: | ---: |
+| `bulk_insert` (3000 docs, 6 txns) | 30.99 ms — 96,816 docs/s | 11.69 ms — 256,524 docs/s | 0.38× |
+| `insert_serial` (50 docs, 50 txns) | 25.31 ms — 1,976 docs/s | 2.91 ms — 17,209 docs/s | 0.11× |
+| `find_by_id_bulk` (3000 ids) | 31.00 ms — 96,772 ids/s | 15.95 ms — 188,041 ids/s | 0.51× |
+| `find_by_id_serial` (50 ids) | 0.50 ms — 99,463 ids/s | 0.28 ms — 178,699 ids/s | 0.56× |
+| `query_sorted` (3050 rows, sorted) | 4.58 ms | 6.24 ms | 1.36× |
+| `query_parallel` (4 selectors) | 4.66 ms — 858 q/s | 7.72 ms — 518 q/s | 1.65× |
+| `count` (4 selector counts) | 3.75 ms — 1,066 q/s | 7.49 ms — 534 q/s | 1.99× |
+| `changed_since` (limit 100) | 0.02 ms | 0.11 ms | 4.68× |
+
+"A ÷ B = 0.38×" means sqlite took 38% of the time filesystem took, i.e. sqlite was
+faster there. The column is deliberately one direction so it reads the same for
+every row.
+
+### What these numbers do not measure, stated before anyone quotes them
+
+- **`query_sorted`, `query_parallel` and `count` are scan-and-filter on both
+  storages, not index range scans.** The planner that would emit index strings lives
+  in `dxdb-query`, which is not published, so the filesystem bench scans the document
+  prefix and sorts in Rust, and the sqlite bench runs `SELECT data ... ` and sorts in
+  Rust too (the same Rust sort on both, so the comparison measures storage, not two
+  different sort implementations). This is the same position as upstream's own trial
+  SQLite storage, which scans and filters in JavaScript
+  (`sqlite-storage-instance.ts:322`). A real index scan should make both much faster
+  and will change these rows.
+- **Neither number includes the `RxStorageInstance` layer.**
+  `categorizeBulkWriteRows`, per-row conflict detection, JSON validation and change
+  event emission all sit above this and are not in the path. A real storage will be
+  slower than these numbers, and the honest reading is "this is the engine, not the
+  storage".
+- **The two storages are not configured for equal durability, and the difference is
+  the engine's, not a choice.** redb in `MultiWriter` mode **refuses**
+  `Durability::None` — a commit held only in memory would be invisible to the other
+  processes that mode exists for — so every filesystem commit fsyncs. sqlite runs
+  WAL with `synchronous=NORMAL`, which does not fsync per commit. Measured directly
+  by re-running sqlite with `--synchronous FULL`:
+
+  | | `insert_serial` median | docs/s |
+  | --- | ---: | ---: |
+  | sqlite, WAL + NORMAL (default) | 2.91 ms | 17,209 |
+  | sqlite, `synchronous=FULL` | 45.99 ms | 1,079 |
+  | filesystem, redb MultiWriter | 25.31 ms | 1,976 |
+
+  So the 8.7× gap on `insert_serial` is mostly a **durability-policy** difference,
+  not an engine-speed difference: fsync-per-commit sqlite is 1.8× *slower* than redb.
+  Anyone quoting 0.11× without this paragraph is quoting the wrong thing.
+- **`changed_since` is dxdb-only.** Upstream's perf test has no
+  `getChangedDocumentsSince` case. It is measured here because the `chg` table exists
+  to make it cheap, and 0.02 ms versus 0.11 ms says the redb key layout does what it
+  was designed for.
+- **No upstream comparison.** Upstream was **not** measured on this box in this
+  session, so no dxdb-to-upstream ratio is stated anywhere in this file. Doing that
+  needs Node and upstream `rxdb` running on the same box in the same idle window;
+  until then the comparison is unmeasured, not "pending" and not implied.
+
+### Reading the two rows against each other
+
+The shape is consistent across every write operation: sqlite wins on writes and
+point lookups, filesystem wins on scans and the change feed. That is what the designs
+predict. redb's per-commit fsync cost is paid on every `insert_serial`, while
+sqlite's WAL amortises it; conversely redb's ordered key layout makes a scan a
+sequential byte read, while sqlite's `ORDER BY`/full-column read pays for the TEXT
+column. Neither is "faster" without naming the operation and the durability setting.
+
+| Storage | bulk insert | find-by-id | query (scan) | count (scan) | changed_since | Date |
 | --- | --- | --- | --- | --- | --- | --- |
 | memory | pending M2 | | | | | |
-| filesystem (redb) | pending M5 | | | | | |
+| filesystem (redb) | 96,816 docs/s | 96,772 ids/s | 218 queries/s | 1,066 queries/s | 42,553/s | 2026-10-26 |
 | indexeddb | pending M4 | | | | | |
 | opfs | pending M4 | | | | | |
-| sqlite | pending M5 | | | | | |
+| sqlite | 256,524 docs/s | 188,041 ids/s | 160 queries/s | 534 queries/s | 9,099/s | 2026-10-26 |
 
 ## Upstream's published claims, as targets rather than facts
 

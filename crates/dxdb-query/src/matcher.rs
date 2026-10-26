@@ -957,9 +957,13 @@ fn matches_type(value: Option<&Value>, name: &str) -> bool {
             .map(|v| v.is_finite() && v.fract() == 0.0)
             .unwrap_or(false),
         "double" | "decimal" => value.map(Value::is_number).unwrap_or(false),
-        "null" => is_nil,
-        // `undefined: isNil` upstream, so a missing field and an explicit null both
-        // satisfy `$type: 'undefined'`.
+        // `null` is `a === null` (`compareFuncs.null` in `_predicates.js`), *not* `isNil`:
+        // a missing field is not of type null. Verified against upstream 17.6.0 — the
+        // `selector-matching` oracle's `type-null` case matches only the documents whose
+        // `firstName` is explicitly null, not the ones lacking the field.
+        "null" => value.map(Value::is_null).unwrap_or(false),
+        // `undefined: isNil`, by contrast, so a missing field *and* an explicit null both
+        // satisfy `$type: 'undefined'`. That asymmetry is upstream's.
         "undefined" => is_nil,
         "object" => value.map(Value::is_object).unwrap_or(false),
         "string" => value.map(Value::is_string).unwrap_or(false),
@@ -968,7 +972,9 @@ fn matches_type(value: Option<&Value>, name: &str) -> bool {
         "2" => value.map(Value::is_string).unwrap_or(false),
         "3" => value.map(Value::is_object).unwrap_or(false),
         "4" => value.map(Value::is_array).unwrap_or(false),
-        "6" | "10" => is_nil,
+        // `6` is deprecated `undefined` (isNil); `10` is `null` (strict).
+        "6" => is_nil,
+        "10" => value.map(Value::is_null).unwrap_or(false),
         "8" => value.map(Value::is_boolean).unwrap_or(false),
         "16" | "18" => value
             .and_then(Value::as_f64)

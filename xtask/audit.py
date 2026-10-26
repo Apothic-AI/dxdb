@@ -35,6 +35,30 @@ def run(cmd, cwd=None):
         return 1, str(error)
 
 
+def cargo_check_cmd():
+    """The remote check command, routed the same way the Makefile routes it.
+
+    The box has two reachable paths (WireGuard 6PN, and Fly's API proxy) and either
+    can be down while the other works. Hard-coding one made this audit report a false
+    negative -- "0/4 targets pass" -- while the targets were fine and only the route
+    was broken.
+    """
+    shim = os.path.join(ROOT, "xtask", "remote-route.sh")
+    try:
+        route = subprocess.run(
+            [shim], capture_output=True, text=True, timeout=60
+        ).stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        route = ""
+    if "proxy" in route:
+        port = route.split(":", 1)[1] if ":" in route else "2223"
+        return [
+            "cargo", "remote-3000", "-H", "fly-builder-proxy",
+            "-p", port, "-d", "1.95.0", "check", "--workspace",
+        ]
+    return ["cargo", "remote-3000", "-r", "fly", "-d", "1.95.0", "check", "--workspace"]
+
+
 def read(path):
     try:
         with open(os.path.join(ROOT, path), encoding="utf8") as handle:
@@ -180,7 +204,8 @@ def item_vectors_match():
 
 def item_dexie_migration():
     """A Dexie store migrates into dxdb's storage and back without semantic loss."""
-    if os.path.isdir(os.path.join(ROOT, "crates", "storages", "dxdb-indexeddb")):
+    indexeddb = os.path.join(ROOT, "crates", "storages", "dxdb-indexeddb")
+    if os.path.isdir(indexeddb):
         # Check for the test by reading it rather than by running cargo: the
         # target/ directory for a browser-storage test run is not something this
         # audit should create, and the presence of a green migration test is
@@ -219,7 +244,7 @@ def item_targets_pass():
         ("wasm32-wasip1", "wasm32-wasip1"),
         ("wasm32-wasip2", "wasm32-wasip2"),
     ]:
-        cmd = ["cargo", "remote-3000", "-r", "fly", "-d", "1.95.0", "check", "--workspace"]
+        cmd = cargo_check_cmd()
         if target:
             cmd += ["--target", target]
         status, output = run(cmd)
