@@ -1,0 +1,1684 @@
+{
+ "$comment": "Numeric-boundary corpus for the index-string encoder. Each schema is chosen to put a boundary in play (power-of-ten widths, negative ranges, ranges crossing zero, each decimal budget) and each probe value is derived from that schema own min/max/multipleOf: exact bounds, one step inside, one step outside (which must clamp), far outside, and the decimal-carry case. Expected strings come from upstream custom-index.ts in Node.",
+ "generator": "crates/dxdb-query/tests/support/index-boundaries.mjs",
+ "rxdbVersion": "17.6.0",
+ "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
+ "node": "v22.23.3",
+ "format": "schema+value->{indexString, lowerBoundString, upperBoundString}",
+ "determinism": {
+  "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+  "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call"
+ },
+ "schemaCount": 15,
+ "valueCount": 189,
+ "cases": [
+  {
+   "schema": "int-0-99",
+   "spec": {
+    "name": "int-0-99",
+    "minimum": 0,
+    "maximum": 99,
+    "multipleOf": 1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 13,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 0,
+    "minimum": 0,
+    "maximum": 99
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 99,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "inside-min",
+     "value": 1,
+     "indexString": "001x         ",
+     "lowerBoundString": "001          ",
+     "upperBoundString": "001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 98,
+     "indexString": "098x         ",
+     "lowerBoundString": "098          ",
+     "upperBoundString": "098          "
+    },
+    {
+     "label": "outside-low",
+     "value": -1,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 100,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1099,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "midpoint",
+     "value": 49,
+     "indexString": "049x         ",
+     "lowerBoundString": "049          ",
+     "upperBoundString": "049          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "off-grid",
+     "value": 1.5,
+     "indexString": "001x         ",
+     "lowerBoundString": "001          ",
+     "upperBoundString": "001          "
+    }
+   ]
+  },
+  {
+   "schema": "int-0-100",
+   "spec": {
+    "name": "int-0-100",
+    "minimum": 0,
+    "maximum": 100,
+    "multipleOf": 1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 14,
+   "digitBudget": {
+    "nonDecimals": 3,
+    "decimals": 0,
+    "minimum": 0,
+    "maximum": 100
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 100,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "inside-min",
+     "value": 1,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 99,
+     "indexString": "0099x         ",
+     "lowerBoundString": "0099          ",
+     "upperBoundString": "0099          "
+    },
+    {
+     "label": "outside-low",
+     "value": -1,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 101,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1100,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "midpoint",
+     "value": 50,
+     "indexString": "0050x         ",
+     "lowerBoundString": "0050          ",
+     "upperBoundString": "0050          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "off-grid",
+     "value": 1.5,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    }
+   ]
+  },
+  {
+   "schema": "int-0-999",
+   "spec": {
+    "name": "int-0-999",
+    "minimum": 0,
+    "maximum": 999,
+    "multipleOf": 1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 14,
+   "digitBudget": {
+    "nonDecimals": 3,
+    "decimals": 0,
+    "minimum": 0,
+    "maximum": 999
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 999,
+     "indexString": "0999x         ",
+     "lowerBoundString": "0999          ",
+     "upperBoundString": "0999          "
+    },
+    {
+     "label": "inside-min",
+     "value": 1,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 998,
+     "indexString": "0998x         ",
+     "lowerBoundString": "0998          ",
+     "upperBoundString": "0998          "
+    },
+    {
+     "label": "outside-low",
+     "value": -1,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 1000,
+     "indexString": "0999x         ",
+     "lowerBoundString": "0999          ",
+     "upperBoundString": "0999          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1999,
+     "indexString": "0999x         ",
+     "lowerBoundString": "0999          ",
+     "upperBoundString": "0999          "
+    },
+    {
+     "label": "midpoint",
+     "value": 499,
+     "indexString": "0499x         ",
+     "lowerBoundString": "0499          ",
+     "upperBoundString": "0499          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "off-grid",
+     "value": 1.5,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    }
+   ]
+  },
+  {
+   "schema": "int-0-1000",
+   "spec": {
+    "name": "int-0-1000",
+    "minimum": 0,
+    "maximum": 1000,
+    "multipleOf": 1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 15,
+   "digitBudget": {
+    "nonDecimals": 4,
+    "decimals": 0,
+    "minimum": 0,
+    "maximum": 1000
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 1000,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "inside-min",
+     "value": 1,
+     "indexString": "00001x         ",
+     "lowerBoundString": "00001          ",
+     "upperBoundString": "00001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 999,
+     "indexString": "00999x         ",
+     "lowerBoundString": "00999          ",
+     "upperBoundString": "00999          "
+    },
+    {
+     "label": "outside-low",
+     "value": -1,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 1001,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "far-high",
+     "value": 2000,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "midpoint",
+     "value": 500,
+     "indexString": "00500x         ",
+     "lowerBoundString": "00500          ",
+     "upperBoundString": "00500          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "off-grid",
+     "value": 1.5,
+     "indexString": "00001x         ",
+     "lowerBoundString": "00001          ",
+     "upperBoundString": "00001          "
+    }
+   ]
+  },
+  {
+   "schema": "int-negative",
+   "spec": {
+    "name": "int-negative",
+    "minimum": -100,
+    "maximum": -1,
+    "multipleOf": 1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 13,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 0,
+    "minimum": -100,
+    "maximum": -1
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": -100,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "exact-max",
+     "value": -1,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "inside-min",
+     "value": -99,
+     "indexString": "001x         ",
+     "lowerBoundString": "001          ",
+     "upperBoundString": "001          "
+    },
+    {
+     "label": "inside-max",
+     "value": -2,
+     "indexString": "098x         ",
+     "lowerBoundString": "098          ",
+     "upperBoundString": "098          "
+    },
+    {
+     "label": "outside-low",
+     "value": -101,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 0,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "far-low",
+     "value": -1100,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "far-high",
+     "value": 999,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "midpoint",
+     "value": -51,
+     "indexString": "049x         ",
+     "lowerBoundString": "049          ",
+     "upperBoundString": "049          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "off-grid",
+     "value": -98.5,
+     "indexString": "001x         ",
+     "lowerBoundString": "001          ",
+     "upperBoundString": "001          "
+    }
+   ]
+  },
+  {
+   "schema": "int-crossing",
+   "spec": {
+    "name": "int-crossing",
+    "minimum": -50,
+    "maximum": 50,
+    "multipleOf": 1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 14,
+   "digitBudget": {
+    "nonDecimals": 3,
+    "decimals": 0,
+    "minimum": -50,
+    "maximum": 50
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": -50,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 50,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "inside-min",
+     "value": -49,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 49,
+     "indexString": "0099x         ",
+     "lowerBoundString": "0099          ",
+     "upperBoundString": "0099          "
+    },
+    {
+     "label": "outside-low",
+     "value": -51,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 51,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "far-low",
+     "value": -1050,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1050,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "midpoint",
+     "value": 0,
+     "indexString": "0050x         ",
+     "lowerBoundString": "0050          ",
+     "upperBoundString": "0050          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "0050x         ",
+     "lowerBoundString": "0050          ",
+     "upperBoundString": "0050          "
+    },
+    {
+     "label": "off-grid",
+     "value": -48.5,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    }
+   ]
+  },
+  {
+   "schema": "int-offset",
+   "spec": {
+    "name": "int-offset",
+    "minimum": 1000,
+    "maximum": 1099,
+    "multipleOf": 1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 13,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 0,
+    "minimum": 1000,
+    "maximum": 1099
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 1000,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 1099,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "inside-min",
+     "value": 1001,
+     "indexString": "001x         ",
+     "lowerBoundString": "001          ",
+     "upperBoundString": "001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 1098,
+     "indexString": "098x         ",
+     "lowerBoundString": "098          ",
+     "upperBoundString": "098          "
+    },
+    {
+     "label": "outside-low",
+     "value": 999,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 1100,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "far-low",
+     "value": 0,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "far-high",
+     "value": 2099,
+     "indexString": "099x         ",
+     "lowerBoundString": "099          ",
+     "upperBoundString": "099          "
+    },
+    {
+     "label": "midpoint",
+     "value": 1049,
+     "indexString": "049x         ",
+     "lowerBoundString": "049          ",
+     "upperBoundString": "049          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "off-grid",
+     "value": 1001.5,
+     "indexString": "001x         ",
+     "lowerBoundString": "001          ",
+     "upperBoundString": "001          "
+    }
+   ]
+  },
+  {
+   "schema": "dec-1",
+   "spec": {
+    "name": "dec-1",
+    "minimum": 0,
+    "maximum": 10,
+    "multipleOf": 0.1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 14,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 1,
+    "minimum": 0,
+    "maximum": 10
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 10,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "inside-min",
+     "value": 0.1,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 9.9,
+     "indexString": "0099x         ",
+     "lowerBoundString": "0099          ",
+     "upperBoundString": "0099          "
+    },
+    {
+     "label": "outside-low",
+     "value": -0.1,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 10.1,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1010,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "midpoint",
+     "value": 5,
+     "indexString": "0050x         ",
+     "lowerBoundString": "0050          ",
+     "upperBoundString": "0050          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "carry",
+     "value": 5.9,
+     "indexString": "0059x         ",
+     "lowerBoundString": "0059          ",
+     "upperBoundString": "0059          "
+    },
+    {
+     "label": "carry-exact",
+     "value": 5.95,
+     "indexString": "0059x         ",
+     "lowerBoundString": "0059          ",
+     "upperBoundString": "0059          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": 0.1,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    },
+    {
+     "label": "off-grid",
+     "value": 0.15000000000000002,
+     "indexString": "0002x         ",
+     "lowerBoundString": "0002          ",
+     "upperBoundString": "0002          "
+    }
+   ]
+  },
+  {
+   "schema": "dec-2",
+   "spec": {
+    "name": "dec-2",
+    "minimum": 0,
+    "maximum": 10,
+    "multipleOf": 0.01
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 15,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 2,
+    "minimum": 0,
+    "maximum": 10
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 10,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "inside-min",
+     "value": 0.01,
+     "indexString": "00001x         ",
+     "lowerBoundString": "00001          ",
+     "upperBoundString": "00001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 9.99,
+     "indexString": "00999x         ",
+     "lowerBoundString": "00999          ",
+     "upperBoundString": "00999          "
+    },
+    {
+     "label": "outside-low",
+     "value": -0.01,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 10.01,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1010,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "midpoint",
+     "value": 5,
+     "indexString": "00500x         ",
+     "lowerBoundString": "00500          ",
+     "upperBoundString": "00500          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "carry",
+     "value": 5.99,
+     "indexString": "00599x         ",
+     "lowerBoundString": "00599          ",
+     "upperBoundString": "00599          "
+    },
+    {
+     "label": "carry-exact",
+     "value": 5.995,
+     "indexString": "00599x         ",
+     "lowerBoundString": "00599          ",
+     "upperBoundString": "00599          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": 0.01,
+     "indexString": "00001x         ",
+     "lowerBoundString": "00001          ",
+     "upperBoundString": "00001          "
+    },
+    {
+     "label": "off-grid",
+     "value": 0.015,
+     "indexString": "00002x         ",
+     "lowerBoundString": "00002          ",
+     "upperBoundString": "00002          "
+    }
+   ]
+  },
+  {
+   "schema": "dec-3",
+   "spec": {
+    "name": "dec-3",
+    "minimum": 0,
+    "maximum": 10,
+    "multipleOf": 0.001
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 16,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 3,
+    "minimum": 0,
+    "maximum": 10
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "000000x         ",
+     "lowerBoundString": "000000          ",
+     "upperBoundString": "000000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 10,
+     "indexString": "010000x         ",
+     "lowerBoundString": "010000          ",
+     "upperBoundString": "010000          "
+    },
+    {
+     "label": "inside-min",
+     "value": 0.001,
+     "indexString": "000001x         ",
+     "lowerBoundString": "000001          ",
+     "upperBoundString": "000001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 9.999,
+     "indexString": "009999x         ",
+     "lowerBoundString": "009999          ",
+     "upperBoundString": "009999          "
+    },
+    {
+     "label": "outside-low",
+     "value": -0.001,
+     "indexString": "000000x         ",
+     "lowerBoundString": "000000          ",
+     "upperBoundString": "000000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 10.001,
+     "indexString": "010000x         ",
+     "lowerBoundString": "010000          ",
+     "upperBoundString": "010000          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "000000x         ",
+     "lowerBoundString": "000000          ",
+     "upperBoundString": "000000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1010,
+     "indexString": "010000x         ",
+     "lowerBoundString": "010000          ",
+     "upperBoundString": "010000          "
+    },
+    {
+     "label": "midpoint",
+     "value": 5,
+     "indexString": "005000x         ",
+     "lowerBoundString": "005000          ",
+     "upperBoundString": "005000          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "000000x         ",
+     "lowerBoundString": "000000          ",
+     "upperBoundString": "000000          "
+    },
+    {
+     "label": "carry",
+     "value": 5.999,
+     "indexString": "005999x         ",
+     "lowerBoundString": "005999          ",
+     "upperBoundString": "005999          "
+    },
+    {
+     "label": "carry-exact",
+     "value": 5.9995,
+     "indexString": "005999x         ",
+     "lowerBoundString": "005999          ",
+     "upperBoundString": "005999          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": 0.001,
+     "indexString": "000001x         ",
+     "lowerBoundString": "000001          ",
+     "upperBoundString": "000001          "
+    },
+    {
+     "label": "off-grid",
+     "value": 0.0015,
+     "indexString": "000002x         ",
+     "lowerBoundString": "000002          ",
+     "upperBoundString": "000002          "
+    }
+   ]
+  },
+  {
+   "schema": "dec-half",
+   "spec": {
+    "name": "dec-half",
+    "minimum": 0,
+    "maximum": 10,
+    "multipleOf": 0.5
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 14,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 1,
+    "minimum": 0,
+    "maximum": 10
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 10,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "inside-min",
+     "value": 0.5,
+     "indexString": "0005x         ",
+     "lowerBoundString": "0005          ",
+     "upperBoundString": "0005          "
+    },
+    {
+     "label": "inside-max",
+     "value": 9.5,
+     "indexString": "0095x         ",
+     "lowerBoundString": "0095          ",
+     "upperBoundString": "0095          "
+    },
+    {
+     "label": "outside-low",
+     "value": -0.5,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 10.5,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1010,
+     "indexString": "0100x         ",
+     "lowerBoundString": "0100          ",
+     "upperBoundString": "0100          "
+    },
+    {
+     "label": "midpoint",
+     "value": 5,
+     "indexString": "0050x         ",
+     "lowerBoundString": "0050          ",
+     "upperBoundString": "0050          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "carry",
+     "value": 5.9,
+     "indexString": "0059x         ",
+     "lowerBoundString": "0059          ",
+     "upperBoundString": "0059          "
+    },
+    {
+     "label": "carry-exact",
+     "value": 5.95,
+     "indexString": "0059x         ",
+     "lowerBoundString": "0059          ",
+     "upperBoundString": "0059          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": 0.1,
+     "indexString": "0001x         ",
+     "lowerBoundString": "0001          ",
+     "upperBoundString": "0001          "
+    },
+    {
+     "label": "off-grid",
+     "value": 0.75,
+     "indexString": "0008x         ",
+     "lowerBoundString": "0008          ",
+     "upperBoundString": "0008          "
+    }
+   ]
+  },
+  {
+   "schema": "dec-negative",
+   "spec": {
+    "name": "dec-negative",
+    "minimum": -10,
+    "maximum": 10,
+    "multipleOf": 0.01
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 15,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 2,
+    "minimum": -10,
+    "maximum": 10
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": -10,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 10,
+     "indexString": "02000x         ",
+     "lowerBoundString": "02000          ",
+     "upperBoundString": "02000          "
+    },
+    {
+     "label": "inside-min",
+     "value": -9.99,
+     "indexString": "00001x         ",
+     "lowerBoundString": "00001          ",
+     "upperBoundString": "00001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 9.99,
+     "indexString": "01999x         ",
+     "lowerBoundString": "01999          ",
+     "upperBoundString": "01999          "
+    },
+    {
+     "label": "outside-low",
+     "value": -10.01,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 10.01,
+     "indexString": "02000x         ",
+     "lowerBoundString": "02000          ",
+     "upperBoundString": "02000          "
+    },
+    {
+     "label": "far-low",
+     "value": -1010,
+     "indexString": "00000x         ",
+     "lowerBoundString": "00000          ",
+     "upperBoundString": "00000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1010,
+     "indexString": "02000x         ",
+     "lowerBoundString": "02000          ",
+     "upperBoundString": "02000          "
+    },
+    {
+     "label": "midpoint",
+     "value": 0,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "01000x         ",
+     "lowerBoundString": "01000          ",
+     "upperBoundString": "01000          "
+    },
+    {
+     "label": "carry",
+     "value": 0.99,
+     "indexString": "01099x         ",
+     "lowerBoundString": "01099          ",
+     "upperBoundString": "01099          "
+    },
+    {
+     "label": "carry-exact",
+     "value": 0.995,
+     "indexString": "01099x         ",
+     "lowerBoundString": "01099          ",
+     "upperBoundString": "01099          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": -9.99,
+     "indexString": "00001x         ",
+     "lowerBoundString": "00001          ",
+     "upperBoundString": "00001          "
+    },
+    {
+     "label": "off-grid",
+     "value": -9.985,
+     "indexString": "00002x         ",
+     "lowerBoundString": "00002          ",
+     "upperBoundString": "00002          "
+    }
+   ]
+  },
+  {
+   "schema": "big",
+   "spec": {
+    "name": "big",
+    "minimum": 0,
+    "maximum": 1000000000000000,
+    "multipleOf": 0.01
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 29,
+   "digitBudget": {
+    "nonDecimals": 16,
+    "decimals": 2,
+    "minimum": 0,
+    "maximum": 1000000000000000
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0,
+     "indexString": "0000000000000000000x         ",
+     "lowerBoundString": "0000000000000000000          ",
+     "upperBoundString": "0000000000000000000          "
+    },
+    {
+     "label": "exact-max",
+     "value": 1000000000000000,
+     "indexString": "0100000000000000000x         ",
+     "lowerBoundString": "0100000000000000000          ",
+     "upperBoundString": "0100000000000000000          "
+    },
+    {
+     "label": "inside-min",
+     "value": 0.01,
+     "indexString": "0000000000000000001x         ",
+     "lowerBoundString": "0000000000000000001          ",
+     "upperBoundString": "0000000000000000001          "
+    },
+    {
+     "label": "inside-max",
+     "value": 1000000000000000,
+     "indexString": "0100000000000000000x         ",
+     "lowerBoundString": "0100000000000000000          ",
+     "upperBoundString": "0100000000000000000          "
+    },
+    {
+     "label": "outside-low",
+     "value": -0.01,
+     "indexString": "0000000000000000000x         ",
+     "lowerBoundString": "0000000000000000000          ",
+     "upperBoundString": "0000000000000000000          "
+    },
+    {
+     "label": "outside-high",
+     "value": 1000000000000000,
+     "indexString": "0100000000000000000x         ",
+     "lowerBoundString": "0100000000000000000          ",
+     "upperBoundString": "0100000000000000000          "
+    },
+    {
+     "label": "far-low",
+     "value": -1000,
+     "indexString": "0000000000000000000x         ",
+     "lowerBoundString": "0000000000000000000          ",
+     "upperBoundString": "0000000000000000000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1000000000001000,
+     "indexString": "0100000000000000000x         ",
+     "lowerBoundString": "0100000000000000000          ",
+     "upperBoundString": "0100000000000000000          "
+    },
+    {
+     "label": "midpoint",
+     "value": 500000000000000,
+     "indexString": "0050000000000000000x         ",
+     "lowerBoundString": "0050000000000000000          ",
+     "upperBoundString": "0050000000000000000          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "0000000000000000000x         ",
+     "lowerBoundString": "0000000000000000000          ",
+     "upperBoundString": "0000000000000000000          "
+    },
+    {
+     "label": "carry",
+     "value": 500000000000001,
+     "indexString": "0050000000000000100x         ",
+     "lowerBoundString": "0050000000000000100          ",
+     "upperBoundString": "0050000000000000100          "
+    },
+    {
+     "label": "carry-exact",
+     "value": 500000000000001,
+     "indexString": "0050000000000000100x         ",
+     "lowerBoundString": "0050000000000000100          ",
+     "upperBoundString": "0050000000000000100          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": 0.01,
+     "indexString": "0000000000000000001x         ",
+     "lowerBoundString": "0000000000000000001          ",
+     "upperBoundString": "0000000000000000001          "
+    },
+    {
+     "label": "off-grid",
+     "value": 0.015,
+     "indexString": "0000000000000000002x         ",
+     "lowerBoundString": "0000000000000000002          ",
+     "upperBoundString": "0000000000000000002          "
+    }
+   ]
+  },
+  {
+   "schema": "ceil-max",
+   "spec": {
+    "name": "ceil-max",
+    "minimum": 0.5,
+    "maximum": 10.5,
+    "multipleOf": 0.1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 14,
+   "digitBudget": {
+    "nonDecimals": 2,
+    "decimals": 1,
+    "minimum": 0,
+    "maximum": 11
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": 0.5,
+     "indexString": "0005x         ",
+     "lowerBoundString": "0005          ",
+     "upperBoundString": "0005          "
+    },
+    {
+     "label": "exact-max",
+     "value": 10.5,
+     "indexString": "0105x         ",
+     "lowerBoundString": "0105          ",
+     "upperBoundString": "0105          "
+    },
+    {
+     "label": "inside-min",
+     "value": 0.6,
+     "indexString": "0006x         ",
+     "lowerBoundString": "0006          ",
+     "upperBoundString": "0006          "
+    },
+    {
+     "label": "inside-max",
+     "value": 10.4,
+     "indexString": "0104x         ",
+     "lowerBoundString": "0104          ",
+     "upperBoundString": "0104          "
+    },
+    {
+     "label": "outside-low",
+     "value": 0.4,
+     "indexString": "0004x         ",
+     "lowerBoundString": "0004          ",
+     "upperBoundString": "0004          "
+    },
+    {
+     "label": "outside-high",
+     "value": 10.6,
+     "indexString": "0106x         ",
+     "lowerBoundString": "0106          ",
+     "upperBoundString": "0106          "
+    },
+    {
+     "label": "far-low",
+     "value": -999.5,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "far-high",
+     "value": 1010.5,
+     "indexString": "0110x         ",
+     "lowerBoundString": "0110          ",
+     "upperBoundString": "0110          "
+    },
+    {
+     "label": "midpoint",
+     "value": 5.5,
+     "indexString": "0055x         ",
+     "lowerBoundString": "0055          ",
+     "upperBoundString": "0055          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "0000x         ",
+     "lowerBoundString": "0000          ",
+     "upperBoundString": "0000          "
+    },
+    {
+     "label": "carry",
+     "value": 5.9,
+     "indexString": "0059x         ",
+     "lowerBoundString": "0059          ",
+     "upperBoundString": "0059          "
+    },
+    {
+     "label": "carry-exact",
+     "value": 5.95,
+     "indexString": "0059x         ",
+     "lowerBoundString": "0059          ",
+     "upperBoundString": "0059          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": 0.6,
+     "indexString": "0006x         ",
+     "lowerBoundString": "0006          ",
+     "upperBoundString": "0006          "
+    },
+    {
+     "label": "off-grid",
+     "value": 0.65,
+     "indexString": "0007x         ",
+     "lowerBoundString": "0007          ",
+     "upperBoundString": "0007          "
+    }
+   ]
+  },
+  {
+   "schema": "neg-frac",
+   "spec": {
+    "name": "neg-frac",
+    "minimum": -2.5,
+    "maximum": -0.5,
+    "multipleOf": 0.1
+   },
+   "index": [
+    "_deleted",
+    "value",
+    "id"
+   ],
+   "length": 13,
+   "digitBudget": {
+    "nonDecimals": 1,
+    "decimals": 1,
+    "minimum": -3,
+    "maximum": 0
+   },
+   "values": [
+    {
+     "label": "exact-min",
+     "value": -2.5,
+     "indexString": "005x         ",
+     "lowerBoundString": "005          ",
+     "upperBoundString": "005          "
+    },
+    {
+     "label": "exact-max",
+     "value": -0.5,
+     "indexString": "025x         ",
+     "lowerBoundString": "025          ",
+     "upperBoundString": "025          "
+    },
+    {
+     "label": "inside-min",
+     "value": -2.4,
+     "indexString": "006x         ",
+     "lowerBoundString": "006          ",
+     "upperBoundString": "006          "
+    },
+    {
+     "label": "inside-max",
+     "value": -0.6,
+     "indexString": "024x         ",
+     "lowerBoundString": "024          ",
+     "upperBoundString": "024          "
+    },
+    {
+     "label": "outside-low",
+     "value": -2.6,
+     "indexString": "004x         ",
+     "lowerBoundString": "004          ",
+     "upperBoundString": "004          "
+    },
+    {
+     "label": "outside-high",
+     "value": -0.4,
+     "indexString": "026x         ",
+     "lowerBoundString": "026          ",
+     "upperBoundString": "026          "
+    },
+    {
+     "label": "far-low",
+     "value": -1002.5,
+     "indexString": "000x         ",
+     "lowerBoundString": "000          ",
+     "upperBoundString": "000          "
+    },
+    {
+     "label": "far-high",
+     "value": 999.5,
+     "indexString": "030x         ",
+     "lowerBoundString": "030          ",
+     "upperBoundString": "030          "
+    },
+    {
+     "label": "midpoint",
+     "value": -1.5,
+     "indexString": "015x         ",
+     "lowerBoundString": "015          ",
+     "upperBoundString": "015          "
+    },
+    {
+     "label": "zero",
+     "value": 0,
+     "indexString": "030x         ",
+     "lowerBoundString": "030          ",
+     "upperBoundString": "030          "
+    },
+    {
+     "label": "carry",
+     "value": -1.1,
+     "indexString": "019x         ",
+     "lowerBoundString": "019          ",
+     "upperBoundString": "019          "
+    },
+    {
+     "label": "carry-exact",
+     "value": -1.05,
+     "indexString": "019x         ",
+     "lowerBoundString": "019          ",
+     "upperBoundString": "019          "
+    },
+    {
+     "label": "one-lsb-inside",
+     "value": -2.4,
+     "indexString": "006x         ",
+     "lowerBoundString": "006          ",
+     "upperBoundString": "006          "
+    },
+    {
+     "label": "off-grid",
+     "value": -2.35,
+     "indexString": "006x         ",
+     "lowerBoundString": "006          ",
+     "upperBoundString": "006          "
+    }
+   ]
+  }
+ ]
+}
