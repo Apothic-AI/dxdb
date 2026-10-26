@@ -147,6 +147,79 @@ be true of the data and false of the code.
 
 ---
 
+## 5a. The storage matrix
+
+`tests/storage_matrix.rs` runs the 48 exercised implementations cases against every
+storage in the workspace, and prints one row each. Run it with:
+
+```text
+DXDB_MATRIX_OUT=/tmp/matrix.md make test    # writes the table to a file
+```
+
+| storage | crate | declared | exercised | passed | failed | status |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `reference-scaffold` | `crates/dxdb-testkit/tests/support` | 48 | 48 | 48 | 0 | passing (control) |
+| `dxdb-memory` | `crates/storages/dxdb-memory` | 48 | 48 | 48 | 0 | **passing** |
+| `dxdb-localstorage` | `crates/storages/dxdb-localstorage` | 48 | 48 | 46 | 2 | 2 failing |
+| `dxdb-sqlite` | `crates/storages/dxdb-sqlite` | 48 | 0 | 0 | 0 | does not implement `RxStorage` |
+| `dxdb-filesystem` | `crates/storages/dxdb-filesystem` | 48 | 0 | 0 | 0 | does not implement `RxStorage` |
+
+### Two storages are not storage implementations
+
+`dxdb-sqlite` and `dxdb-filesystem` do not implement `RxStorage`. `dxdb-sqlite` does
+not depend on `dxdb-storage` at all: it is a `SqliteDriver` abstraction plus a
+`rusqlite` driver, i.e. the layer a SQLite storage would be *built on*. `dxdb-filesystem`
+is tables and layout for a future storage. The matrix reports them as
+`does not implement RxStorage` with all 48 cases unrun, deliberately not as `0 passed`,
+because "0 of 48" and "nothing to run" look identical in a table and mean opposite
+things.
+
+This is worth stating plainly for the parity matrix: **two of the four `crates/storages`
+crates are not yet storages.** A row for either of them in a coverage table would be
+measuring a layer that has no storage contract to satisfy.
+
+### localstorage's 2 failures are a storage bug, and it is localised
+
+`impl-query-03` (`must find deleted documents`) and `impl-count-01` (`should count the
+correct amount`). Both fail the same way, and a probe narrowed it:
+
+| call | result |
+| --- | --- |
+| `bulk_write` a live doc then its tombstone | no errors |
+| `find_documents_by_id(["aa"], true)` | 1 doc, `is_deleted() == true` ✓ |
+| `query({selector: {}})` | **0 docs** ✗ |
+| `query({selector: {_deleted: true}})` | **0 docs** ✗ |
+| `query({selector: {_deleted: false}})` | **0 docs** ✗ |
+
+So the document is stored and readable by id, and `query` returns nothing for *any*
+selector including the empty one. The cause is in `run_query`
+(`crates/storages/dxdb-localstorage/src/lib.rs:686`): when the plan names an index the
+instance maintains, it applies `start_keys`/`end_keys` as bounds. The testkit's plan
+carries `INDEX_MIN`/`INDEX_MAX` sentinels, and `_deleted` is the first field of every
+index, so the encoded lower bound resolves to the boolean `false` — which excludes
+every document from the walk. Under a full-scan plan (an index the instance does not
+have) the same query returns the document, which is the control.
+
+That is a real bug and it belongs to that crate's owner, not to this lane. Reported, not
+worked around: the testkit will not be adjusted to hide it, because a suite that passes
+by avoiding the failing path is the failure mode this whole tranche is fixing.
+
+### Three fixture bugs the matrix found
+
+Each of these had made a correct storage look broken, and each was mine:
+
+| # | bug | symptom | fix |
+| --- | --- | --- | --- |
+| 1 | the RNG was `thread_local`, so every `#[test]` drew the **same** "random" database name; `dxdb-memory`'s registry is process-global | 8 memory cases failed on inserts conflicting with a previous test's tombstones | generator is a `static` behind a `Mutex` |
+| 2 | `cleanup(minimumDeletedTime)` was called with absolute timestamps; it takes a **duration** | cleanup purged too much, then too little | upstream's calls: `cleanup(0)` and `cleanup(1000*60*6)`, looped while `false` |
+| 3 | fixture `lwt` was the constant `1_700_000_000_000` (2023-11-14), so tombstones were 1,076 days old | a 6-minute retention window correctly purged them | anchored 60 s in the past, ascending; a test pins the base near the clock |
+
+Bug 3 is worth reading twice because it was found twice, in opposite directions: the
+constant was too far in the past (so retention purged everything), and the obvious fix
+of `base + n` put values milliseconds in the *future* (so `cleanup(0)`, cutoff exactly
+`now()`, purged nothing). A retention assertion needs its fixture timestamps to be
+recent **and** not future-dated, and both halves are now pinned by tests.
+
 ## 6. Gates
 
 Run from the worktree root on the merged result.
