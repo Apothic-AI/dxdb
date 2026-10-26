@@ -609,6 +609,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-crdt"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-json",
+ "dxdb-jsstr",
+ "dxdb-plugin-update",
+ "dxdb-schema",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-json-dump"
 version = "0.0.0"
 dependencies = [
