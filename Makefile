@@ -12,7 +12,20 @@
 # is not ours, do not stop a busy machine.
 
 TOOLCHAIN := 1.95.0
-CARGO     := cargo remote-3000 -r fly -d $(TOOLCHAIN)
+
+# Route selection: the primary path is the WireGuard 6PN address (remote "fly" in
+# ~/.config/cargo-remote-3000/cargo-remote-3000.toml). When that route is broken
+# from this machine -- which happens, with "No route to host", even though the box
+# is healthy -- xtask/remote-route.sh prints a fallback route over Fly's API proxy.
+# Lanes keep calling `make check` and never need to know which route is up.
+#
+# Set DXDB_FORCE_ROUTE=fly to skip detection and pin the primary.
+ROUTE := $(shell DXDB_FORCE_ROUTE=$(DXDB_FORCE_ROUTE) xtask/remote-route.sh 2>/dev/null)
+ifeq ($(findstring proxy,$(ROUTE)),proxy)
+CARGO := cargo remote-3000 -H fly-builder-proxy -p $(subst proxy:,,$(ROUTE)) -d $(TOOLCHAIN)
+else
+CARGO := cargo remote-3000 -r fly -d $(TOOLCHAIN)
+endif
 MACHINE   := 87477e0cd01748
 APP       := open-surrealdb-ds-builder
 
