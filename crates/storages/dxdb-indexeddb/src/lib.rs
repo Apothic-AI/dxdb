@@ -208,10 +208,6 @@ impl<B: BackingStore + 'static> IndexedDbInstance<B> {
         Ok(())
     }
 
-    fn doc_id(&self, doc: &DocumentData) -> Result<String, StorageError> {
-        Ok(doc.id(&self.schema.primary_path)?.to_string())
-    }
-
     /// The index name for one field list, plus the encoded string for one document.
     fn encode(&self, index: &[String], doc: &DocumentData) -> Result<String, StorageError> {
         get_indexable_string(&self.schema.raw, index, doc.as_value())
@@ -264,341 +260,325 @@ impl<B: BackingStore + 'static> RxStorageInstance for IndexedDbInstance<B> {
         self
     }
 
-    fn bulk_write(
+    async fn bulk_write(
         &self,
         document_writes: Vec<BulkWriteRow>,
         context: String,
-    ) -> impl Future<Output = Result<BulkWriteResponse, StorageError>> {
-        async move {
-            self.ensure_open()?;
+    ) -> Result<BulkWriteResponse, StorageError> {
+        self.ensure_open()?;
 
-            // Read the affected documents first: `categorize_bulk_write_rows` decides
-            // conflict-vs-update from them, and it must see the *stored* state.
-            let mut ids = Vec::with_capacity(document_writes.len());
-            for row in &document_writes {
-                ids.push(row.document.id(&self.schema.primary_path)?.to_string());
-            }
-            let found = self
-                .backing
-                .get_docs(&self.store_name, &ids)
+        // Read the affected documents first: `categorize_bulk_write_rows` decides
+        // conflict-vs-update from them, and it must see the *stored* state.
+        let mut ids = Vec::with_capacity(document_writes.len());
+        for row in &document_writes {
+            ids.push(row.document.id(&self.schema.primary_path)?.to_string());
+        }
+        let found = self
+            .backing
+            .get_docs(&self.store_name, &ids)
+            .await
+            .map_err(to_storage_error)?;
+        let docs_in_db: HashMap<String, DocumentData> = found
+            .into_iter()
+            .filter_map(|value| {
+                DocumentData::from_value(value)
+                    .ok()
+                    .map(|doc| (ids_for(&doc, &self.schema).unwrap_or_default(), doc))
+            })
+            .collect();
+
+        let categorized = categorize_bulk_write_rows(
+            &self.schema.primary_path,
+            &docs_in_db,
+            &document_writes,
+            &context,
+            self.schema.has_attachments,
+        );
+
+        // Attachment payloads first, so a document never points at bytes that are
+        // not there.
+        let mut attachments: Vec<(String, Vec<u8>)> = Vec::new();
+        for add in &categorized.attachments_add {
+            attachments.push((
+                attachment_key(&add.document_id, &add.attachment_id),
+                add.data.clone(),
+            ));
+        }
+        for update in &categorized.attachments_update {
+            attachments.push((
+                attachment_key(&update.document_id, &update.attachment_id),
+                update.data.clone(),
+            ));
+        }
+        if !attachments.is_empty() {
+            self.backing
+                .put_attachments(&self.store_name, &attachments)
                 .await
                 .map_err(to_storage_error)?;
-            let docs_in_db: HashMap<String, DocumentData> = found
-                .into_iter()
-                .filter_map(|value| {
-                    DocumentData::from_value(value)
-                        .ok()
-                        .map(|doc| (ids_for(&doc, &self.schema).unwrap_or_default(), doc))
-                })
-                .collect();
+        }
+        let removals: Vec<String> = categorized
+            .attachments_remove
+            .iter()
+            .map(|remove| attachment_key(&remove.document_id, &remove.attachment_id))
+            .collect();
+        if !removals.is_empty() {
+            self.backing
+                .delete_attachments(&self.store_name, &removals)
+                .await
+                .map_err(to_storage_error)?;
+        }
 
-            let categorized = categorize_bulk_write_rows(
-                &self.schema.primary_path,
-                &docs_in_db,
-                &document_writes,
-                &context,
-                self.schema.has_attachments,
-            );
+        // Documents and their index entries go in one transaction, so a crash
+        // cannot leave an index pointing at a document that is not there.
+        let mut docs: Vec<(String, Value)> = Vec::new();
+        let mut index_puts: Vec<(String, String)> = Vec::new();
+        let mut index_deletes: Vec<String> = Vec::new();
+        let indexes = self.maintained_indexes();
 
-            // Attachment payloads first, so a document never points at bytes that are
-            // not there.
-            let mut attachments: Vec<(String, Vec<u8>)> = Vec::new();
-            for add in &categorized.attachments_add {
-                attachments.push((
-                    attachment_key(&add.document_id, &add.attachment_id),
-                    add.data.clone(),
-                ));
-            }
-            for update in &categorized.attachments_update {
-                attachments.push((
-                    attachment_key(&update.document_id, &update.attachment_id),
-                    update.data.clone(),
-                ));
-            }
-            if !attachments.is_empty() {
-                self.backing
-                    .put_attachments(&self.store_name, &attachments)
-                    .await
-                    .map_err(to_storage_error)?;
-            }
-            let removals: Vec<String> = categorized
-                .attachments_remove
-                .iter()
-                .map(|remove| attachment_key(&remove.document_id, &remove.attachment_id))
-                .collect();
-            if !removals.is_empty() {
-                self.backing
-                    .delete_attachments(&self.store_name, &removals)
-                    .await
-                    .map_err(to_storage_error)?;
-            }
-
-            // Documents and their index entries go in one transaction, so a crash
-            // cannot leave an index pointing at a document that is not there.
-            let mut docs: Vec<(String, Value)> = Vec::new();
-            let mut index_puts: Vec<(String, String)> = Vec::new();
-            let mut index_deletes: Vec<String> = Vec::new();
-            let indexes = self.maintained_indexes();
-
-            for row in categorized
-                .bulk_insert_docs
-                .iter()
-                .chain(categorized.bulk_update_docs.iter())
-            {
-                let id = row.document.id(&self.schema.primary_path)?.to_string();
-                if let Some(previous) = &row.previous {
-                    for index in &indexes {
-                        let name = index_name(index);
-                        let old = self.encode(index, previous)?;
-                        index_deletes.push(index_row_key(&name, &old, &id));
-                    }
-                }
+        for row in categorized
+            .bulk_insert_docs
+            .iter()
+            .chain(categorized.bulk_update_docs.iter())
+        {
+            let id = row.document.id(&self.schema.primary_path)?.to_string();
+            if let Some(previous) = &row.previous {
                 for index in &indexes {
                     let name = index_name(index);
-                    let encoded = self.encode(index, &row.document)?;
-                    index_puts.push((index_row_key(&name, &encoded, &id), id.clone()));
+                    let old = self.encode(index, previous)?;
+                    index_deletes.push(index_row_key(&name, &old, &id));
                 }
-                docs.push((id, row.document.as_value().clone()));
             }
-
-            if !docs.is_empty() || !index_puts.is_empty() || !index_deletes.is_empty() {
-                self.backing
-                    .commit(&self.store_name, docs, index_puts, index_deletes)
-                    .await
-                    .map_err(to_storage_error)?;
+            for index in &indexes {
+                let name = index_name(index);
+                let encoded = self.encode(index, &row.document)?;
+                index_puts.push((index_row_key(&name, &encoded, &id), id.clone()));
             }
-
-            if !categorized.events.is_empty() {
-                self.emit(EventBulk {
-                    id: format!("{}/{}", self.store_name, context),
-                    events: categorized.events,
-                    checkpoint: categorized.checkpoint,
-                    context: context.clone(),
-                });
-            }
-
-            Ok(BulkWriteResponse {
-                error: categorized.error,
-            })
+            docs.push((id, row.document.as_value().clone()));
         }
+
+        if !docs.is_empty() || !index_puts.is_empty() || !index_deletes.is_empty() {
+            self.backing
+                .commit(&self.store_name, docs, index_puts, index_deletes)
+                .await
+                .map_err(to_storage_error)?;
+        }
+
+        if !categorized.events.is_empty() {
+            self.emit(EventBulk {
+                id: format!("{}/{}", self.store_name, context),
+                events: categorized.events,
+                checkpoint: categorized.checkpoint,
+                context: context.clone(),
+            });
+        }
+
+        Ok(BulkWriteResponse {
+            error: categorized.error,
+        })
     }
 
-    fn find_documents_by_id(
+    async fn find_documents_by_id(
         &self,
         ids: Vec<String>,
         with_deleted: bool,
-    ) -> impl Future<Output = Result<Vec<DocumentData>, StorageError>> {
-        async move {
-            self.ensure_open()?;
-            let found = self
-                .backing
-                .get_docs(&self.store_name, &ids)
-                .await
-                .map_err(to_storage_error)?;
-            let mut out = Vec::with_capacity(found.len());
-            for value in found {
-                let doc = DocumentData::from_value(value)?;
-                if with_deleted || !is_deleted(&doc) {
-                    out.push(doc);
-                }
+    ) -> Result<Vec<DocumentData>, StorageError> {
+        self.ensure_open()?;
+        let found = self
+            .backing
+            .get_docs(&self.store_name, &ids)
+            .await
+            .map_err(to_storage_error)?;
+        let mut out = Vec::with_capacity(found.len());
+        for value in found {
+            let doc = DocumentData::from_value(value)?;
+            if with_deleted || !is_deleted(&doc) {
+                out.push(doc);
             }
-            Ok(out)
         }
+        Ok(out)
     }
 
-    fn query(
-        &self,
-        prepared: PreparedQuery,
-    ) -> impl Future<Output = Result<Vec<DocumentData>, StorageError>> {
-        async move {
-            self.ensure_open()?;
-            let plan = encoder_plan(&prepared)?;
-            let index = plan.index.clone();
-            let name = index_name(&index);
+    async fn query(&self, prepared: PreparedQuery) -> Result<Vec<DocumentData>, StorageError> {
+        self.ensure_open()?;
+        let plan = encoder_plan(&prepared)?;
+        let index = plan.index.clone();
+        let name = index_name(&index);
 
-            // The plan's index must be one this instance maintains. Returning
-            // `UnknownIndex` rather than falling back is what upstream does, and the
-            // conformance suite depends on the error.
-            if !self
-                .maintained_indexes()
-                .iter()
-                .any(|candidate| index_name(candidate) == name)
-            {
-                return Err(StorageError::UnknownIndex(name));
+        // The plan's index must be one this instance maintains. Returning
+        // `UnknownIndex` rather than falling back is what upstream does, and the
+        // conformance suite depends on the error.
+        if !self
+            .maintained_indexes()
+            .iter()
+            .any(|candidate| index_name(candidate) == name)
+        {
+            return Err(StorageError::UnknownIndex(name));
+        }
+
+        let lower = bound_string(
+            &self.schema.raw,
+            &index,
+            &prepared.query_plan.start_keys,
+            Side::Lower,
+        )?;
+        let upper = bound_string(
+            &self.schema.raw,
+            &index,
+            &prepared.query_plan.end_keys,
+            Side::Upper,
+        )?;
+
+        // The batched read: keys in `[lower, upper)`, `batchSize` at a time, via
+        // `getAll`. This is the brief's "batched cursor reads with getAll over
+        // explicit key ranges".
+        let start = index_prefix(&name, &lower, plan.inclusive_start);
+        let total_needed = prepared.query.skip_plus_limit();
+        let mut primary_keys: Vec<String> = Vec::new();
+        let mut cursor = start;
+        loop {
+            let batch = self
+                .backing
+                .get_index_batch(&self.store_name, &name, &cursor, self.batch_size)
+                .await
+                .map_err(to_storage_error)?;
+            if batch.is_empty() {
+                break;
             }
-
-            let lower = bound_string(
-                &self.schema.raw,
-                &index,
-                &prepared.query_plan.start_keys,
-                Side::Lower,
-            )?;
-            let upper = bound_string(
-                &self.schema.raw,
-                &index,
-                &prepared.query_plan.end_keys,
-                Side::Upper,
-            )?;
-
-            // The batched read: keys in `[lower, upper)`, `batchSize` at a time, via
-            // `getAll`. This is the brief's "batched cursor reads with getAll over
-            // explicit key ranges".
-            let start = index_prefix(&name, &lower, plan.inclusive_start);
-            let total_needed = prepared.query.skip_plus_limit();
-            let mut primary_keys: Vec<String> = Vec::new();
-            let mut cursor = start;
-            loop {
-                let batch = self
-                    .backing
-                    .get_index_batch(&self.store_name, &name, &cursor, self.batch_size)
-                    .await
-                    .map_err(to_storage_error)?;
-                if batch.is_empty() {
-                    break;
-                }
-                let mut exhausted = false;
-                // Take the last key before consuming the batch; the loop below moves
-                // the pairs out of it.
-                let last_key = batch.last().map(|(key, _)| key.clone());
-                for (key, primary) in batch {
-                    // Stop at the upper bound. Compared in Rust rather than via an IDB
-                    // range so the comparison is the same code-unit comparison the
-                    // encoder used, not IDB's.
-                    if let Some(encoded) = key_index_string(&key) {
-                        if plan.inclusive_end {
-                            if encoded.as_str() > upper.as_str() {
-                                exhausted = true;
-                                break;
-                            }
-                        } else if encoded.as_str() >= upper.as_str() {
+            let mut exhausted = false;
+            // Take the last key before consuming the batch; the loop below moves
+            // the pairs out of it.
+            let last_key = batch.last().map(|(key, _)| key.clone());
+            for (key, primary) in batch {
+                // Stop at the upper bound. Compared in Rust rather than via an IDB
+                // range so the comparison is the same code-unit comparison the
+                // encoder used, not IDB's.
+                if let Some(encoded) = key_index_string(&key) {
+                    if plan.inclusive_end {
+                        if encoded.as_str() > upper.as_str() {
                             exhausted = true;
                             break;
                         }
-                    }
-                    primary_keys.push(primary);
-                    if primary_keys.len() >= total_needed {
+                    } else if encoded.as_str() >= upper.as_str() {
                         exhausted = true;
                         break;
                     }
                 }
-                if exhausted {
+                primary_keys.push(primary);
+                if primary_keys.len() >= total_needed {
+                    exhausted = true;
                     break;
                 }
-                let Some(last_key) = last_key else {
-                    break;
-                };
-                cursor = format!("{last_key}\u{0}");
             }
-
-            // Fetch the documents for the keys, in index order.
-            let values = self
-                .backing
-                .get_docs(&self.store_name, &primary_keys)
-                .await
-                .map_err(to_storage_error)?;
-            let by_id: HashMap<String, DocumentData> = values
-                .into_iter()
-                .filter_map(|value| {
-                    DocumentData::from_value(value)
-                        .ok()
-                        .map(|doc| (ids_for(&doc, &self.schema).unwrap_or_default(), doc))
-                })
-                .collect();
-            let mut documents: Vec<DocumentData> = primary_keys
-                .iter()
-                .filter_map(|id| by_id.get(id).cloned())
-                .collect();
-
-            // The selector still has to run unless the plan proves the range is exact.
-            if !plan.selector_satisfied_by_index {
-                let matcher = Matcher::new(&prepared.query.selector)
-                    .map_err(|e| StorageError::InvalidSchema(format!("selector: {e}")))?;
-                documents.retain(|doc| matcher.matches(doc.as_value()));
+            if exhausted {
+                break;
             }
-
-            if !plan.sort_satisfied_by_index {
-                let comparator = get_sort_comparator(&lift_query(&prepared.query));
-                documents.sort_by(|a, b| comparator.compare(a.as_value(), b.as_value()));
-            }
-
-            let skip = prepared.query.skip;
-            Ok(documents
-                .into_iter()
-                .skip(skip)
-                .take(prepared.query.limit.unwrap_or(usize::MAX))
-                .collect())
+            let Some(last_key) = last_key else {
+                break;
+            };
+            cursor = format!("{last_key}\u{0}");
         }
-    }
 
-    fn count(
-        &self,
-        prepared: PreparedQuery,
-    ) -> impl Future<Output = Result<CountResult, StorageError>> {
-        async move {
-            // `count()` must equal `query().len()`, including with a limit, so it is
-            // computed the same way. The mode reports whether the range was bounded,
-            // which is what tells a caller their count has no index.
-            let full_scan = prepared.query_plan.is_full_scan();
-            let documents = self.query(prepared.clone()).await?;
-            Ok(CountResult {
-                count: documents.len(),
-                mode: if full_scan {
-                    CountMode::Slow
-                } else {
-                    CountMode::Fast
-                },
+        // Fetch the documents for the keys, in index order.
+        let values = self
+            .backing
+            .get_docs(&self.store_name, &primary_keys)
+            .await
+            .map_err(to_storage_error)?;
+        let by_id: HashMap<String, DocumentData> = values
+            .into_iter()
+            .filter_map(|value| {
+                DocumentData::from_value(value)
+                    .ok()
+                    .map(|doc| (ids_for(&doc, &self.schema).unwrap_or_default(), doc))
             })
+            .collect();
+        let mut documents: Vec<DocumentData> = primary_keys
+            .iter()
+            .filter_map(|id| by_id.get(id).cloned())
+            .collect();
+
+        // The selector still has to run unless the plan proves the range is exact.
+        if !plan.selector_satisfied_by_index {
+            let matcher = Matcher::new(&prepared.query.selector)
+                .map_err(|e| StorageError::InvalidSchema(format!("selector: {e}")))?;
+            documents.retain(|doc| matcher.matches(doc.as_value()));
         }
+
+        if !plan.sort_satisfied_by_index {
+            let comparator = get_sort_comparator(&lift_query(&prepared.query));
+            documents.sort_by(|a, b| comparator.compare(a.as_value(), b.as_value()));
+        }
+
+        let skip = prepared.query.skip;
+        Ok(documents
+            .into_iter()
+            .skip(skip)
+            .take(prepared.query.limit.unwrap_or(usize::MAX))
+            .collect())
     }
 
-    fn get_attachment_data(
+    async fn count(&self, prepared: PreparedQuery) -> Result<CountResult, StorageError> {
+        // `count()` must equal `query().len()`, including with a limit, so it is
+        // computed the same way. The mode reports whether the range was bounded,
+        // which is what tells a caller their count has no index.
+        let full_scan = prepared.query_plan.is_full_scan();
+        let documents = self.query(prepared.clone()).await?;
+        Ok(CountResult {
+            count: documents.len(),
+            mode: if full_scan {
+                CountMode::Slow
+            } else {
+                CountMode::Fast
+            },
+        })
+    }
+
+    async fn get_attachment_data(
         &self,
         document_id: String,
         attachment_id: String,
         digest: String,
-    ) -> impl Future<Output = Result<FindAttachmentResult, StorageError>> {
-        async move {
-            self.ensure_open()?;
-            let doc = self
-                .backing
-                .get_docs(&self.store_name, std::slice::from_ref(&document_id))
-                .await
-                .map_err(to_storage_error)?
-                .into_iter()
-                .next()
-                .ok_or_else(|| {
-                    StorageError::MissingAttachment(format!("{document_id}||{attachment_id}"))
-                })?;
-            let doc = DocumentData::from_value(doc)?;
-            let stored = doc
-                .get_object_path("_attachments")
-                .and_then(|a| a.get(&attachment_id))
-                .and_then(|stub| stub.get("digest"))
-                .and_then(Value::as_str);
-            match stored {
-                Some(stored) if stored == digest => {}
-                Some(stored) => {
-                    return Err(StorageError::MissingAttachment(format!(
-                        "{document_id}||{attachment_id}: digest {stored} != {digest}"
-                    )))
-                }
-                None => {
-                    return Err(StorageError::MissingAttachment(format!(
-                        "{document_id}||{attachment_id}: not declared on the document"
-                    )))
-                }
+    ) -> Result<FindAttachmentResult, StorageError> {
+        self.ensure_open()?;
+        let doc = self
+            .backing
+            .get_docs(&self.store_name, std::slice::from_ref(&document_id))
+            .await
+            .map_err(to_storage_error)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| {
+                StorageError::MissingAttachment(format!("{document_id}||{attachment_id}"))
+            })?;
+        let doc = DocumentData::from_value(doc)?;
+        let stored = doc
+            .get_object_path("_attachments")
+            .and_then(|a| a.get(&attachment_id))
+            .and_then(|stub| stub.get("digest"))
+            .and_then(Value::as_str);
+        match stored {
+            Some(stored) if stored == digest => {}
+            Some(stored) => {
+                return Err(StorageError::MissingAttachment(format!(
+                    "{document_id}||{attachment_id}: digest {stored} != {digest}"
+                )))
             }
-            self.backing
-                .get_attachment(
-                    &self.store_name,
-                    &attachment_key(&document_id, &attachment_id),
-                )
-                .await
-                .map_err(to_storage_error)?
-                .ok_or_else(|| {
-                    StorageError::MissingAttachment(format!("{document_id}||{attachment_id}"))
-                })
+            None => {
+                return Err(StorageError::MissingAttachment(format!(
+                    "{document_id}||{attachment_id}: not declared on the document"
+                )))
+            }
         }
+        self.backing
+            .get_attachment(
+                &self.store_name,
+                &attachment_key(&document_id, &attachment_id),
+            )
+            .await
+            .map_err(to_storage_error)?
+            .ok_or_else(|| {
+                StorageError::MissingAttachment(format!("{document_id}||{attachment_id}"))
+            })
     }
 
     fn change_stream(&self) -> ChangeStream {
@@ -610,124 +590,115 @@ impl<B: BackingStore + 'static> RxStorageInstance for IndexedDbInstance<B> {
         Box::pin(rx)
     }
 
-    fn cleanup(
-        &self,
-        minimum_deleted_time: f64,
-    ) -> impl Future<Output = Result<bool, StorageError>> {
-        async move {
-            self.ensure_open()?;
-            let cleanup_index: Vec<String> = CLEANUP_INDEX
-                .iter()
-                .map(|field| {
-                    if field.is_empty() {
-                        self.schema.primary_path.clone()
-                    } else {
-                        (*field).to_string()
-                    }
-                })
-                .collect();
-            let name = index_name(&cleanup_index);
-            let cutoff = dxdb_storage::now() - minimum_deleted_time;
-
-            // `(_deleted, _meta.lwt, primary)` starting just above
-            // `(true, 0, "")` — upstream's exact bounds — so tombstones are visited
-            // in deletion-time order and the walk can stop at the cutoff.
-            let lower = bound_string(
-                &self.schema.raw,
-                &cleanup_index,
-                &[
-                    dxdb_storage::PlanKey::Boolean(true),
-                    dxdb_storage::PlanKey::Number(0.0),
-                    dxdb_storage::PlanKey::String(String::new()),
-                ],
-                Side::Lower,
-            )?;
-
-            let mut victims: Vec<String> = Vec::new();
-            let mut cursor = index_prefix(&name, &lower, false);
-            'outer: loop {
-                let batch = self
-                    .backing
-                    .get_index_batch(&self.store_name, &name, &cursor, self.batch_size)
-                    .await
-                    .map_err(to_storage_error)?;
-                if batch.is_empty() {
-                    break;
+    async fn cleanup(&self, minimum_deleted_time: f64) -> Result<bool, StorageError> {
+        self.ensure_open()?;
+        let cleanup_index: Vec<String> = CLEANUP_INDEX
+            .iter()
+            .map(|field| {
+                if field.is_empty() {
+                    self.schema.primary_path.clone()
+                } else {
+                    (*field).to_string()
                 }
-                for (key, primary) in &batch {
-                    let Some(encoded) = key_index_string(key) else {
-                        continue;
-                    };
-                    // The encoded `_meta.lwt` sits inside the index string; decode the
-                    // cutoff comparison from the document instead of the key, because
-                    // the key's encoding is field-width dependent.
-                    let Some(value) = self
-                        .backing
-                        .get_docs(&self.store_name, std::slice::from_ref(primary))
-                        .await
-                        .map_err(to_storage_error)?
-                        .into_iter()
-                        .next()
-                    else {
-                        continue;
-                    };
-                    let doc = DocumentData::from_value(value)?;
-                    let lwt = doc.lwt().unwrap_or(0.0);
-                    if lwt >= cutoff {
-                        // Tombstones are in lwt order, so everything after is newer.
-                        let _ = encoded;
-                        break 'outer;
-                    }
-                    victims.push(primary.clone());
-                }
-                let Some((last_key, _)) = batch.last() else {
-                    break;
+            })
+            .collect();
+        let name = index_name(&cleanup_index);
+        let cutoff = dxdb_storage::now() - minimum_deleted_time;
+
+        // `(_deleted, _meta.lwt, primary)` starting just above
+        // `(true, 0, "")` — upstream's exact bounds — so tombstones are visited
+        // in deletion-time order and the walk can stop at the cutoff.
+        let lower = bound_string(
+            &self.schema.raw,
+            &cleanup_index,
+            &[
+                dxdb_storage::PlanKey::Boolean(true),
+                dxdb_storage::PlanKey::Number(0.0),
+                dxdb_storage::PlanKey::String(String::new()),
+            ],
+            Side::Lower,
+        )?;
+
+        let mut victims: Vec<String> = Vec::new();
+        let mut cursor = index_prefix(&name, &lower, false);
+        'outer: loop {
+            let batch = self
+                .backing
+                .get_index_batch(&self.store_name, &name, &cursor, self.batch_size)
+                .await
+                .map_err(to_storage_error)?;
+            if batch.is_empty() {
+                break;
+            }
+            for (key, primary) in &batch {
+                let Some(encoded) = key_index_string(key) else {
+                    continue;
                 };
-                cursor = format!("{last_key}\u{0}");
+                // The encoded `_meta.lwt` sits inside the index string; decode the
+                // cutoff comparison from the document instead of the key, because
+                // the key's encoding is field-width dependent.
+                let Some(value) = self
+                    .backing
+                    .get_docs(&self.store_name, std::slice::from_ref(primary))
+                    .await
+                    .map_err(to_storage_error)?
+                    .into_iter()
+                    .next()
+                else {
+                    continue;
+                };
+                let doc = DocumentData::from_value(value)?;
+                let lwt = doc.lwt().unwrap_or(0.0);
+                if lwt >= cutoff {
+                    // Tombstones are in lwt order, so everything after is newer.
+                    let _ = encoded;
+                    break 'outer;
+                }
+                victims.push(primary.clone());
             }
-
-            if victims.is_empty() {
-                return Ok(true);
-            }
-            self.backing
-                .delete_docs(&self.store_name, &victims)
-                .await
-                .map_err(to_storage_error)?;
-            // The sweep is exhaustive for a single pass over a bounded batch loop, and
-            // the IndexedDB implementation deletes in one transaction, so there is
-            // nothing left to resume.
-            Ok(true)
+            let Some((last_key, _)) = batch.last() else {
+                break;
+            };
+            cursor = format!("{last_key}\u{0}");
         }
+
+        if victims.is_empty() {
+            return Ok(true);
+        }
+        self.backing
+            .delete_docs(&self.store_name, &victims)
+            .await
+            .map_err(to_storage_error)?;
+        // The sweep is exhaustive for a single pass over a bounded batch loop, and
+        // the IndexedDB implementation deletes in one transaction, so there is
+        // nothing left to resume.
+        Ok(true)
     }
 
-    fn close(&self) -> impl Future<Output = Result<(), StorageError>> {
-        async move {
-            if *self.closed.borrow() {
-                return Ok(());
-            }
-            *self.closed.borrow_mut() = true;
-            self.subscribers.borrow_mut().clear();
-            Ok(())
+    async fn close(&self) -> Result<(), StorageError> {
+        if *self.closed.borrow() {
+            return Ok(());
         }
+        *self.closed.borrow_mut() = true;
+        self.subscribers.borrow_mut().clear();
+        Ok(())
     }
 
-    fn remove(&self) -> impl Future<Output = Result<(), StorageError>> {
-        async move {
-            if *self.removed.borrow() {
-                return Ok(());
-            }
-            if *self.closed.borrow() {
-                return Err(StorageError::Closed);
-            }
-            self.backing
-                .drop_store(&self.store_name)
-                .await
-                .map_err(to_storage_error)?;
-            self.subscribers.borrow_mut().clear();
-            *self.removed.borrow_mut() = true;
-            *self.closed.borrow_mut() = true;
-            Ok(())
+    async fn remove(&self) -> Result<(), StorageError> {
+        if *self.removed.borrow() {
+            return Ok(());
         }
+        if *self.closed.borrow() {
+            return Err(StorageError::Closed);
+        }
+        self.backing
+            .drop_store(&self.store_name)
+            .await
+            .map_err(to_storage_error)?;
+        self.subscribers.borrow_mut().clear();
+        *self.removed.borrow_mut() = true;
+        *self.closed.borrow_mut() = true;
+        Ok(())
     }
 }
 
