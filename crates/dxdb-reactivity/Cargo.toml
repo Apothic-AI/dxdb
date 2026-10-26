@@ -10,7 +10,11 @@ description = "dxdb reactivity: change-event buffer, event reduce, query cache, 
 [dependencies]
 serde_json.workspace = true
 futures.workspace = true
+thiserror.workspace = true
 dxdb-storage = { path = "../dxdb-storage" }
+dxdb-json = { path = "../dxdb-json" }
+dxdb-jsnum = { path = "../dxdb-jsnum" }
+dxdb-jsstr = { path = "../dxdb-jsstr" }
 
 [dev-dependencies]
 serde = { workspace = true, features = ["derive"] }
