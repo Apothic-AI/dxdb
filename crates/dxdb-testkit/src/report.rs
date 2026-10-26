@@ -508,20 +508,22 @@ impl Report {
         out.push_str("\n### Declared versus exercised, per suite\n\n");
         let _ = writeln!(
             out,
-            "| suite | cases declared | exercised | % |\n| --- | ---: | ---: | ---: |"
+            "| suite | cases declared | exercised | fully exercised | % exercised |\n| --- | ---: | ---: | ---: | ---: |"
         );
         let _ = writeln!(
             out,
-            "| implementations | {} | {} | {:.1}% |",
+            "| implementations | {} | {} | {} | {:.1}% |",
             self.implementations.total_declared,
             self.implementations.total_exercised,
+            self.implementations.total_fully_exercised,
             self.implementations.exercised_percent()
         );
         let _ = writeln!(
             out,
-            "| query correctness | {} | {} | {:.1}% |",
+            "| query correctness | {} | {} | {} | {:.1}% |",
             self.query_correctness.total_declared,
             self.query_correctness.total_exercised,
+            self.query_correctness.total_fully_exercised,
             self.query_correctness.exercised_percent()
         );
         let _ = writeln!(
@@ -535,6 +537,7 @@ impl Report {
         for (status, cases) in self.unexercised() {
             let meaning = match status {
                 "NeedsQueryCrate" => "assertion calls `dxdb-query` (lane B)",
+                "PartiallyExercised" => "storage half runs; the oracle half needs `dxdb-query`",
                 "NeedsMultiInstance" => "needs a multi-instance forwarding layer",
                 "NeedsEncryptionWrapper" => "asserts the encryption wrapper's refusal",
                 "NeedsKeyCompressionWrapper" => "asserts the key-compression wrapper's refusal",
@@ -671,8 +674,9 @@ pub fn validate() -> Vec<String> {
 }
 
 /// The statuses a case can have, for a test that proves each one is reachable.
-pub const ALL_STATUSES: [PortStatus; 7] = [
+pub const ALL_STATUSES: [PortStatus; 8] = [
     PortStatus::Exercised,
+    PortStatus::PartiallyExercised,
     PortStatus::TextOnly,
     PortStatus::NeedsQueryCrate,
     PortStatus::NeedsMultiInstance,

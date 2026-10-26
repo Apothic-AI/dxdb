@@ -24,6 +24,11 @@
 //! `dxdb-core`; they are declared `DeclaredNotPorted` in the line tally rather than
 //! silently absent.
 //!
+//! Each group's declaration row is therefore
+//! [`PortStatus::PartiallyExercised`](dxdb_testkit::decl::PortStatus), which exists for
+//! exactly this shape of work and is why `NeedsQueryCrate` would have been wrong in both
+//! directions: it would have claimed nothing runs, when half of every group does.
+//!
 //! Because (1) and (2) do not run, the expected results are *taken as given* rather than
 //! independently recomputed. That is a real limitation and it is stated rather than
 //! glossed: a storage bug and a wrong fixture would be indistinguishable here. When
