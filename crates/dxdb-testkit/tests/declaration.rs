@@ -1161,10 +1161,7 @@ fn prepared_query_plan_claims_nothing() {
     let schema = dxdb_testkit::harness::fill_with_default_settings(dxdb_testkit::schemas::human());
     let storage_schema = dxdb_storage::StorageSchema::from_value(&schema).expect("schema");
     assert!(
-        storage_schema
-            .indexes
-            .iter()
-            .any(|index| *index == prepared.query_plan.index),
+        storage_schema.indexes.contains(&prepared.query_plan.index),
         "the planned index {:?} is not one the schema materialised: {:?}",
         prepared.query_plan.index,
         storage_schema.indexes

@@ -385,7 +385,7 @@ fn planned_index(query: &MangoQuery, schema: &StorageSchema) -> Vec<String> {
                 // appear in the compared prefix.
                 break;
             }
-            if user_run.get(matched).map(|candidate| *candidate) == Some(*field) {
+            if user_run.get(matched).copied() == Some(*field) {
                 matched += 1;
             } else {
                 break;

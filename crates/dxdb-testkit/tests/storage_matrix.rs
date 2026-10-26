@@ -527,8 +527,8 @@ fn unavailable_storages_account_for_every_declared_case() {
 #[test]
 fn unavailable_storages_state_a_reason() {
     for row in matrix() {
-        if row.unavailable.is_some() {
-            let reason = row.unavailable.expect("checked").reason();
+        if let Some(why) = row.unavailable {
+            let reason = why.reason();
             assert!(
                 reason.len() > 20,
                 "`{}` is unavailable without a usable reason: {reason:?}",
