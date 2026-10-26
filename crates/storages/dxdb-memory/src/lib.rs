@@ -64,9 +64,9 @@ use dxdb_query::plan::{PlanKey as QueryPlanKey, QueryPlan};
 use dxdb_query::sort::get_sort_comparator;
 use dxdb_storage::{
     categorize_bulk_write_rows, index_name, now, AttachmentData, BulkWriteResponse, BulkWriteRow,
-    ChangeEvent, ChangeStream, ChangedDocuments, Checkpoint, CountMode, CountResult, DocumentData,
-    DocumentWriteData, DynRxStorageInstance, EventBulk, InstanceCreationParams, Operation,
-    PreparedQuery, RxStorage, RxStorageInstance, StorageError, StorageSchema, WriteError,
+    ChangeStream, CountMode, CountResult, DocumentData, DynRxStorageInstance, EventBulk,
+    InstanceCreationParams, PreparedQuery, RxStorage, RxStorageInstance, StorageError,
+    StorageSchema,
 };
 use futures::channel::mpsc;
 use serde_json::Value;
@@ -256,87 +256,84 @@ impl RxStorage for MemoryStorage {
         "memory"
     }
 
-    fn create_storage_instance(
+    async fn create_storage_instance(
         &self,
         params: InstanceCreationParams,
-    ) -> impl std::future::Future<Output = Result<Box<DynRxStorageInstance<'static>>, StorageError>>
-    {
-        async move {
-            // Upstream refuses a schema whose key compression or encryption is not
-            // handled by a wrapper. A bare storage that accepted either would store
-            // plaintext and un-compressed keys while the caller believed otherwise.
-            if params.schema.key_compression {
-                return Err(StorageError::Unsupported(
-                    "schema sets keyCompression but the key-compression wrapper is not in the stack"
-                        .to_string(),
-                ));
-            }
-            if params.schema.has_encrypted_fields {
-                return Err(StorageError::Unsupported(
-                    "schema declares encrypted fields but the encryption wrapper is not in the stack"
-                        .to_string(),
-                ));
-            }
+    ) -> Result<Box<DynRxStorageInstance<'static>>, StorageError> {
+        // Upstream refuses a schema whose key compression or encryption is not
+        // handled by a wrapper. A bare storage that accepted either would store
+        // plaintext and un-compressed keys while the caller believed otherwise.
+        if params.schema.key_compression {
+            return Err(StorageError::Unsupported(
+                "schema sets keyCompression but the key-compression wrapper is not in the stack"
+                    .to_string(),
+            ));
+        }
+        if params.schema.has_encrypted_fields {
+            return Err(StorageError::Unsupported(
+                "schema declares encrypted fields but the encryption wrapper is not in the stack"
+                    .to_string(),
+            ));
+        }
 
-            let collection_key = params.collection_key();
-            let state = {
-                let mut guard = registry();
-                let map = guard.get_or_insert_with(HashMap::new);
-                match map.get(&collection_key) {
-                    Some(existing) => {
-                        let mut internals = lock(existing);
-                        // `devMode` catches the hard-to-debug case of two instances
-                        // disagreeing about the schema they are sharing.
-                        if params.dev_mode && internals.schema_version != params.schema.version {
-                            return Err(StorageError::InvalidSchema(format!(
-                                "storage was already created with schema version {}",
-                                internals.schema_version
-                            )));
-                        }
-                        internals.ref_count += 1;
-                        Arc::clone(existing)
+        let collection_key = params.collection_key();
+        let state = {
+            let mut guard = registry();
+            let map = guard.get_or_insert_with(HashMap::new);
+            match map.get(&collection_key) {
+                Some(existing) => {
+                    let mut internals = lock(existing);
+                    // `devMode` catches the hard-to-debug case of two instances
+                    // disagreeing about the schema they are sharing.
+                    if params.dev_mode && internals.schema_version != params.schema.version {
+                        return Err(StorageError::InvalidSchema(format!(
+                            "storage was already created with schema version {}",
+                            internals.schema_version
+                        )));
                     }
-                    None => {
-                        let mut internals = Internals {
-                            schema_version: params.schema.version,
-                            ref_count: 1,
-                            ..Default::default()
-                        };
-                        for index in &params.schema.indexes {
-                            internals
-                                .indexes
-                                .insert(index_name(index), IndexData::default());
-                        }
-                        // The cleanup index. Upstream's memory storage adds it itself
-                        // (`memory-indexes.ts:12`) rather than relying on the schema,
-                        // because `cleanup` needs a `(_deleted, _meta.lwt, primary)`
-                        // range even when the schema declares no such index.
-                        let cleanup_index = vec![
-                            "_deleted".to_string(),
-                            "_meta.lwt".to_string(),
-                            params.schema.primary_path.clone(),
-                        ];
+                    internals.ref_count += 1;
+                    Arc::clone(existing)
+                }
+                None => {
+                    let mut internals = Internals {
+                        schema_version: params.schema.version,
+                        ref_count: 1,
+                        ..Default::default()
+                    };
+                    for index in &params.schema.indexes {
                         internals
                             .indexes
-                            .entry(index_name(&cleanup_index))
-                            .or_default();
-                        let state = Arc::new(Mutex::new(internals));
-                        map.insert(collection_key.clone(), Arc::clone(&state));
-                        state
+                            .insert(index_name(index), IndexData::default());
                     }
+                    // The cleanup index. Upstream's memory storage adds it itself
+                    // (`memory-indexes.ts:12`) rather than relying on the schema,
+                    // because `cleanup` needs a `(_deleted, _meta.lwt, primary)`
+                    // range even when the schema declares no such index.
+                    let cleanup_index = vec![
+                        "_deleted".to_string(),
+                        "_meta.lwt".to_string(),
+                        params.schema.primary_path.clone(),
+                    ];
+                    internals
+                        .indexes
+                        .entry(index_name(&cleanup_index))
+                        .or_default();
+                    let state = Arc::new(Mutex::new(internals));
+                    map.insert(collection_key.clone(), Arc::clone(&state));
+                    state
                 }
-            };
+            }
+        };
 
-            let instance = MemoryStorageInstance {
-                database_name: params.database_name.clone(),
-                collection_name: params.collection_name.clone(),
-                schema: params.schema.clone(),
-                state,
-                collection_key,
-                closed: Mutex::new(false),
-            };
-            Ok(DynRxStorageInstance::new_box(instance))
-        }
+        let instance = MemoryStorageInstance {
+            database_name: params.database_name.clone(),
+            collection_name: params.collection_name.clone(),
+            schema: params.schema.clone(),
+            state,
+            collection_key,
+            closed: Mutex::new(false),
+        };
+        Ok(DynRxStorageInstance::new_box(instance))
     }
 }
 
@@ -381,17 +378,20 @@ impl MemoryStorageInstance {
     }
 
     /// Encodes a document against one schema index.
-    fn index_string(&self, index: &[String], document: &DocumentData) -> Result<String, StorageError> {
-        dxdb_query::custom_index::get_indexable_string(
-            &self.schema.raw,
-            index,
-            document.as_value(),
-        )
-        .map_err(|error| StorageError::InvalidSchema(error.to_string()))
+    fn index_string(
+        &self,
+        index: &[String],
+        document: &DocumentData,
+    ) -> Result<String, StorageError> {
+        dxdb_query::custom_index::get_indexable_string(&self.schema.raw, index, document.as_value())
+            .map_err(|error| StorageError::InvalidSchema(error.to_string()))
     }
 
     /// Every index a stored document participates in, as `(name, index string)`.
-    fn index_strings(&self, document: &DocumentData) -> Result<Vec<(String, String)>, StorageError> {
+    fn index_strings(
+        &self,
+        document: &DocumentData,
+    ) -> Result<Vec<(String, String)>, StorageError> {
         let mut out = Vec::new();
         for index in &self.schema.indexes {
             out.push((index_name(index), self.index_string(index, document)?));
@@ -473,9 +473,10 @@ impl RxStorageInstance for MemoryStorageInstance {
                 self.apply_row(&mut internals, row.document.clone())?;
             }
             for add in &categorised.attachments_add {
-                internals
-                    .attachments
-                    .insert((add.document_id.clone(), add.attachment_id.clone()), add.data.clone());
+                internals.attachments.insert(
+                    (add.document_id.clone(), add.attachment_id.clone()),
+                    add.data.clone(),
+                );
             }
             for update in &categorised.attachments_update {
                 internals.attachments.insert(
@@ -496,7 +497,9 @@ impl RxStorageInstance for MemoryStorageInstance {
                 .filter(|row| row.document.is_deleted())
             {
                 if let Ok(id) = row.document.id(&primary_path) {
-                    internals.attachments.retain(|(document_id, _), _| document_id != id);
+                    internals
+                        .attachments
+                        .retain(|(document_id, _), _| document_id != id);
                 }
             }
 
@@ -571,17 +574,13 @@ impl RxStorageInstance for MemoryStorageInstance {
         let plan = storage_plan_to_query_plan(&prepared.query_plan)?;
         let index = plan.index.clone();
         let index_name = index_name(&index);
-        let index_data = internals.indexes.get(&index_name).ok_or_else(|| {
-            StorageError::UnknownIndex(index_name.clone())
-        })?;
+        let index_data = internals
+            .indexes
+            .get(&index_name)
+            .ok_or_else(|| StorageError::UnknownIndex(index_name.clone()))?;
 
         // Bound strings, from the plan's keys rather than from the selector.
-        let lower = bound_string(
-            &self.schema.raw,
-            &index,
-            &plan.start_keys,
-            RangeSide::Lower,
-        )?;
+        let lower = bound_string(&self.schema.raw, &index, &plan.start_keys, RangeSide::Lower)?;
         let upper = bound_string(&self.schema.raw, &index, &plan.end_keys, RangeSide::Upper)?;
 
         let start = if plan.inclusive_start {
@@ -651,12 +650,7 @@ impl RxStorageInstance for MemoryStorageInstance {
             .get(&index_name)
             .ok_or_else(|| StorageError::UnknownIndex(index_name.clone()))?;
 
-        let lower = bound_string(
-            &self.schema.raw,
-            &index,
-            &plan.start_keys,
-            RangeSide::Lower,
-        )?;
+        let lower = bound_string(&self.schema.raw, &index, &plan.start_keys, RangeSide::Lower)?;
         let upper = bound_string(&self.schema.raw, &index, &plan.end_keys, RangeSide::Upper)?;
         let start = if plan.inclusive_start {
             index_data.lower_bound(&lower)
@@ -726,10 +720,9 @@ impl RxStorageInstance for MemoryStorageInstance {
         self.ensure_usable()?;
         let internals = lock(&self.state);
         let key = (document_id.clone(), attachment_id.clone());
-        let data = internals
-            .attachments
-            .get(&key)
-            .ok_or_else(|| StorageError::MissingAttachment(format!("{document_id}||{attachment_id}")))?;
+        let data = internals.attachments.get(&key).ok_or_else(|| {
+            StorageError::MissingAttachment(format!("{document_id}||{attachment_id}"))
+        })?;
 
         // The digest is how the caller knows the bytes are the bytes it asked for, so a
         // mismatch is an error rather than something to reconcile.
@@ -737,9 +730,7 @@ impl RxStorageInstance for MemoryStorageInstance {
             .documents
             .get(&document_id)
             .and_then(|row| row.document.attachment(&attachment_id).cloned())
-            .and_then(|stub| {
-                AttachmentData::from_value(&stub).map(|attachment| attachment.digest)
-            });
+            .and_then(|stub| AttachmentData::from_value(&stub).map(|attachment| attachment.digest));
         match stored_digest {
             Some(stored) if stored == digest => Ok(data.clone()),
             Some(stored) => Err(StorageError::MissingAttachment(format!(
@@ -954,12 +945,12 @@ fn bound_string(
         .map(|key| dxdb_query::custom_index::BoundValue::from_json(Some(&key.to_json())))
         .collect();
     let encoded = match side {
-        RangeSide::Lower => {
-            dxdb_query::custom_index::get_start_index_string_from_lower_bound(schema, index, &bounds)
-        }
-        RangeSide::Upper => {
-            dxdb_query::custom_index::get_start_index_string_from_upper_bound(schema, index, &bounds)
-        }
+        RangeSide::Lower => dxdb_query::custom_index::get_start_index_string_from_lower_bound(
+            schema, index, &bounds,
+        ),
+        RangeSide::Upper => dxdb_query::custom_index::get_start_index_string_from_upper_bound(
+            schema, index, &bounds,
+        ),
     };
     encoded.map_err(|error| StorageError::InvalidSchema(error.to_string()))
 }
@@ -970,9 +961,7 @@ fn bound_string(
 /// sees, and `dxdb-query`'s is what the encoder and comparator functions consume. The
 /// conversion is total — every storage-side key has exactly one query-side
 /// counterpart — and it is the only place the two live types meet.
-fn storage_plan_to_query_plan(
-    plan: &dxdb_storage::QueryPlan,
-) -> Result<QueryPlan, StorageError> {
+fn storage_plan_to_query_plan(plan: &dxdb_storage::QueryPlan) -> Result<QueryPlan, StorageError> {
     Ok(QueryPlan {
         index: plan.index.clone(),
         start_keys: plan.start_keys.iter().map(lift_key).collect(),
@@ -992,17 +981,15 @@ fn storage_plan_to_query_plan(
 /// comparisons do.
 fn lift_key(key: &dxdb_storage::PlanKey) -> QueryPlanKey {
     match key {
-        dxdb_storage::PlanKey::String(text) => QueryPlanKey::from_value(Some(&Value::String(
-            text.clone(),
-        ))),
+        dxdb_storage::PlanKey::String(text) => {
+            QueryPlanKey::from_value(Some(&Value::String(text.clone())))
+        }
         dxdb_storage::PlanKey::Number(number) => QueryPlanKey::from_value(Some(
             &serde_json::Number::from_f64(*number)
                 .map(Value::Number)
                 .unwrap_or(Value::Null),
         )),
-        dxdb_storage::PlanKey::Boolean(flag) => {
-            QueryPlanKey::from_value(Some(&Value::Bool(*flag)))
-        }
+        dxdb_storage::PlanKey::Boolean(flag) => QueryPlanKey::from_value(Some(&Value::Bool(*flag))),
         dxdb_storage::PlanKey::Unbounded => QueryPlanKey::from_value(None),
     }
 }
@@ -1045,5 +1032,3 @@ pub type AttachmentMap = BTreeMap<AttachmentKey, Vec<u8>>;
 /// Names the write-error type so a caller matching on a `bulk_write` result does not
 /// have to import it from `dxdb-storage` separately.
 pub use dxdb_storage::WriteError as WriteErrorAlias;
-
-

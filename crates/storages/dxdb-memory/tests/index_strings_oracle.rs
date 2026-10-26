@@ -84,7 +84,6 @@ struct Rejection {
     error_code: Option<String>,
 }
 
-
 /// The three shapes a `bound` probe can have in the vector file.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Probe {
@@ -124,7 +123,10 @@ impl<'de> serde::Deserialize<'de> for IndexCase {
             probe_json: raw.get("bound").cloned(),
             lower_bound_string: get_str("lowerBoundString"),
             upper_bound_string: get_str("upperBoundString"),
-            length: raw.get("length").and_then(Value::as_u64).map(|n| n as usize),
+            length: raw
+                .get("length")
+                .and_then(Value::as_u64)
+                .map(|n| n as usize),
         })
     }
 }
@@ -142,7 +144,10 @@ struct SchemaHashCase {
 }
 
 fn read_vector(name: &str) -> String {
-    let path = format!("{}/../../../testdata/vectors/{name}", env!("CARGO_MANIFEST_DIR"));
+    let path = format!(
+        "{}/../../../testdata/vectors/{name}",
+        env!("CARGO_MANIFEST_DIR")
+    );
     std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("read {path}: {error}; run `make vectors` at the repo root"))
 }
@@ -173,7 +178,6 @@ fn index_paths(raw: &[Value]) -> Result<Vec<String>, String> {
         })
         .collect()
 }
-
 
 /// Reconstructs the positional bound vector a `kind: "bounds"` case was produced
 /// from: `field` carries the probe value, every other position carries the neutral
@@ -238,16 +242,23 @@ fn index_strings_match_upstream() {
     let mut checked = 0usize;
     let mut failures = Vec::new();
 
-    for case in vectors.cases.iter().filter(|case| case.kind == "index-string") {
+    for case in vectors
+        .cases
+        .iter()
+        .filter(|case| case.kind == "index-string")
+    {
         let Some(document) = &case.document else {
             continue;
         };
         let Some(expected) = &case.index_string else {
             continue;
         };
-        let schema = schemas
-            .get(&case.schema)
-            .unwrap_or_else(|| panic!("vector names schema '{}' which is not in the hash vector", case.schema));
+        let schema = schemas.get(&case.schema).unwrap_or_else(|| {
+            panic!(
+                "vector names schema '{}' which is not in the hash vector",
+                case.schema
+            )
+        });
         let index = match index_paths(&case.index) {
             Ok(index) => index,
             Err(reason) => {
@@ -275,7 +286,10 @@ fn index_strings_match_upstream() {
         }
     }
 
-    assert!(checked > 300, "expected hundreds of index-string cases, checked {checked}");
+    assert!(
+        checked > 300,
+        "expected hundreds of index-string cases, checked {checked}"
+    );
     assert!(
         failures.is_empty(),
         "{} of {} index-string cases disagree with upstream:\n{}",
@@ -310,16 +324,20 @@ fn bound_strings_match_upstream() {
         // bound vector. Reconstruct that here. (`xtask/vectors/families/index-strings.mjs`
         // `neutral` + the positional loop.)
         let Some(field) = case.field.as_deref() else {
-            failures.push(format!("{} [{}]: bounds case names no field", case.schema, case.why));
+            failures.push(format!(
+                "{} [{}]: bounds case names no field",
+                case.schema, case.why
+            ));
             continue;
         };
-        let bounds = match neutral_bounds(schema, &index, field, case.probe, case.probe_json.as_ref()) {
-            Ok(bounds) => bounds,
-            Err(reason) => {
-                failures.push(format!("{} [{}]: {reason}", case.schema, case.why));
-                continue;
-            }
-        };
+        let bounds =
+            match neutral_bounds(schema, &index, field, case.probe, case.probe_json.as_ref()) {
+                Ok(bounds) => bounds,
+                Err(reason) => {
+                    failures.push(format!("{} [{}]: {reason}", case.schema, case.why));
+                    continue;
+                }
+            };
 
         if let Some(expected) = &case.lower_bound_string {
             match get_start_index_string_from_lower_bound(schema, &index, &bounds) {
@@ -353,7 +371,10 @@ fn bound_strings_match_upstream() {
         }
     }
 
-    assert!(checked > 400, "expected hundreds of bound cases, checked {checked}");
+    assert!(
+        checked > 400,
+        "expected hundreds of bound cases, checked {checked}"
+    );
     assert!(
         failures.is_empty(),
         "{} of {} bound cases disagree with upstream:\n{}",
@@ -403,7 +424,10 @@ fn index_string_lengths_match_upstream() {
         }
     }
 
-    assert!(checked > 80, "expected dozens of length cases, checked {checked}");
+    assert!(
+        checked > 80,
+        "expected dozens of length cases, checked {checked}"
+    );
     assert!(
         failures.is_empty(),
         "{} of {} length cases disagree with upstream:\n{}",

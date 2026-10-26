@@ -221,9 +221,7 @@ fn prepare(schema: &Value, primary_key: &str, query: Value) -> PreparedQuery {
                     dxdb_query::plan::PlanKey::Number(number) => {
                         dxdb_storage::PlanKey::Number(*number)
                     }
-                    dxdb_query::plan::PlanKey::Bool(flag) => {
-                        dxdb_storage::PlanKey::Boolean(*flag)
-                    }
+                    dxdb_query::plan::PlanKey::Bool(flag) => dxdb_storage::PlanKey::Boolean(*flag),
                     dxdb_query::plan::PlanKey::Null | dxdb_query::plan::PlanKey::Undefined => {
                         dxdb_storage::PlanKey::Unbounded
                     }
@@ -241,9 +239,7 @@ fn prepare(schema: &Value, primary_key: &str, query: Value) -> PreparedQuery {
                     dxdb_query::plan::PlanKey::Number(number) => {
                         dxdb_storage::PlanKey::Number(*number)
                     }
-                    dxdb_query::plan::PlanKey::Bool(flag) => {
-                        dxdb_storage::PlanKey::Boolean(*flag)
-                    }
+                    dxdb_query::plan::PlanKey::Bool(flag) => dxdb_storage::PlanKey::Boolean(*flag),
                     dxdb_query::plan::PlanKey::Null | dxdb_query::plan::PlanKey::Undefined => {
                         dxdb_storage::PlanKey::Unbounded
                     }
@@ -314,7 +310,10 @@ fn refuses_key_compression_without_the_wrapper() {
             Ok(_) => panic!("must refuse key compression"),
             Err(error) => error,
         };
-        assert!(matches!(error, StorageError::Unsupported(_)), "got {error:?}");
+        assert!(
+            matches!(error, StorageError::Unsupported(_)),
+            "got {error:?}"
+        );
     });
 }
 
@@ -334,7 +333,10 @@ fn refuses_encrypted_fields_without_the_wrapper() {
             Ok(_) => panic!("must refuse encryption"),
             Err(error) => error,
         };
-        assert!(matches!(error, StorageError::Unsupported(_)), "got {error:?}");
+        assert!(
+            matches!(error, StorageError::Unsupported(_)),
+            "got {error:?}"
+        );
     });
 }
 
@@ -376,7 +378,9 @@ fn conflicts_when_writing_the_same_document_twice() {
         let document = write_data("foobar", "first");
         let first = instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -452,7 +456,9 @@ fn cannot_overwrite_a_deleted_document_without_previous() {
         let document = write_data("foobar", "value");
         instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -500,7 +506,9 @@ fn can_resurrect_a_deleted_document_with_previous() {
         let document = write_data("foobar", "value");
         instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -553,7 +561,9 @@ fn can_unset_a_property() {
         let document = write_data("foobar", "value");
         instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -594,7 +604,9 @@ fn accepts_a_revision_height_jump() {
         let document = write_data("foobar", "value");
         instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -605,7 +617,10 @@ fn accepts_a_revision_height_jump() {
         jumped.set("_meta", json!({ "lwt": now() }));
         let response = instance
             .bulk_write(
-                vec![BulkWriteRow::update(document, DocumentWriteData::new(jumped))],
+                vec![BulkWriteRow::update(
+                    document,
+                    DocumentWriteData::new(jumped),
+                )],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -616,7 +631,10 @@ fn accepts_a_revision_height_jump() {
             4,
             "the fixture must really be a height jump"
         );
-        assert_eq!(create_revision("token", Some(EXAMPLE_REVISION_1)), "2-token");
+        assert_eq!(
+            create_revision("token", Some(EXAMPLE_REVISION_1)),
+            "2-token"
+        );
         instance.close().await.expect("close");
     });
 }
@@ -739,7 +757,10 @@ fn stores_and_retrieves_an_attachment() {
         let stub = found[0]
             .attachment("att-1")
             .expect("attachment stub present");
-        assert!(stub.get("data").is_none(), "payload must not be in the document");
+        assert!(
+            stub.get("data").is_none(),
+            "payload must not be in the document"
+        );
         instance.close().await.expect("close");
     });
 }
@@ -749,7 +770,7 @@ fn stores_and_retrieves_an_attachment() {
 fn adds_attachments_across_several_writes() {
     futures::executor::block_on(async {
         let instance = open(&attachments_schema()).await;
-        let mut document = write_data("multi-att", "v");
+        let document = write_data("multi-att", "v");
         instance
             .bulk_write(
                 vec![BulkWriteRow::insert(with_attachment(
@@ -769,7 +790,6 @@ fn adds_attachments_across_several_writes() {
             .await
             .expect("find")
             .remove(0);
-        document = stored.clone();
         let mut next = stored.clone();
         next.set("_rev", json!(EXAMPLE_REVISION_2));
         next.set("_meta", json!({ "lwt": now() }));
@@ -865,7 +885,10 @@ fn deleted_documents_lose_their_attachments() {
             .get_attachment_data("goes-away".into(), "att-1".into(), "digest-1".into())
             .await
             .expect_err("payload must be gone");
-        assert!(matches!(error, StorageError::MissingAttachment(_)), "got {error:?}");
+        assert!(
+            matches!(error, StorageError::MissingAttachment(_)),
+            "got {error:?}"
+        );
         instance.close().await.expect("close");
     });
 }
@@ -924,7 +947,10 @@ fn a_wrong_digest_is_an_error() {
             .get_attachment_data("digest-check".into(), "att-1".into(), "wrong".into())
             .await
             .expect_err("must reject a wrong digest");
-        assert!(matches!(error, StorageError::MissingAttachment(_)), "got {error:?}");
+        assert!(
+            matches!(error, StorageError::MissingAttachment(_)),
+            "got {error:?}"
+        );
         instance.close().await.expect("close");
     });
 }
@@ -1014,7 +1040,10 @@ fn with_deleted_controls_visibility_of_tombstones() {
         tombstone.set("_meta", json!({ "lwt": now() }));
         instance
             .bulk_write(
-                vec![BulkWriteRow::update(doomed, DocumentWriteData::new(tombstone))],
+                vec![BulkWriteRow::update(
+                    doomed,
+                    DocumentWriteData::new(tombstone),
+                )],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -1090,7 +1119,12 @@ fn sorts_by_the_requested_field() {
             .expect("query asc");
         let values: Vec<&str> = ascending
             .iter()
-            .map(|document| document.get("value").and_then(Value::as_str).expect("value"))
+            .map(|document| {
+                document
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .expect("value")
+            })
             .collect();
         assert_eq!(values, vec!["a", "b", "c"]);
 
@@ -1106,7 +1140,12 @@ fn sorts_by_the_requested_field() {
             .expect("query desc");
         let values: Vec<&str> = descending
             .iter()
-            .map(|document| document.get("value").and_then(Value::as_str).expect("value"))
+            .map(|document| {
+                document
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .expect("value")
+            })
             .collect();
         assert_eq!(values, vec!["c", "b", "a"]);
         instance.close().await.expect("close");
@@ -1123,7 +1162,9 @@ fn a_query_without_a_deleted_selector_finds_tombstones() {
         let document = write_data("foobar", "barfoo");
         instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -1134,7 +1175,10 @@ fn a_query_without_a_deleted_selector_finds_tombstones() {
         tombstone.set("_meta", json!({ "lwt": now() }));
         instance
             .bulk_write(
-                vec![BulkWriteRow::update(document, DocumentWriteData::new(tombstone))],
+                vec![BulkWriteRow::update(
+                    document,
+                    DocumentWriteData::new(tombstone),
+                )],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -1148,7 +1192,11 @@ fn a_query_without_a_deleted_selector_finds_tombstones() {
             ))
             .await
             .expect("query");
-        assert_eq!(found.len(), 1, "the storage must not filter tombstones itself");
+        assert_eq!(
+            found.len(),
+            1,
+            "the storage must not filter tombstones itself"
+        );
         assert!(found[0].is_deleted());
         instance.close().await.expect("close");
     });
@@ -1174,18 +1222,18 @@ fn count_equals_query_length() {
             .expect("write");
 
         for limit in [None, Some(1u64), Some(3), Some(10), Some(50)] {
-            let mut query = json!({ "selector": { "_deleted": false }, "sort": [{ "key": "asc" }] });
+            let mut query =
+                json!({ "selector": { "_deleted": false }, "sort": [{ "key": "asc" }] });
             if let Some(limit) = limit {
                 query["limit"] = json!(limit);
             }
             let prepared = prepare(&test_data_schema(), "key", query);
-            let documents = instance
-                .query(prepared.clone())
-                .await
-                .expect("query")
-                .len();
+            let documents = instance.query(prepared.clone()).await.expect("query").len();
             let counted = instance.count(prepared).await.expect("count").count;
-            assert_eq!(counted, documents, "count must equal query length at limit {limit:?}");
+            assert_eq!(
+                counted, documents,
+                "count must equal query length at limit {limit:?}"
+            );
         }
         instance.close().await.expect("close");
     });
@@ -1221,7 +1269,12 @@ fn sorts_correctly_when_some_documents_do_not_match() {
             .expect("query");
         let values: Vec<&str> = found
             .iter()
-            .map(|document| document.get("value").and_then(Value::as_str).expect("value"))
+            .map(|document| {
+                document
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .expect("value")
+            })
             .collect();
         assert_eq!(values, vec!["a", "c"]);
         instance.close().await.expect("close");
@@ -1241,8 +1294,14 @@ fn an_unknown_index_is_an_error() {
             json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
         );
         prepared.query_plan.index = vec!["_deleted".to_string(), "nope".to_string()];
-        let error = instance.query(prepared).await.expect_err("must reject unknown index");
-        assert!(matches!(error, StorageError::UnknownIndex(_)), "got {error:?}");
+        let error = instance
+            .query(prepared)
+            .await
+            .expect_err("must reject unknown index");
+        assert!(
+            matches!(error, StorageError::UnknownIndex(_)),
+            "got {error:?}"
+        );
         instance.close().await.expect("close");
     });
 }
@@ -1345,10 +1404,7 @@ fn emits_every_event_of_a_bulk() {
         let mut feed = instance.change_stream();
         let rows: Vec<BulkWriteRow> = (0..3)
             .map(|i| {
-                BulkWriteRow::insert(DocumentWriteData::new(write_data(
-                    &format!("k{i}"),
-                    "v",
-                )))
+                BulkWriteRow::insert(DocumentWriteData::new(write_data(&format!("k{i}"), "v")))
             })
             .collect();
         instance
@@ -1409,7 +1465,9 @@ fn delete_events_carry_the_tombstone_and_the_previous_state() {
         let document = write_data("doomed", "v");
         instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -1422,7 +1480,10 @@ fn delete_events_carry_the_tombstone_and_the_previous_state() {
         tombstone.set("_meta", json!({ "lwt": now() }));
         instance
             .bulk_write(
-                vec![BulkWriteRow::update(document.clone(), DocumentWriteData::new(tombstone))],
+                vec![BulkWriteRow::update(
+                    document.clone(),
+                    DocumentWriteData::new(tombstone),
+                )],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -1505,7 +1566,8 @@ fn schema_versions_do_not_share_state() {
 
         v0.bulk_write(
             vec![BulkWriteRow::insert(DocumentWriteData::new(write_data(
-                "only-in-v0", "v",
+                "only-in-v0",
+                "v",
             )))],
             TEST_CONTEXT.to_string(),
         )
@@ -1539,7 +1601,8 @@ fn database_names_do_not_share_state() {
 
         one.bulk_write(
             vec![BulkWriteRow::insert(DocumentWriteData::new(write_data(
-                "only-in-one", "v",
+                "only-in-one",
+                "v",
             )))],
             TEST_CONTEXT.to_string(),
         )
@@ -1584,14 +1647,21 @@ fn cleanup_purges_tombstones_older_than_the_threshold() {
         tombstone.set("_meta", json!({ "lwt": now() }));
         instance
             .bulk_write(
-                vec![BulkWriteRow::update(doomed, DocumentWriteData::new(tombstone))],
+                vec![BulkWriteRow::update(
+                    doomed,
+                    DocumentWriteData::new(tombstone),
+                )],
                 TEST_CONTEXT.to_string(),
             )
             .await
             .expect("delete");
 
         // A long threshold must not purge a just-deleted document.
-        while !instance.cleanup(1000.0 * 60.0 * 6.0).await.expect("cleanup") {}
+        while !instance
+            .cleanup(1000.0 * 60.0 * 6.0)
+            .await
+            .expect("cleanup")
+        {}
         let still_there = instance
             .find_documents_by_id(vec!["doomed".into()], true)
             .await
@@ -1661,10 +1731,7 @@ fn cleanup_purges_several_tombstones() {
         }
         while !instance.cleanup(0.0).await.expect("cleanup") {}
         let remaining = instance
-            .find_documents_by_id(
-                (0..5).map(|i| format!("k{i}")).collect::<Vec<_>>(),
-                true,
-            )
+            .find_documents_by_id((0..5).map(|i| format!("k{i}")).collect::<Vec<_>>(), true)
             .await
             .expect("find");
         assert!(remaining.is_empty(), "every tombstone must be purged");
@@ -1738,7 +1805,10 @@ fn remove_after_close_errors_but_close_after_remove_does_not() {
     futures::executor::block_on(async {
         let instance = open(&pseudo_schema("key")).await;
         instance.close().await.expect("close");
-        let error = instance.remove().await.expect_err("remove after close must error");
+        let error = instance
+            .remove()
+            .await
+            .expect_err("remove after close must error");
         assert!(matches!(error, StorageError::Closed), "got {error:?}");
 
         let other = open(&pseudo_schema("key")).await;
@@ -1833,7 +1903,9 @@ fn changed_documents_since_returns_current_state() {
         let document = write_data("mutating", "first");
         instance
             .bulk_write(
-                vec![BulkWriteRow::insert(DocumentWriteData::new(document.clone()))],
+                vec![BulkWriteRow::insert(DocumentWriteData::new(
+                    document.clone(),
+                ))],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -1845,7 +1917,10 @@ fn changed_documents_since_returns_current_state() {
         second.set("_meta", json!({ "lwt": now() }));
         instance
             .bulk_write(
-                vec![BulkWriteRow::update(document, DocumentWriteData::new(second))],
+                vec![BulkWriteRow::update(
+                    document,
+                    DocumentWriteData::new(second),
+                )],
                 TEST_CONTEXT.to_string(),
             )
             .await
@@ -1908,10 +1983,7 @@ fn a_batch_writes_the_good_rows_and_reports_the_bad_ones() {
         );
         // The good rows landed.
         let found = instance
-            .find_documents_by_id(
-                vec!["new-1".into(), "new-2".into(), "new-3".into()],
-                false,
-            )
+            .find_documents_by_id(vec!["new-1".into(), "new-2".into(), "new-3".into()], false)
             .await
             .expect("find");
         assert_eq!(found.len(), 3, "the non-conflicting rows must be written");
@@ -1963,11 +2035,6 @@ fn a_row_without_a_primary_key_is_rejected() {
 fn by_id(documents: &[DocumentData], path: &str) -> HashMap<String, DocumentData> {
     documents
         .iter()
-        .map(|document| {
-            (
-                document.id(path).expect("id").to_string(),
-                document.clone(),
-            )
-        })
+        .map(|document| (document.id(path).expect("id").to_string(), document.clone()))
         .collect()
 }

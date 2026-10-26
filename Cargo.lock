@@ -221,6 +221,18 @@ version = "0.0.0"
 [[package]]
 name = "dxdb-core"
 version = "0.0.0"
+dependencies = [
+ "dxdb-jsnum",
+ "dxdb-json",
+ "dxdb-jsstr",
+ "dxdb-memory",
+ "dxdb-query",
+ "dxdb-schema",
+ "dxdb-storage",
+ "futures",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "dxdb-filesystem"
