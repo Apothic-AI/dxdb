@@ -50,3 +50,34 @@ pub mod conformance;
 pub mod convert;
 pub mod meta_instance;
 pub mod state;
+pub mod upstream;
+
+use std::sync::Arc;
+use std::task::{Context, Poll, Wake, Waker};
+
+use dxdb_storage::{ChangeStream, EventBulk};
+
+/// Reads everything currently queued on a change stream without blocking.
+///
+/// The protocol is pumped by the caller rather than by a runtime (D2/D3), so "did anything
+/// arrive" has to be a question that returns instead of awaiting. Polling with a no-op
+/// waker leaves a real wake registered for a real executor and returns `Pending` for
+/// "nothing yet", which is exactly what a drain wants.
+pub fn drain_change_stream(stream: &mut ChangeStream) -> Vec<EventBulk> {
+    let mut out = Vec::new();
+    let waker = Waker::from(Arc::new(NoopWake));
+    let mut context = Context::from_waker(&waker);
+    loop {
+        match stream.as_mut().poll_next(&mut context) {
+            Poll::Ready(Some(bulk)) => out.push(bulk),
+            Poll::Ready(None) | Poll::Pending => return out,
+        }
+    }
+}
+
+struct NoopWake;
+
+impl Wake for NoopWake {
+    fn wake(self: Arc<Self>) {}
+    fn wake_by_ref(self: &Arc<Self>) {}
+}

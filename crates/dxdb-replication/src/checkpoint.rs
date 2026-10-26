@@ -306,8 +306,14 @@ impl HashFunction for Sha256HashFunction {
 /// * The cache is written even when nothing was found, so `last_checkpoint_doc`
 ///   means "what the meta instance held at the last read" rather than "the last
 ///   non-empty checkpoint".
+/// # Why `&` and not `&mut`
+///
+/// `ReplicationState` is a handle: every field is behind an `Rc`, so the cache this writes
+/// is visible through any clone. A `&mut` would force every caller to own the handle
+/// exclusively, which the protocol cannot do because a direction holds the state while it
+/// also hands borrows to helpers.
 pub async fn last_checkpoint<S>(
-    state: &mut ReplicationState<S>,
+    state: &ReplicationState<S>,
     direction: Direction,
 ) -> Result<Option<Checkpoint>, StorageError>
 where
@@ -355,7 +361,7 @@ where
 ///
 /// The loop is bounded by cancellation only, as upstream's is.
 pub async fn set_checkpoint<S>(
-    state: &mut ReplicationState<S>,
+    state: &ReplicationState<S>,
     direction: Direction,
     checkpoint: Option<&Checkpoint>,
 ) -> Result<(), StorageError>
