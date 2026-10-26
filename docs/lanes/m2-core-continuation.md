@@ -32,64 +32,74 @@ Last full gate on this branch:
 
 My crate test inventory: `dxdb-storage` 47 + `bulk_write_categorization_vectors` +
 `categorize_oracle` 4, `dxdb-memory` lib 8 + `index_strings_oracle` 6 +
-`storage_implementations` 50, `dxdb-core` 29 + `core_behaviour` 30,
+`conformance` 2 (48 cases inside them) + `memory_specific` 6 + `query_correctness` 2,
+`dxdb-core` 29 + `core_behaviour` 30,
 `dxdb-reactivity` 17 + `event_reduce_table` 5 + `live_query` 16 + `live_query_fuzz` 6.
 
 ## 2. What is left in this lane's scope
 
-### 2.1 The one real gap: run the testkit suite against `dxdb-memory`
+### 2.1 CLOSED — the testkit suite now runs against `dxdb-memory`
 
-`crates/dxdb-testkit/tests/storage_implementations.rs` currently runs the ported
-`rx-storage-implementations` suite against **`ReferenceStorage`**, the testkit's own scaffold,
-not against a real storage. Its own module doc says so:
+The gap was that the ported `rx-storage-implementations` suite had only ever run against
+`ReferenceStorage`, the testkit's own scaffold. Closed, both halves:
 
-> The storage under test is `ReferenceStorage`, the testkit's own scaffold. That is deliberate
-> and documented in its module: it exists so this gate is not vacuous before `dxdb-memory` lands.
-> **When lane D's `dxdb-memory` is available, add a second test module here that runs the same
-> suite against it** — the suite functions are generic over `RxStorage`, so that is a one-line
-> addition per storage, not a rewrite.
+| file | what it does | verified |
+| --- | --- | --- |
+| `crates/storages/dxdb-memory/tests/conformance.rs` | all 48 exercised implementations cases against `MemoryStorage` | **48/48 pass** |
+| `crates/storages/dxdb-memory/tests/query_correctness.rs` | all 31 query-correctness groups against `MemoryStorage` | **compiles/passes NOT YET VERIFIED — see §2.4** |
 
-`dxdb-memory` is available. That is the gap.
+**Where the drivers live, and why not in the testkit.** My earlier plan was to add a second
+module inside `crates/dxdb-testkit/tests/`. That was wrong twice over. The testkit is another
+lane's crate, and its `run_group` is private to its own test binary, so a second module there
+would have meant either duplicating the runner anyway or widening it to `pub` across
+binaries — which Rust does not do for test files. Everything needed is already public and
+re-exported from the testkit root (`fixtures::correctness::groups()`, `Group`, `InstanceSpec`,
+the whole `Harness` surface), so the driver belongs in the crate that wants to prove itself.
+That is the same shape `dxdb-filesystem/tests/conformance.rs` and `dxdb-sharding` already use,
+and it leaves the shared oracle untouched.
 
-The suite is already generic — `crates/dxdb-testkit/src/suite.rs` (2480 lines, ~50 cases), each
-`pub async fn …<S: RxStorage>(storage: &S)`. So the work is:
+**The count is not a literal.** `conformance.rs` reads its total from `decl::exercised_cases()`
+and asserts the suite and the declaration table name the same set. Verified by probe, not by
+assumption: `declared=48`, upstream lines `[176, 195, 270 … 4046]`. 48 is also the number the
+declaration table calls `Exercised`, so the filter is not vacuous. This matters because a
+suite that silently shrank to three cases would pass the gate *more* easily than the full one.
 
-1. Add `dxdb-memory` as a **dev-dependency** of `crates/dxdb-testkit/Cargo.toml`
-   (`dxdb-memory = { path = "../storages/dxdb-memory" }`). Note the path: memory lives under
-   `crates/storages/`, not `crates/`.
-2. In `crates/dxdb-testkit/tests/storage_implementations.rs`, add a second module that drives the
-   same `suite::*` functions with `MemoryStorage`.
+**`query_correctness.rs` was also scaffold-only** — the same gap, which the earlier brief
+suspected and did not confirm. It now has a `dxdb-memory` driver too.
 
-   **Blocking detail to check first:** the suite functions take `&S where S: RxStorage`, and
-   `dxdb-memory`'s factory is `MemoryStorage` (a unit-ish struct implementing `RxStorage`) — so
-   `&MemoryStorage` should work directly. But `ReferenceStorage::new()` in the existing module
-   suggests the suite may also want a way to *make* instances per case; read
-   `tests/support/reference_storage.rs` before writing the second module, because if the suite
-   takes a factory trait rather than `RxStorage`, `dxdb-memory` needs whatever that trait needs.
-   I have not read that file — that is the first thing the next session should do.
-3. Confirm the Makefile target actually runs it. `make gate-storage` is
-   `$(CARGO) test -- -p dxdb-testkit --test storage_implementations`. The `--` before `-p` passes
-   everything after it to the **test binary**, not to cargo, so the target may not run the suite
-   at all. It was green in my runs, but `make test` also runs these suites, so green there proves
-   the suite passes, not that the gate target selects it. **Report the Makefile bug to the leader
-   — the Makefile is leader-owned, do not edit it.**
-4. The same file's sibling `crates/dxdb-testkit/tests/query_correctness.rs` (31 tests) already
-   runs; check whether it also uses `ReferenceStorage` and needs the same second module.
+**The Makefile is NOT broken.** My earlier brief asked the leader to fix
+`make gate-storage` / `make gate-query-correctness`, suspecting the `--` made them dead
+targets. Both were run and both work: `make gate-storage` → exit 0, "running 50 tests", and
+`Running tests/storage_implementations.rs` in the log; `make gate-query-correctness` → exit 0,
+"running 31 tests". The `-p`-read-as-`--ssh-port` hazard is real for `cargo remote-3000`, but
+the Makefile already guards it correctly. **No leader action needed. Do not file this.**
 
-Files touched: `crates/dxdb-testkit/Cargo.toml`,
-`crates/dxdb-testkit/tests/storage_implementations.rs` (and possibly `query_correctness.rs`),
-possibly `crates/dxdb-testkit/tests/support/reference_storage.rs` read-only.
+### 2.2 CLOSED — the duplicate suite is deleted
 
-**`dxdb-testkit` is not my crate** (split to its own lane early on). Treat the above as a request
-to that lane's owner or an explicit leader assignment; do not edit it silently.
+`crates/storages/dxdb-memory/tests/storage_implementations.rs` (50 tests, 2040 lines) is gone,
+deleted in the same commit that proved its replacement green. Keeping it would have meant two
+oracles, and when two oracles disagree, deciding which is right means re-reading upstream —
+`storage_matrix.rs` also stops meaning anything if a storage passes its own suite and fails
+the shared one.
 
-### 2.2 My duplicate suite, to delete once §2.1 is green
+**Five of its 50 tests assert something the shared suite genuinely cannot, and were kept** in
+`crates/storages/dxdb-memory/tests/memory_specific.rs`. Each was checked against `suite.rs` by
+literal search rather than assumed:
 
-`crates/storages/dxdb-memory/tests/storage_implementations.rs` (50 tests) is my own port of the
-same upstream file. It is a duplicate of the testkit's. Recommended: delete it once the testkit
-suite runs against `dxdb-memory` and is green, keeping only any of my extras the shared suite
-lacks (attachments payload rules, `cleanup` contract, multi-instance sharing, code-unit index
-ordering — check each against `suite.rs`). **Do not delete before the replacement is proven.**
+| kept test | why the shared suite misses it |
+| --- | --- |
+| `refuses_key_compression_without_the_wrapper` | upstream runs the whole suite *with* and *without* a key-compression wrapper; neither run asserts a bare storage must **reject** the schema |
+| `refuses_encrypted_fields_without_the_wrapper` | same shape for the encryption plugin |
+| `an_unknown_index_is_an_error` | upstream never plans a query against an index the schema does not declare; an empty result instead of an error is a silently wrong answer |
+| `orders_index_strings_by_code_unit_not_by_bytes` | upstream's sort case is ASCII and its umlaut case is a round-trip check. Neither separates UTF-16 code-unit order from UTF-8 byte order, and that pair (`"\u{FFFF}"` vs an astral char) is the only place a Rust port can silently differ. This is D5's one observable divergence |
+| `schema_versions_do_not_share_state`, `database_names_do_not_share_state` | the shared suite uses a fresh random database name per case, so it never opens two — these assertions pass whether or not the engine keys state correctly |
+
+Confirmed absent by search, not by impression: `suite.rs` contains zero occurrences of
+`Unsupported`, `UnknownIndex`, `keyCompression`, `encrypted`, or `u{FFFF}`.
+
+**A bug in my own new code, caught by the gate:** I wrote `close()` then `remove()` in the two
+isolation tests and got `Closed`. `remove` implies closed, not the reverse — the ordering the
+shared suite asserts in `remove_after_close_throws`. Fixed before commit.
 
 ### 2.3 Remaining `dxdb-vectors` migration (not mine, but mine contributed to the audit)
 
@@ -99,6 +109,25 @@ Six crates still hand-roll `testdata/vectors` readers: `dxdb-query` ×3, `dxdb-r
 (`crates/dxdb-storage/tests/categorize_oracle.rs`,
 `crates/storages/dxdb-memory/tests/index_strings_oracle.rs`); `dxdb-vectors` does not model
 private-fixture shapes, so moving those would widen that crate's scope. Ask the leader.
+### 2.4 OPEN — one file is written but NOT verified
+
+`crates/storages/dxdb-memory/tests/query_correctness.rs` was written during a **hard
+maintenance stop on the build box** and has never been compiled. Treat it as unproven.
+
+What *was* done instead of guessing, all by reading source:
+
+- every API it calls was confirmed against the real definition: `query_count(groups: &[Group])
+  -> usize` (a slice, not a count), `Group.index: usize`, `asserts_count()`, and
+  `fixtures::EXAMPLE_REVISION_1` all exist as used;
+- everything it needs is public and re-exported from the testkit root, so it needs no change
+  to `dxdb-testkit` and no new manifest entry (`dxdb-memory` is already a dev-dependency there);
+- no literal counts: totals come from `correctness::groups()`.
+
+**First action after RESUME:** run it. If it fails, the likely causes in order are a
+`&[Group]` vs `Vec<Group>` coercion detail at the `query_count` call, and the `for group in
+groups` loop moving a `&'static [Group]` element. Both are one-line fixes. Do not fold the
+result into any report until it has actually run.
+
 
 ## 3. Things learned that are not written down in the repo
 
@@ -190,19 +219,40 @@ private-fixture shapes, so moving those would widen that crate's scope. Ask the 
 
 ## 4. Blocked / questions for the leader
 
-1. **Who owns §2.1?** `dxdb-testkit` was split to its own lane before I could create it. Running
-   the suite against `dxdb-memory` needs either that lane's owner or an explicit assignment to me.
-   This is the only thing standing between M2's stated gate and it actually being run against a
-   real storage.
-2. **`make gate-storage` / `make gate-query-correctness` look malformed** (`test -- -p dxdb-testkit
-   --test …`). The `--` passes the rest to the test binary. Worth fixing before anyone cites those
-   targets as evidence. Makefile is leader-owned.
-3. **`make clippy` is red on master via `crates/cleanroom/dxdb-sharding/tests/acceptance.rs:86`**
-   (unused `fn update`). Not mine, but no lane can report a green clippy until it is fixed.
-4. **My duplicate `dxdb-memory/tests/storage_implementations.rs`** (50 tests) vs the testkit suite:
-   confirm the deletion order (§2.2).
-5. **Should `dxdb-vectors` model crate-local private fixtures**, so my two remaining hand-rolled
-   readers (`categorize_oracle.rs`, `index_strings_oracle.rs`) can migrate too? (§2.3)
+Only one is a real question. Three of the five I carried into this reset turned out to be
+non-issues, and one was my own error — the record is corrected here rather than quietly dropped.
+
+1. **Should `dxdb-vectors` model crate-local private fixtures**, so my two remaining hand-rolled
+   readers (`categorize_oracle.rs`, `index_strings_oracle.rs`) can migrate too? (§2.3) Still
+   open, still not mine to answer unilaterally.
+
+**Resolved, no action needed:**
+
+2. ~~Who owns §2.1~~ — **closed by doing it in my own crate.** The testkit needed no change;
+   its public surface was sufficient. See §2.1 for why the driver belongs in the storage crate.
+3. ~~`make gate-storage` / `gate-query-correctness` look malformed~~ — **they work.** Both were
+   run: exit 0, 50 and 31 tests, correct target selected in the log. The suspicion was wrong.
+   Do not spend leader time on it.
+4. ~~`make clippy` red via `dxdb-sharding/tests/acceptance.rs:86`~~ — **fixed by another lane.**
+   `make clippy` is green (exit 0) on this branch as of commit `c3e495f`. It may be the first
+   time this lane could report a green clippy.
+5. ~~duplicate suite deletion order~~ — resolved; deleted only after the replacement was
+   proven green (§2.2).
+
+## Gate state as of `c3e495f` (all four verified before the maintenance stop)
+
+| gate | result |
+| --- | --- |
+| `make check` | **0** |
+| `make test` | **0** — 152 suites green (was 151: +2 new targets, −1 deleted duplicate) |
+| `make clippy` | **0** — first green clippy for this lane |
+| `make wasm` | **0** |
+| `make gate-storage` | **0** — 50 tests, correct target |
+| `make gate-query-correctness` | **0** — 31 tests, correct target |
+
+Not in that table: `tests/query_correctness.rs` in `dxdb-memory`, which was written during the
+stop and has never been compiled (§2.4). Re-run everything after RESUME anyway — the box was
+resized and restarted.
 
 ## Where things are
 

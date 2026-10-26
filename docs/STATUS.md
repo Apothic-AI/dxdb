@@ -87,7 +87,7 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `storage-dexie` | 1041 | — | not ported (storage adapter) | Dexie is IndexedDB + a JS wrapper; dxdb-indexeddb targets the same store and the Dexie migration test is the interop path (audit item 4) |
 | `storage-foundationdb` | 736 | storages/dxdb-filesystem | not ported (deliberate non-goal) | FoundationDB is a distributed *server-side* store, not local-first; porting it would mean shipping a cluster client for a topology dxdb does not target. The durable-local-storage role it fills upstream is covered by the redb-backed filesystem storage, which passes 48/48 of the shared conformance suite. See the note below the table. |
 | `storage-localstorage` | 794 | storages/dxdb-localstorage | ported + tested | 20 tests + watchdog; 46/48 conformance (`impl-query-03`, `impl-count-01`) |
-| `storage-memory` | 1387 | storages/dxdb-memory | ported + tested | 46/46 conformance |
+| `storage-memory` | 1387 | storages/dxdb-memory | ported + tested | 48/48 conformance, now against the shared suite (see note) |
 | `storage-mongodb` | 699 | — | not ported (storage adapter) | would need a Mongo driver in the storage layer; a server-side storage, not local-first, so it is a deliberate non-goal for the port |
 | `storage-remote` | 827 | — | not ported (planned) | the message-channel transport; dxdb-replication's transport trait is the seam and a remote storage crate is M6 tail |
 | `storage-remote-websocket` | 252 | — | not ported (planned) | as storage-remote, over WebSocket |
