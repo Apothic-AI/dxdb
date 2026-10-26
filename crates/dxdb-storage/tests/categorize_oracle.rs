@@ -480,13 +480,24 @@ fn fixtures_record_their_upstream_provenance() {
         Some("src/rx-storage-helper.ts:205 categorizeBulkWriteRows"),
         "fixture must name the upstream function it records"
     );
-    // A marker so nobody mistakes this for lane C's committed oracle family.
+    // The header must say what this corpus *adds*, now that lane C's committed family
+    // exists. An earlier version said it was a substitute for a family that did not
+    // exist yet; that became false the moment the family landed, so the marker is the
+    // claim, not the word "PRIVATE".
     let comment = header
         .get("$comment")
         .and_then(Value::as_str)
         .unwrap_or_default();
     assert!(
-        comment.contains("PRIVATE oracle"),
-        "fixture must be marked as this crate's private oracle, not testdata/vectors"
+        comment.starts_with("ADDITIONAL check"),
+        "fixture must declare itself an addition to the committed family, got: {comment}"
+    );
+    assert!(
+        comment.contains("bulk-write-categorization.json"),
+        "fixture must name the committed family it complements"
+    );
+    assert!(
+        comment.contains("randomised"),
+        "fixture must say what it adds: randomised sequences rather than curated cases"
     );
 }

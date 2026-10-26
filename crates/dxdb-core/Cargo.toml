@@ -8,3 +8,19 @@ repository.workspace = true
 description = "dxdb core: database, collection, document, hooks"
 
 [dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+dxdb-json = { path = "../dxdb-json" }
+dxdb-jsnum = { path = "../dxdb-jsnum" }
+dxdb-jsstr = { path = "../dxdb-jsstr" }
+dxdb-schema = { path = "../dxdb-schema" }
+dxdb-query = { path = "../dxdb-query" }
+# The traits, the document type and the write-error model (D1: the document type lives
+# here, not in core). Never a *storage* crate: dxdb-memory is a dev-dependency only,
+# which is what keeps the core off any one storage's availability.
+dxdb-storage = { path = "../dxdb-storage" }
+
+[dev-dependencies]
+# The parity oracle, and the only storage this crate may name (PLAN.md 4.1).
+dxdb-memory = { path = "../storages/dxdb-memory" }
