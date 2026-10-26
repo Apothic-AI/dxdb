@@ -1,0 +1,27 @@
+[package]
+name = "dxdb-sharding"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb clean-room sharding: split one collection across N shards, merge reads exactly"
+
+[dependencies]
+dxdb-storage = { path = "../../dxdb-storage" }
+dxdb-query = { path = "../../dxdb-query" }
+# The same code-unit comparator `dxdb_query`'s sort uses, so the primary-key tiebreak
+# is in the same order as the sort parts themselves (PLAN.md 3.2).
+dxdb-jsstr = { path = "../../dxdb-jsstr" }
+futures.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+dxdb-memory = { path = "../../storages/dxdb-memory" }
+# The prepared-query builder, so the differential test normalises queries exactly the
+# way the real call path does rather than through a hand-rolled copy.
+dxdb-testkit = { path = "../../dxdb-testkit" }
+# Fills defaults (meta fields, `_deleted`-prefixed compound indexes) exactly as the
+# real call path does, so the corpus schema is the one a collection would really get.
+dxdb-schema = { path = "../../dxdb-schema" }
