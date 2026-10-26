@@ -408,12 +408,18 @@ fn planned_index(query: &MangoQuery, schema: &StorageSchema) -> Vec<String> {
                 break;
             }
         }
-        if matched
-            == sort_fields
-                .iter()
-                .filter(|field| **field != primary)
-                .count()
-        {
+        // Only a *non-empty* prefix match counts. A sort consisting solely of the
+        // primary key matches every index trivially (the count is zero, and zero
+        // fields matched), which made this return the first index in schema order --
+        // for a fixture whose first user index is the very field the selector filters,
+        // that produced a range-restricted scan of the wrong key. Falling through to
+        // the change-feed index instead gives a valid total order, and the storage
+        // re-sorts because the plan claims nothing.
+        let non_primary_sort_fields = sort_fields
+            .iter()
+            .filter(|field| **field != primary)
+            .count();
+        if non_primary_sort_fields > 0 && matched == non_primary_sort_fields {
             return index.clone();
         }
     }
