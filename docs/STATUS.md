@@ -51,20 +51,20 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | --- | --- | --- | --- | --- |
 | `attachments` | 397 | dxdb-attachments | ported | data model + digest |
 | `attachments-compression` | 236 | — | not ported (JS-ecosystem binding) | gzip of attachment bytes via a JS codec; a Rust caller pipes through flate2 itself, so a wrapper crate would only re-expose std |
-| `backup` | 413 | — | not ported (planned) | portable JSON export/import already covered by dxdb-core; a dedicated backup plugin is M6 tail work, not omitted |
-| `cleanup` | 291 | — | not ported (planned) | cleanup() is on the storage trait and every storage implements it; the plugin that schedules it is M6 tail work |
-| `crdt` | 577 | — | not ported (planned) | M6 tail: needs the plugin model plus a CRDT crate choice, listed in the plan's later sequence |
+| `backup` | 413 | plugins/backup | ported | export/import round-trip |
+| `cleanup` | 291 | plugins/cleanup | ported + tested | cross-instance retention; 17 tests |
+| `crdt` | 577 | plugins/crdt | ported + tested | concurrent-write convergence; 31 tests |
 | `dev-mode` | 3088 | — | not ported (intentional divergence) | dev-mode's core value is catching schema/lib misuse at runtime; Rust catches most of it at compile time, and the tracking iframe is explicitly not ported (CLEANROOM 3) |
 | `electron` | 125 | — | not ported (JS-ecosystem binding) | binds Electron's IPC to a storage; Rust owns the process, so an equivalent is a deployment concern not a crate |
 | `encryption-crypto-js` | 233 | — | not ported (superseded) | dxdb-encryption's DXE1 envelope replaces it; the open plugin's CryptoJS envelope is deliberately not reproduced (see specs/encryption.md) |
 | `flutter` | 65 | — | not ported (JS-ecosystem binding) | binds Dart/Flutter FFI to RxDB; a Rust core exposes a C ABI instead, which is a binding crate decision not a plugin port |
-| `json-dump` | 236 | — | not ported (planned) | export/import helpers; M6 tail |
+| `json-dump` | 236 | plugins/json-dump | ported | export/import serialisation |
 | `key-compression` | 249 | plugins/key-compression | ported + tested | 59 plugin tests green |
-| `leader-election` | 132 | — | not ported (planned) | M6 tail; needs the plugin model plus a broadcast-channel transport |
-| `local-documents` | 776 | — | not ported (not started) | documented as not-yet in the dxdb-core commit; it is a second storage instance with different visibility rules |
+| `leader-election` | 132 | plugins/leader-election | ported | single-writer election with recovery |
+| `local-documents` | 776 | plugins/local-documents | ported + tested | negative case asserted: never replicates; 21 tests |
 | `migration-schema` | 1187 | plugins/migration-schema | ported + tested | 59 plugin tests green |
 | `migration-storage` | 255 | plugins/migration-storage | ported + tested | crash-order cases |
-| `pipeline` | 497 | — | not ported (planned) | M6 tail; the plugin model must land first since pipelines are RxPipeline extension points |
+| `pipeline` | 497 | plugins/pipeline | ported + tested | re-entrancy via token, not stack inspection |
 | `query-builder` | 749 | plugins/query-builder | ported + tested | 890 lines + ported tests |
 | `react` | 469 | — | not ported (JS-ecosystem binding) | React hooks over RxDB observables; a Rust user has no React to bind to |
 | `reactivity-angular` | 32 | — | not ported (JS-ecosystem binding) | Angular change detection; framework-specific by definition |
@@ -82,7 +82,7 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `replication-supabase` | 435 | — | not ported (transport adapter) | protocol ported; sequenced 1 of 10 in §15 — PostgREST keyset pagination + `postgres_changes` channel |
 | `replication-webrtc` | 2314 | — | not ported (transport adapter) | protocol ported; sequenced last of 10 in §15, but its `connection-handler-simple-peer` module is a **prerequisite** of Drive/OneDrive live mode |
 | `replication-websocket` | 638 | dxdb-replication | ported + tested | `src/adapters/websocket.rs` + `tests/websocket_adapter.rs` (2) + `tests/websocket_convergence.rs` (3, two instances over a real RFC 6455 socket) |
-| `state` | 577 | — | not ported (planned) | RxState is a small observable store; M6 tail |
+| `state` | 577 | plugins/state | ported + tested | op-log store, safe across instances |
 | `storage-denokv` | 696 | — | not ported (storage adapter) | kv adapter over Deno's API; Rust has no Deno equivalent, and filesystem/sqlite cover the same ground |
 | `storage-dexie` | 1041 | — | not ported (storage adapter) | Dexie is IndexedDB + a JS wrapper; dxdb-indexeddb targets the same store and the Dexie migration test is the interop path (audit item 4) |
 | `storage-foundationdb` | 736 | storages/dxdb-filesystem | not ported (deliberate non-goal) | FoundationDB is a distributed *server-side* store, not local-first; porting it would mean shipping a cluster client for a topology dxdb does not target. The durable-local-storage role it fills upstream is covered by the redb-backed filesystem storage, which passes 48/48 of the shared conformance suite. See the note below the table. |
