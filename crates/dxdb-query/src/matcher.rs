@@ -154,6 +154,10 @@ pub struct RegexFlags {
     pub global: bool,
     /// `y`, parsed and ignored.
     pub sticky: bool,
+    /// `d`. Accepted for parity and otherwise ignored: it only makes `RegExp.prototype.exec`
+    /// return capture-group *indices*, and Mango's `$regex` never reads the match object — only
+    /// whether it matched. Rejecting it would refuse a query upstream accepts.
+    pub has_indices: bool,
 }
 
 impl RegexFlags {
@@ -164,27 +168,71 @@ impl RegexFlags {
 
     /// Parses a `$options` string the way `new RegExp(pattern, options)` does.
     ///
-    /// An unrecognised flag is an error rather than being ignored:
-    /// `new RegExp('a', 'q')` throws `SyntaxError` in JavaScript, and a query that
-    /// throws there must throw here or the two stacks disagree about which
-    /// queries are legal.
+    /// # The full ECMAScript flag grammar
+    ///
+    /// Measured against upstream (mingo 7.2.5, which calls `new RegExp(pattern, options)`), so
+    /// that a query which throws in a browser throws here rather than silently evaluating to no
+    /// matches — the failure mode that looks like missing data:
+    ///
+    /// | `$options` | result |
+    /// | --- | --- |
+    /// | `""`, `i`, `m`, `s`, `u`, `v`, `g`, `y`, `d` | accepted |
+    /// | combinations, e.g. `gimsuy`, `dv`, `du` | accepted |
+    /// | a repeated flag, e.g. `ii`, `uu`, `gg` | **error** |
+    /// | `u` and `v` together, in either order | **error** (they are mutually exclusive) |
+    /// | `x` | **error** |
+    /// | any other character, including uppercase | **error** |
+    ///
+    /// Two of those are easy to get wrong in a hand-written parser and both are load-bearing:
+    /// JavaScript's flag validation is a *set* check, so a duplicate is not "the same flag
+    /// twice" but an invalid string; and `u`/`v` exclusion is a rule about the pair, not about
+    /// either flag.
+    ///
+    /// `x` deserves a note because it is a common assumption: **there is no `x` flag in
+    /// ECMAScript.** PCRE and Python have one (extended/verbose mode); JavaScript does not, and
+    /// `new RegExp('a', 'x')` throws. Accepting it — as a "free-spacing" flag or as a no-op —
+    /// would make dxdb accept a query RxDB rejects, which is the wrong direction of divergence.
     pub fn parse(options: &str) -> Result<Self, QueryError> {
         let mut flags = Self::default();
+
         for ch in options.chars() {
-            match ch {
-                'i' => flags.icase = true,
-                'm' => flags.multiline = true,
-                's' => flags.dot_all = true,
-                'u' => flags.unicode = true,
-                'v' => flags.unicode_sets = true,
-                'g' => flags.global = true,
-                'y' => flags.sticky = true,
+            // `u` and `v` are mutually exclusive. Checked before the duplicate rule so the
+            // error names the real problem (`uv` is not a duplicate pair).
+            if (ch == 'u' && flags.unicode_sets) || (ch == 'v' && flags.unicode) {
+                return Err(QueryError::new(
+                    QueryErrorCode::InvalidRegex,
+                    format!(
+                        "invalid $options {options:?}: `u` and `v` are mutually exclusive"
+                    ),
+                ));
+            }
+            // Each arm reports whether the flag was *already* set, so repetition is caught
+            // without auxiliary storage. A "seen" array would be a fixed size and could
+            // overflow on a long options string; a matcher panic is a denial of service.
+            let already_set = match ch {
+                'd' => std::mem::replace(&mut flags.has_indices, true),
+                'g' => std::mem::replace(&mut flags.global, true),
+                'i' => std::mem::replace(&mut flags.icase, true),
+                'm' => std::mem::replace(&mut flags.multiline, true),
+                's' => std::mem::replace(&mut flags.dot_all, true),
+                'u' => std::mem::replace(&mut flags.unicode, true),
+                'v' => std::mem::replace(&mut flags.unicode_sets, true),
+                'y' => std::mem::replace(&mut flags.sticky, true),
                 other => {
                     return Err(QueryError::new(
                         QueryErrorCode::InvalidRegex,
-                        format!("unsupported regex flag {other:?} in $options {options:?}"),
+                        format!(
+                            "unsupported regex flag {other:?} in $options {options:?}; \
+                             ECMAScript flags are d, g, i, m, s, u, v, y (there is no `x`)"
+                        ),
                     ))
                 }
+            };
+            if already_set {
+                return Err(QueryError::new(
+                    QueryErrorCode::InvalidRegex,
+                    format!("invalid $options {options:?}: flag {ch:?} is repeated"),
+                ));
             }
         }
         Ok(flags)
@@ -193,6 +241,9 @@ impl RegexFlags {
     /// The flags in the order `RegExp.prototype.flags` returns them (`dgimsuvy`).
     pub fn as_str(&self) -> String {
         let mut out = String::new();
+        if self.has_indices {
+            out.push('d');
+        }
         if self.global {
             out.push('g');
         }

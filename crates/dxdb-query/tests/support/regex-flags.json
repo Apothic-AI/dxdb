@@ -1,0 +1,677 @@
+{
+ "$comment": "ECMAScript regex flag corpus for $regex/$options. Each case is a pattern plus an options string evaluated against a document corpus by upstream mingo (which calls new RegExp), so the expected matches come from JavaScript itself. Cases whose options string is invalid upstream are recorded as refusals, because the port must raise an error rather than silently evaluate to no matches -- a silently dropped `i` returns the wrong documents and looks like missing data, and accepting a flag upstream rejects teaches a caller a query that fails in a browser. There is no `x` flag in ECMAScript.",
+ "generator": "crates/dxdb-query/tests/support/regex-flags.mjs",
+ "rxdbVersion": "17.6.0",
+ "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
+ "node": "v22.23.3",
+ "format": "documents+(pattern,options)->matchingIds",
+ "determinism": {
+  "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+  "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call"
+ },
+ "documentCount": 16,
+ "caseCount": 53,
+ "comparisonCount": 38,
+ "rejectionCount": 15,
+ "groups": [
+  "none",
+  "i",
+  "m",
+  "s",
+  "u",
+  "d",
+  "g-y",
+  "combined",
+  "invalid"
+ ],
+ "documents": [
+  {
+   "id": "plain",
+   "f": "alice"
+  },
+  {
+   "id": "upper",
+   "f": "ALICE"
+  },
+  {
+   "id": "mixed",
+   "f": "Alice"
+  },
+  {
+   "id": "multiline",
+   "f": "a\nb"
+  },
+  {
+   "id": "multiline-b-end",
+   "f": "x\nb"
+  },
+  {
+   "id": "mid-dot",
+   "f": "a\nc"
+  },
+  {
+   "id": "newline-only",
+   "f": "\n"
+  },
+  {
+   "id": "unicode-word",
+   "f": "héllo"
+  },
+  {
+   "id": "accent-cap",
+   "f": "HÉLLO"
+  },
+  {
+   "id": "greek",
+   "f": "αβγ"
+  },
+  {
+   "id": "emoji",
+   "f": "😀"
+  },
+  {
+   "id": "digits",
+   "f": "123"
+  },
+  {
+   "id": "empty",
+   "f": ""
+  },
+  {
+   "id": "spaces",
+   "f": "  a  "
+  },
+  {
+   "id": "brackets",
+   "f": "[a]"
+  },
+  {
+   "id": "caret",
+   "f": "^a$"
+  }
+ ],
+ "cases": [
+  {
+   "group": "none",
+   "why": "regex \"a\" with options \"\"",
+   "pattern": "a",
+   "options": "",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 6
+  },
+  {
+   "group": "none",
+   "why": "regex \"^a\" with options \"\"",
+   "pattern": "^a",
+   "options": "",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "none",
+   "why": "regex \"a$\" with options \"\"",
+   "pattern": "a$",
+   "options": "",
+   "matchingIds": [],
+   "matchCount": 0
+  },
+  {
+   "group": "none",
+   "why": "regex \"a.c\" with options \"\"",
+   "pattern": "a.c",
+   "options": "",
+   "matchingIds": [],
+   "matchCount": 0
+  },
+  {
+   "group": "none",
+   "why": "regex \"^b$\" with options \"\"",
+   "pattern": "^b$",
+   "options": "",
+   "matchingIds": [],
+   "matchCount": 0
+  },
+  {
+   "group": "i",
+   "why": "regex \"^alice$\" with options \"i\"",
+   "pattern": "^alice$",
+   "options": "i",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "i",
+   "why": "regex \"alice\" with options \"i\"",
+   "pattern": "alice",
+   "options": "i",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "i",
+   "why": "regex \"^ALICE$\" with options \"i\"",
+   "pattern": "^ALICE$",
+   "options": "i",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "i",
+   "why": "regex \"héllo\" with options \"i\"",
+   "pattern": "héllo",
+   "options": "i",
+   "matchingIds": [
+    "unicode-word",
+    "accent-cap"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "m",
+   "why": "regex \"^b$\" with options \"m\"",
+   "pattern": "^b$",
+   "options": "m",
+   "matchingIds": [
+    "multiline",
+    "multiline-b-end"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "m",
+   "why": "regex \"^b\" with options \"m\"",
+   "pattern": "^b",
+   "options": "m",
+   "matchingIds": [
+    "multiline",
+    "multiline-b-end"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "m",
+   "why": "regex \"a$\" with options \"m\"",
+   "pattern": "a$",
+   "options": "m",
+   "matchingIds": [
+    "multiline",
+    "mid-dot"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "m",
+   "why": "regex \"^a$\" with options \"m\"",
+   "pattern": "^a$",
+   "options": "m",
+   "matchingIds": [
+    "multiline",
+    "mid-dot"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "s",
+   "why": "regex \"a.c\" with options \"s\"",
+   "pattern": "a.c",
+   "options": "s",
+   "matchingIds": [
+    "mid-dot"
+   ],
+   "matchCount": 1
+  },
+  {
+   "group": "s",
+   "why": "regex \"^a.c$\" with options \"s\"",
+   "pattern": "^a.c$",
+   "options": "s",
+   "matchingIds": [
+    "mid-dot"
+   ],
+   "matchCount": 1
+  },
+  {
+   "group": "s",
+   "why": "regex \"a.c\" with options \"\"",
+   "pattern": "a.c",
+   "options": "",
+   "matchingIds": [],
+   "matchCount": 0
+  },
+  {
+   "group": "u",
+   "why": "regex \"\\\\p{Letter}+\" with options \"u\"",
+   "pattern": "\\p{Letter}+",
+   "options": "u",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed",
+    "multiline",
+    "multiline-b-end",
+    "mid-dot",
+    "unicode-word",
+    "accent-cap",
+    "greek",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 12
+  },
+  {
+   "group": "u",
+   "why": "regex \"^\\\\p{Letter}+$\" with options \"u\"",
+   "pattern": "^\\p{Letter}+$",
+   "options": "u",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed",
+    "unicode-word",
+    "accent-cap",
+    "greek"
+   ],
+   "matchCount": 6
+  },
+  {
+   "group": "u",
+   "why": "regex \".\" with options \"u\"",
+   "pattern": ".",
+   "options": "u",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed",
+    "multiline",
+    "multiline-b-end",
+    "mid-dot",
+    "unicode-word",
+    "accent-cap",
+    "greek",
+    "emoji",
+    "digits",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 14
+  },
+  {
+   "group": "u",
+   "why": "regex \"\\\\p{Letter}+\" with options \"\"",
+   "pattern": "\\p{Letter}+",
+   "options": "",
+   "matchingIds": [],
+   "matchCount": 0
+  },
+  {
+   "group": "d",
+   "why": "regex \"a\" with options \"d\"",
+   "pattern": "a",
+   "options": "d",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 6
+  },
+  {
+   "group": "d",
+   "why": "regex \"^alice$\" with options \"d\"",
+   "pattern": "^alice$",
+   "options": "d",
+   "matchingIds": [
+    "plain"
+   ],
+   "matchCount": 1
+  },
+  {
+   "group": "d",
+   "why": "regex \"a\" with options \"di\"",
+   "pattern": "a",
+   "options": "di",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed",
+    "multiline",
+    "mid-dot",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 8
+  },
+  {
+   "group": "d",
+   "why": "regex \"^ALICE$\" with options \"di\"",
+   "pattern": "^ALICE$",
+   "options": "di",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "g-y",
+   "why": "regex \"a\" with options \"g\"",
+   "pattern": "a",
+   "options": "g",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 6
+  },
+  {
+   "group": "g-y",
+   "why": "regex \"a\" with options \"y\"",
+   "pattern": "a",
+   "options": "y",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "g-y",
+   "why": "regex \"^a\" with options \"y\"",
+   "pattern": "^a",
+   "options": "y",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "g-y",
+   "why": "regex \"a\" with options \"gy\"",
+   "pattern": "a",
+   "options": "gy",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "combined",
+   "why": "regex \"^alice$\" with options \"im\"",
+   "pattern": "^alice$",
+   "options": "im",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed"
+   ],
+   "matchCount": 3
+  },
+  {
+   "group": "combined",
+   "why": "regex \"^b$\" with options \"im\"",
+   "pattern": "^b$",
+   "options": "im",
+   "matchingIds": [
+    "multiline",
+    "multiline-b-end"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "combined",
+   "why": "regex \"a.c\" with options \"is\"",
+   "pattern": "a.c",
+   "options": "is",
+   "matchingIds": [
+    "mid-dot"
+   ],
+   "matchCount": 1
+  },
+  {
+   "group": "combined",
+   "why": "regex \"^A.C$\" with options \"is\"",
+   "pattern": "^A.C$",
+   "options": "is",
+   "matchingIds": [
+    "mid-dot"
+   ],
+   "matchCount": 1
+  },
+  {
+   "group": "combined",
+   "why": "regex \"^b$\" with options \"ms\"",
+   "pattern": "^b$",
+   "options": "ms",
+   "matchingIds": [
+    "multiline",
+    "multiline-b-end"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "combined",
+   "why": "regex \"^b$\" with options \"ims\"",
+   "pattern": "^b$",
+   "options": "ims",
+   "matchingIds": [
+    "multiline",
+    "multiline-b-end"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "combined",
+   "why": "regex \"a\" with options \"gimsuy\"",
+   "pattern": "a",
+   "options": "gimsuy",
+   "matchingIds": [
+    "plain",
+    "upper",
+    "mixed",
+    "multiline",
+    "mid-dot"
+   ],
+   "matchCount": 5
+  },
+  {
+   "group": "combined",
+   "why": "regex \"a\" with options \"du\"",
+   "pattern": "a",
+   "options": "du",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 6
+  },
+  {
+   "group": "combined",
+   "why": "regex \"a\" with options \"dv\"",
+   "pattern": "a",
+   "options": "dv",
+   "matchingIds": [
+    "plain",
+    "multiline",
+    "mid-dot",
+    "spaces",
+    "brackets",
+    "caret"
+   ],
+   "matchCount": 6
+  },
+  {
+   "group": "combined",
+   "why": "regex \"héllo\" with options \"iu\"",
+   "pattern": "héllo",
+   "options": "iu",
+   "matchingIds": [
+    "unicode-word",
+    "accent-cap"
+   ],
+   "matchCount": 2
+  },
+  {
+   "group": "invalid",
+   "why": "options \"x\"",
+   "pattern": "a",
+   "options": "x",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'x'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"X\"",
+   "pattern": "a",
+   "options": "X",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'X'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"I\"",
+   "pattern": "a",
+   "options": "I",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'I'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"z\"",
+   "pattern": "a",
+   "options": "z",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'z'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"ii\"",
+   "pattern": "a",
+   "options": "ii",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'ii'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"uu\"",
+   "pattern": "a",
+   "options": "uu",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'uu'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"vv\"",
+   "pattern": "a",
+   "options": "vv",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'vv'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"gg\"",
+   "pattern": "a",
+   "options": "gg",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'gg'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"dd\"",
+   "pattern": "a",
+   "options": "dd",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'dd'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"mm\"",
+   "pattern": "a",
+   "options": "mm",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'mm'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"ss\"",
+   "pattern": "a",
+   "options": "ss",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'ss'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"yy\"",
+   "pattern": "a",
+   "options": "yy",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'yy'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"uv\"",
+   "pattern": "a",
+   "options": "uv",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'uv'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"vu\"",
+   "pattern": "a",
+   "options": "vu",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'vu'"
+  },
+  {
+   "group": "invalid",
+   "why": "options \"imsuygdv\"",
+   "pattern": "a",
+   "options": "imsuygdv",
+   "kind": "rejection",
+   "rejected": "Invalid flags supplied to RegExp constructor 'imsuygdv'"
+  }
+ ]
+}

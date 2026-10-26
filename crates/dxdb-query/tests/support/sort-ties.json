@@ -1,0 +1,2585 @@
+{
+ "$comment": "Sort tie-breaking and stability. Each case is a document corpus that differs only in the tie shape under test, a sort specification, the full normalized sort, and the complete expected ordering — plus a pairwise comparison matrix so a port can assert the relation between two documents rather than only the total order. Expected values come from upstream getSortComparator in Node. Ties matter because RxDB appends the primary key to every sort, which makes the order total, and event-reduce depends on that.",
+ "generator": "crates/dxdb-query/tests/support/sort-ties.mjs",
+ "rxdbVersion": "17.6.0",
+ "rxdbCommit": "3b763ee17d62bc96cfae556ea0ccf92f9891c8c1",
+ "node": "v22.23.3",
+ "format": "corpus+sort->{sortedIds, comparisons}",
+ "determinism": {
+  "mathRandom": "xorshift128 seeded with 0x5eed1e55, 1 draw per call",
+  "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call"
+ },
+ "corpora": {
+  "stringTies": [
+   {
+    "id": "c",
+    "s": "same"
+   },
+   {
+    "id": "a",
+    "s": "same"
+   },
+   {
+    "id": "b",
+    "s": "same"
+   },
+   {
+    "id": "e",
+    "s": "same"
+   },
+   {
+    "id": "d",
+    "s": "zzz"
+   },
+   {
+    "id": "f",
+    "s": "aaa"
+   }
+  ],
+  "numberTies": [
+   {
+    "id": "c",
+    "n": 5
+   },
+   {
+    "id": "a",
+    "n": 5
+   },
+   {
+    "id": "b",
+    "n": 5
+   },
+   {
+    "id": "d",
+    "n": 4
+   },
+   {
+    "id": "e",
+    "n": 6
+   }
+  ],
+  "lwtFractions": [
+   {
+    "id": "p",
+    "lwt": 1000
+   },
+   {
+    "id": "q",
+    "lwt": 1000.5
+   },
+   {
+    "id": "r",
+    "lwt": 1000.25
+   },
+   {
+    "id": "s",
+    "lwt": 1000
+   },
+   {
+    "id": "t",
+    "lwt": 1000.5
+   },
+   {
+    "id": "u",
+    "lwt": 999.99
+   },
+   {
+    "id": "v",
+    "lwt": 1001
+   }
+  ],
+  "compound": [
+   {
+    "id": "c",
+    "s": "a",
+    "n": 1
+   },
+   {
+    "id": "a",
+    "s": "a",
+    "n": 1
+   },
+   {
+    "id": "b",
+    "s": "a",
+    "n": 2
+   },
+   {
+    "id": "d",
+    "s": "b",
+    "n": 1
+   },
+   {
+    "id": "e",
+    "s": "b",
+    "n": 1
+   }
+  ],
+  "booleans": [
+   {
+    "id": "c",
+    "b": true
+   },
+   {
+    "id": "a",
+    "b": false
+   },
+   {
+    "id": "b",
+    "b": true
+   },
+   {
+    "id": "d",
+    "b": false
+   }
+  ],
+  "missingField": [
+   {
+    "id": "c",
+    "m": 2
+   },
+   {
+    "id": "a"
+   },
+   {
+    "id": "b",
+    "m": 1
+   },
+   {
+    "id": "d"
+   }
+  ],
+  "unicodeTies": [
+   {
+    "id": "b",
+    "s": "😀"
+   },
+   {
+    "id": "a",
+    "s": "😀"
+   },
+   {
+    "id": "c",
+    "s": "￿"
+   },
+   {
+    "id": "d",
+    "s": "😀"
+   },
+   {
+    "id": "e",
+    "s": "Z"
+   }
+  ]
+ },
+ "caseCount": 17,
+ "comparisonCount": 382,
+ "cases": [
+  {
+   "corpus": "stringTies",
+   "why": "stringTies: [{\"s\":\"asc\"}]",
+   "sort": [
+    {
+     "s": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "f",
+    "a",
+    "b",
+    "c",
+    "e",
+    "d"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "f",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "d",
+     "relation": -1
+    }
+   ]
+  },
+  {
+   "corpus": "stringTies",
+   "why": "stringTies: [{\"s\":\"desc\"}]",
+   "sort": [
+    {
+     "s": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "d",
+    "a",
+    "b",
+    "c",
+    "e",
+    "f"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "f",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "f",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "f",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "f",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "f",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "f",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "f",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "f",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "f",
+     "b": "d",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "stringTies",
+   "why": "stringTies: [{\"s\":\"asc\"},{\"id\":\"desc\"}]",
+   "sort": [
+    {
+     "s": "asc"
+    },
+    {
+     "id": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "asc"
+    },
+    {
+     "id": "desc"
+    }
+   ],
+   "sortedIds": [
+    "f",
+    "e",
+    "c",
+    "b",
+    "a",
+    "d"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "f",
+     "relation": 1
+    },
+    {
+     "a": "f",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "f",
+     "b": "d",
+     "relation": -1
+    }
+   ]
+  },
+  {
+   "corpus": "numberTies",
+   "why": "numberTies: [{\"n\":\"asc\"}]",
+   "sort": [
+    {
+     "n": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "n": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "d",
+    "a",
+    "b",
+    "c",
+    "e"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "numberTies",
+   "why": "numberTies: [{\"n\":\"desc\"}]",
+   "sort": [
+    {
+     "n": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "n": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "e",
+    "a",
+    "b",
+    "c",
+    "d"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": -1
+    }
+   ]
+  },
+  {
+   "corpus": "lwtFractions",
+   "why": "lwtFractions: [{\"lwt\":\"asc\"}]",
+   "sort": [
+    {
+     "lwt": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "lwt": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "u",
+    "p",
+    "s",
+    "r",
+    "q",
+    "t",
+    "v"
+   ],
+   "comparisons": [
+    {
+     "a": "p",
+     "b": "q",
+     "relation": -1
+    },
+    {
+     "a": "p",
+     "b": "r",
+     "relation": -1
+    },
+    {
+     "a": "p",
+     "b": "s",
+     "relation": -1
+    },
+    {
+     "a": "p",
+     "b": "t",
+     "relation": -1
+    },
+    {
+     "a": "p",
+     "b": "u",
+     "relation": 1
+    },
+    {
+     "a": "p",
+     "b": "v",
+     "relation": -1
+    },
+    {
+     "a": "q",
+     "b": "p",
+     "relation": 1
+    },
+    {
+     "a": "q",
+     "b": "r",
+     "relation": 1
+    },
+    {
+     "a": "q",
+     "b": "s",
+     "relation": 1
+    },
+    {
+     "a": "q",
+     "b": "t",
+     "relation": -1
+    },
+    {
+     "a": "q",
+     "b": "u",
+     "relation": 1
+    },
+    {
+     "a": "q",
+     "b": "v",
+     "relation": -1
+    },
+    {
+     "a": "r",
+     "b": "p",
+     "relation": 1
+    },
+    {
+     "a": "r",
+     "b": "q",
+     "relation": -1
+    },
+    {
+     "a": "r",
+     "b": "s",
+     "relation": 1
+    },
+    {
+     "a": "r",
+     "b": "t",
+     "relation": -1
+    },
+    {
+     "a": "r",
+     "b": "u",
+     "relation": 1
+    },
+    {
+     "a": "r",
+     "b": "v",
+     "relation": -1
+    },
+    {
+     "a": "s",
+     "b": "p",
+     "relation": 1
+    },
+    {
+     "a": "s",
+     "b": "q",
+     "relation": -1
+    },
+    {
+     "a": "s",
+     "b": "r",
+     "relation": -1
+    },
+    {
+     "a": "s",
+     "b": "t",
+     "relation": -1
+    },
+    {
+     "a": "s",
+     "b": "u",
+     "relation": 1
+    },
+    {
+     "a": "s",
+     "b": "v",
+     "relation": -1
+    },
+    {
+     "a": "t",
+     "b": "p",
+     "relation": 1
+    },
+    {
+     "a": "t",
+     "b": "q",
+     "relation": 1
+    },
+    {
+     "a": "t",
+     "b": "r",
+     "relation": 1
+    },
+    {
+     "a": "t",
+     "b": "s",
+     "relation": 1
+    },
+    {
+     "a": "t",
+     "b": "u",
+     "relation": 1
+    },
+    {
+     "a": "t",
+     "b": "v",
+     "relation": -1
+    },
+    {
+     "a": "u",
+     "b": "p",
+     "relation": -1
+    },
+    {
+     "a": "u",
+     "b": "q",
+     "relation": -1
+    },
+    {
+     "a": "u",
+     "b": "r",
+     "relation": -1
+    },
+    {
+     "a": "u",
+     "b": "s",
+     "relation": -1
+    },
+    {
+     "a": "u",
+     "b": "t",
+     "relation": -1
+    },
+    {
+     "a": "u",
+     "b": "v",
+     "relation": -1
+    },
+    {
+     "a": "v",
+     "b": "p",
+     "relation": 1
+    },
+    {
+     "a": "v",
+     "b": "q",
+     "relation": 1
+    },
+    {
+     "a": "v",
+     "b": "r",
+     "relation": 1
+    },
+    {
+     "a": "v",
+     "b": "s",
+     "relation": 1
+    },
+    {
+     "a": "v",
+     "b": "t",
+     "relation": 1
+    },
+    {
+     "a": "v",
+     "b": "u",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "lwtFractions",
+   "why": "lwtFractions: [{\"lwt\":\"desc\"}]",
+   "sort": [
+    {
+     "lwt": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "lwt": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "v",
+    "q",
+    "t",
+    "r",
+    "p",
+    "s",
+    "u"
+   ],
+   "comparisons": [
+    {
+     "a": "p",
+     "b": "q",
+     "relation": 1
+    },
+    {
+     "a": "p",
+     "b": "r",
+     "relation": 1
+    },
+    {
+     "a": "p",
+     "b": "s",
+     "relation": -1
+    },
+    {
+     "a": "p",
+     "b": "t",
+     "relation": 1
+    },
+    {
+     "a": "p",
+     "b": "u",
+     "relation": -1
+    },
+    {
+     "a": "p",
+     "b": "v",
+     "relation": 1
+    },
+    {
+     "a": "q",
+     "b": "p",
+     "relation": -1
+    },
+    {
+     "a": "q",
+     "b": "r",
+     "relation": -1
+    },
+    {
+     "a": "q",
+     "b": "s",
+     "relation": -1
+    },
+    {
+     "a": "q",
+     "b": "t",
+     "relation": -1
+    },
+    {
+     "a": "q",
+     "b": "u",
+     "relation": -1
+    },
+    {
+     "a": "q",
+     "b": "v",
+     "relation": 1
+    },
+    {
+     "a": "r",
+     "b": "p",
+     "relation": -1
+    },
+    {
+     "a": "r",
+     "b": "q",
+     "relation": 1
+    },
+    {
+     "a": "r",
+     "b": "s",
+     "relation": -1
+    },
+    {
+     "a": "r",
+     "b": "t",
+     "relation": 1
+    },
+    {
+     "a": "r",
+     "b": "u",
+     "relation": -1
+    },
+    {
+     "a": "r",
+     "b": "v",
+     "relation": 1
+    },
+    {
+     "a": "s",
+     "b": "p",
+     "relation": 1
+    },
+    {
+     "a": "s",
+     "b": "q",
+     "relation": 1
+    },
+    {
+     "a": "s",
+     "b": "r",
+     "relation": 1
+    },
+    {
+     "a": "s",
+     "b": "t",
+     "relation": 1
+    },
+    {
+     "a": "s",
+     "b": "u",
+     "relation": -1
+    },
+    {
+     "a": "s",
+     "b": "v",
+     "relation": 1
+    },
+    {
+     "a": "t",
+     "b": "p",
+     "relation": -1
+    },
+    {
+     "a": "t",
+     "b": "q",
+     "relation": 1
+    },
+    {
+     "a": "t",
+     "b": "r",
+     "relation": -1
+    },
+    {
+     "a": "t",
+     "b": "s",
+     "relation": -1
+    },
+    {
+     "a": "t",
+     "b": "u",
+     "relation": -1
+    },
+    {
+     "a": "t",
+     "b": "v",
+     "relation": 1
+    },
+    {
+     "a": "u",
+     "b": "p",
+     "relation": 1
+    },
+    {
+     "a": "u",
+     "b": "q",
+     "relation": 1
+    },
+    {
+     "a": "u",
+     "b": "r",
+     "relation": 1
+    },
+    {
+     "a": "u",
+     "b": "s",
+     "relation": 1
+    },
+    {
+     "a": "u",
+     "b": "t",
+     "relation": 1
+    },
+    {
+     "a": "u",
+     "b": "v",
+     "relation": 1
+    },
+    {
+     "a": "v",
+     "b": "p",
+     "relation": -1
+    },
+    {
+     "a": "v",
+     "b": "q",
+     "relation": -1
+    },
+    {
+     "a": "v",
+     "b": "r",
+     "relation": -1
+    },
+    {
+     "a": "v",
+     "b": "s",
+     "relation": -1
+    },
+    {
+     "a": "v",
+     "b": "t",
+     "relation": -1
+    },
+    {
+     "a": "v",
+     "b": "u",
+     "relation": -1
+    }
+   ]
+  },
+  {
+   "corpus": "compound",
+   "why": "compound: [{\"s\":\"asc\"},{\"n\":\"asc\"}]",
+   "sort": [
+    {
+     "s": "asc"
+    },
+    {
+     "n": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "asc"
+    },
+    {
+     "n": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "a",
+    "c",
+    "b",
+    "d",
+    "e"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "compound",
+   "why": "compound: [{\"s\":\"desc\"},{\"n\":\"asc\"}]",
+   "sort": [
+    {
+     "s": "desc"
+    },
+    {
+     "n": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "desc"
+    },
+    {
+     "n": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "d",
+    "e",
+    "a",
+    "c",
+    "b"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "compound",
+   "why": "compound: [{\"s\":\"asc\"},{\"n\":\"desc\"}]",
+   "sort": [
+    {
+     "s": "asc"
+    },
+    {
+     "n": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "asc"
+    },
+    {
+     "n": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "b",
+    "a",
+    "c",
+    "d",
+    "e"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "compound",
+   "why": "compound: [{\"s\":\"desc\"},{\"n\":\"desc\"}]",
+   "sort": [
+    {
+     "s": "desc"
+    },
+    {
+     "n": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "desc"
+    },
+    {
+     "n": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "d",
+    "e",
+    "b",
+    "a",
+    "c"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "booleans",
+   "why": "booleans: [{\"b\":\"asc\"}]",
+   "sort": [
+    {
+     "b": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "b": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "a",
+    "d",
+    "b",
+    "c"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": -1
+    }
+   ]
+  },
+  {
+   "corpus": "booleans",
+   "why": "booleans: [{\"b\":\"desc\"}]",
+   "sort": [
+    {
+     "b": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "b": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "b",
+    "c",
+    "a",
+    "d"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "missingField",
+   "why": "missingField: [{\"m\":\"asc\"}]",
+   "sort": [
+    {
+     "m": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "m": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "a",
+    "d",
+    "b",
+    "c"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": -1
+    }
+   ]
+  },
+  {
+   "corpus": "missingField",
+   "why": "missingField: [{\"m\":\"desc\"}]",
+   "sort": [
+    {
+     "m": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "m": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "c",
+    "b",
+    "a",
+    "d"
+   ],
+   "comparisons": [
+    {
+     "a": "c",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    }
+   ]
+  },
+  {
+   "corpus": "unicodeTies",
+   "why": "unicodeTies: [{\"s\":\"asc\"}]",
+   "sort": [
+    {
+     "s": "asc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "asc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "e",
+    "a",
+    "b",
+    "d",
+    "c"
+   ],
+   "comparisons": [
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": 1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": -1
+    }
+   ]
+  },
+  {
+   "corpus": "unicodeTies",
+   "why": "unicodeTies: [{\"s\":\"desc\"}]",
+   "sort": [
+    {
+     "s": "desc"
+    }
+   ],
+   "normalizedSort": [
+    {
+     "s": "desc"
+    },
+    {
+     "id": "asc"
+    }
+   ],
+   "sortedIds": [
+    "c",
+    "a",
+    "b",
+    "d",
+    "e"
+   ],
+   "comparisons": [
+    {
+     "a": "b",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "b",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "b",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "a",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "a",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "b",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "a",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "d",
+     "relation": -1
+    },
+    {
+     "a": "c",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "d",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "d",
+     "b": "e",
+     "relation": -1
+    },
+    {
+     "a": "e",
+     "b": "b",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "a",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "c",
+     "relation": 1
+    },
+    {
+     "a": "e",
+     "b": "d",
+     "relation": 1
+    }
+   ]
+  }
+ ],
+ "numberIdentity": {
+  "$comment": "Whether `{\"n\": 1}` and `{\"n\": 1.0}` are tied. In JavaScript they hold the same number, so a comparator must treat them as equal and fall through to the primary key. Recorded as raw JSON text because JSON.parse would otherwise make the two indistinguishable before the comparison happens, which is exactly the bug being tested for.",
+  "pair": [
+   {
+    "id": "int",
+    "json": "{\"id\":\"int\",\"n\":1}"
+   },
+   {
+    "id": "float",
+    "json": "{\"id\":\"float\",\"n\":1.0}"
+   }
+  ],
+  "tied": true,
+  "sortedIds": [
+   "float",
+   "int"
+  ],
+  "forwardRelation": "undefined",
+  "reverseRelation": "undefined",
+  "sortedIdsReversed": [
+   "float",
+   "int"
+  ]
+ }
+}
