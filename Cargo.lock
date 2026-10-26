@@ -343,6 +343,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-reactivity"
+version = "0.0.0"
+dependencies = [
+ "dxdb-query",
+ "dxdb-schema",
+ "dxdb-storage",
+ "futures",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "dxdb-replication"
 version = "0.0.0"
 dependencies = [

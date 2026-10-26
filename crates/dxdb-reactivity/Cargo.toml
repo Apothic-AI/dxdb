@@ -1,0 +1,19 @@
+[package]
+name = "dxdb-reactivity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb reactivity: change-event buffer, event reduce, query cache, live query windows"
+
+[dependencies]
+serde_json.workspace = true
+futures.workspace = true
+dxdb-storage = { path = "../dxdb-storage" }
+
+[dev-dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+dxdb-query = { path = "../dxdb-query" }
+dxdb-schema = { path = "../dxdb-schema" }
