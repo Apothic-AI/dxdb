@@ -234,7 +234,11 @@ impl SortPart {
 
     /// The direction, `"asc"` or `"desc"`.
     pub fn direction(&self) -> &str {
-        self.0.values().next().map(String::as_str).unwrap_or_default()
+        self.0
+            .values()
+            .next()
+            .map(String::as_str)
+            .unwrap_or_default()
     }
 }
 

@@ -82,6 +82,17 @@ impl Vectors {
     pub fn case(&self, name: &str) -> Option<&Case> {
         self.cases.iter().find(|c| c.name == name)
     }
+
+    /// The input schema of the case a relation endpoint names.
+    ///
+    /// Relations resolve against [`Vectors::cases`], so the schema each endpoint refers
+    /// to is already in this file. Exposing it here is what lets a consumer verify a
+    /// relation without keeping its own copy of the schema literals: before this
+    /// existed, a consumer had to reproduce the generator's literals by hand, and the
+    /// two drifted the moment the relation endpoints changed.
+    pub fn relation_input(&self, endpoint: &str) -> Option<&serde_json::Value> {
+        self.case(endpoint).map(|c| &c.input)
+    }
 }
 
 /// The determinism stubs the generator installed.
@@ -159,6 +170,21 @@ impl Relation {
     /// emit; a `None` here means the file was edited by hand.
     pub fn resolve<'a>(&self, vectors: &'a Vectors) -> Option<(&'a Case, &'a Case)> {
         Some((vectors.case(&self.a)?, vectors.case(&self.b)?))
+    }
+
+    /// The two input schemas this relation compares, resolved from the cases.
+    ///
+    /// This is the accessor a hash-verification test wants: feed these two values to
+    /// the implementation under test and assert the result matches [`Relation::equal`].
+    /// Everything needed is in the file, so the test does not restate any schema.
+    pub fn inputs<'a>(
+        &self,
+        vectors: &'a Vectors,
+    ) -> Option<(&'a serde_json::Value, &'a serde_json::Value)> {
+        Some((
+            vectors.relation_input(&self.a)?,
+            vectors.relation_input(&self.b)?,
+        ))
     }
 
     /// Whether the recorded hashes agree with [`Relation::equal`].

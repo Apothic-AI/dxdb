@@ -104,7 +104,11 @@ impl Vectors {
 
     /// The snapshot count, matching [`Vectors::case_count`] for this family.
     pub fn case_count(&self) -> usize {
-        self.transcripts.iter().map(|t| t.steps.len()).sum::<usize>() + self.batch_boundary.len()
+        self.transcripts
+            .iter()
+            .map(|t| t.steps.len())
+            .sum::<usize>()
+            + self.batch_boundary.len()
     }
 
     /// Look up a transcript by its label, e.g. `deletion-propagates`.

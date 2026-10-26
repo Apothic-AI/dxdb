@@ -19,8 +19,8 @@
 //! commit. That edit is the review question: was shrinking the corpus intended?
 
 use dxdb_vectors::{
-    index_strings, replication_transcripts, ALL_FAMILIES, EXPECTED_CASE_COUNTS, VectorFamily,
-    Vectors,
+    index_strings, replication_transcripts, VectorFamily, Vectors, ALL_FAMILIES,
+    EXPECTED_CASE_COUNTS,
 };
 
 fn expected(family: VectorFamily) -> usize {
@@ -59,7 +59,9 @@ fn every_family_loads_and_has_the_expected_case_count() {
 fn internal_case_count_fields_agree_with_the_case_arrays() {
     let vectors = Vectors::discover();
 
-    let jsnum = vectors.load::<dxdb_vectors::jsnum::Vectors>(VectorFamily::Jsnum).unwrap();
+    let jsnum = vectors
+        .load::<dxdb_vectors::jsnum::Vectors>(VectorFamily::Jsnum)
+        .unwrap();
     // jsnum.mjs predates the caseCount field and reports its length at write time.
     assert!(!jsnum.cases.is_empty());
 
@@ -110,7 +112,11 @@ fn internal_case_count_fields_agree_with_the_case_arrays() {
     let hashes = vectors
         .load::<dxdb_vectors::schema_hashes::Vectors>(VectorFamily::SchemaHashes)
         .unwrap();
-    assert_eq!(hashes.case_count, hashes.cases.len(), "schema-hashes caseCount");
+    assert_eq!(
+        hashes.case_count,
+        hashes.cases.len(),
+        "schema-hashes caseCount"
+    );
     assert!(
         hashes.failed_schemas.is_empty(),
         "a fixture schema failed to hash: {:?}",
@@ -140,7 +146,11 @@ fn internal_case_count_fields_agree_with_the_case_arrays() {
     let sel = vectors
         .load::<dxdb_vectors::selector_matching::Vectors>(VectorFamily::SelectorMatching)
         .unwrap();
-    assert_eq!(sel.case_count, sel.cases.len(), "selector-matching caseCount");
+    assert_eq!(
+        sel.case_count,
+        sel.cases.len(),
+        "selector-matching caseCount"
+    );
     assert_eq!(
         sel.matching_case_count + sel.rejection_case_count,
         sel.cases.len(),
@@ -294,10 +304,17 @@ fn schema_hash_relations_resolve_and_are_self_consistent() {
         .iter()
         .filter(|r| r.why.contains("changes-hash"))
         .collect();
-    assert!(!positives.is_empty(), "no 'does not change the hash' relations");
+    assert!(
+        !positives.is_empty(),
+        "no 'does not change the hash' relations"
+    );
     assert!(!negatives.is_empty(), "no 'changes the hash' relations");
     for relation in &positives {
-        assert!(relation.equal, "positive relation {} is not equal", relation.why);
+        assert!(
+            relation.equal,
+            "positive relation {} is not equal",
+            relation.why
+        );
     }
     for relation in &negatives {
         assert!(
@@ -322,8 +339,20 @@ fn schema_hash_relations_resolve_and_are_self_consistent() {
     // The two inputs must be the same schema, so the difference between them is only
     // insertion order. `serde_json` with `preserve_order` keeps the original order in
     // `Value`, so the key orders can be compared directly.
-    let base_keys: Vec<_> = baseline.input.as_object().unwrap().keys().cloned().collect();
-    let perm_keys: Vec<_> = permuted.input.as_object().unwrap().keys().cloned().collect();
+    let base_keys: Vec<_> = baseline
+        .input
+        .as_object()
+        .unwrap()
+        .keys()
+        .cloned()
+        .collect();
+    let perm_keys: Vec<_> = permuted
+        .input
+        .as_object()
+        .unwrap()
+        .keys()
+        .cloned()
+        .collect();
     let mut sorted_base = base_keys.clone();
     let mut sorted_perm = perm_keys.clone();
     sorted_base.sort();

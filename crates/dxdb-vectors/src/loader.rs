@@ -179,7 +179,10 @@ impl Vectors {
     pub fn try_discover() -> Result<Self, VectorError> {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let candidates = [
-            root.join("..").join("..").join("testdata").join(Self::DIR_NAME),
+            root.join("..")
+                .join("..")
+                .join("testdata")
+                .join(Self::DIR_NAME),
             root.join("testdata").join(Self::DIR_NAME),
         ];
         for candidate in &candidates {
@@ -234,24 +237,29 @@ impl Vectors {
     pub fn case_count(&self, family: VectorFamily) -> Result<usize, VectorError> {
         match family {
             VectorFamily::Jsnum => Ok(self.load::<crate::jsnum::Vectors>(family)?.cases.len()),
-            VectorFamily::IndexStrings => {
-                Ok(self.load::<crate::index_strings::Vectors>(family)?.cases.len())
-            }
-            VectorFamily::SchemaHashes => {
-                Ok(self.load::<crate::schema_hashes::Vectors>(family)?.cases.len())
-            }
-            VectorFamily::NormalisedQueries => {
-                Ok(self.load::<crate::normalised_queries::Vectors>(family)?.cases.len())
-            }
-            VectorFamily::BulkWriteCategorization => {
-                Ok(self.load::<crate::bulk_write_categorization::Vectors>(family)?.cases.len())
-            }
-            VectorFamily::SelectorMatching => {
-                Ok(self.load::<crate::selector_matching::Vectors>(family)?.cases.len())
-            }
-            VectorFamily::ReplicationTranscripts => {
-                Ok(self.load::<crate::replication_transcripts::Vectors>(family)?.case_count())
-            }
+            VectorFamily::IndexStrings => Ok(self
+                .load::<crate::index_strings::Vectors>(family)?
+                .cases
+                .len()),
+            VectorFamily::SchemaHashes => Ok(self
+                .load::<crate::schema_hashes::Vectors>(family)?
+                .cases
+                .len()),
+            VectorFamily::NormalisedQueries => Ok(self
+                .load::<crate::normalised_queries::Vectors>(family)?
+                .cases
+                .len()),
+            VectorFamily::BulkWriteCategorization => Ok(self
+                .load::<crate::bulk_write_categorization::Vectors>(family)?
+                .cases
+                .len()),
+            VectorFamily::SelectorMatching => Ok(self
+                .load::<crate::selector_matching::Vectors>(family)?
+                .cases
+                .len()),
+            VectorFamily::ReplicationTranscripts => Ok(self
+                .load::<crate::replication_transcripts::Vectors>(family)?
+                .case_count()),
         }
     }
 }
