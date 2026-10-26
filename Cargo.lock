@@ -624,6 +624,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-state"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-schema",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-update"
 version = "0.0.0"
 dependencies = [
