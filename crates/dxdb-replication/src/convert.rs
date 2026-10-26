@@ -158,6 +158,49 @@ pub fn write_doc_to_doc_state(
     out
 }
 
+/// Puts payloads back inside a document as `_attachments[id].data`, as a byte array.
+///
+/// This is the inverse of [`strip_attachments_data_from_document`] as far as the wire is
+/// concerned, and it is where a transport's "bytes travel beside the document" decision is
+/// undone. Needed in three places, which is why it lives here rather than in one adapter:
+///
+/// * a WebSocket or CouchDB frame carrying a `masterWrite` row
+///   (`adapters::websocket::document_with_payloads` was the first copy);
+/// * a master's `masterChangesSince` reply, which always sends every payload
+///   (`master::StorageMaster`, upstream `index.ts:212-217`);
+/// * anything else that hands a document to a peer, because a JS peer reads `Blob` data at
+///   exactly this path and nowhere else.
+///
+/// A stub with no matching payload is left alone: that is the legitimate "stub only" case for
+/// an attachment the receiver already has, and inventing an empty payload would turn it into a
+/// different (wrong) attachment.
+pub fn document_with_attachment_payloads(
+    document: &DocumentData,
+    payloads: &std::collections::BTreeMap<String, Vec<u8>>,
+) -> DocumentData {
+    if payloads.is_empty() {
+        return document.clone();
+    }
+    let mut out = document.clone();
+    let mut attachments = out.attachments().cloned().unwrap_or_default();
+    for (attachment_id, bytes) in payloads {
+        let Some(stub) = attachments.get(attachment_id) else {
+            continue;
+        };
+        let Some(map) = stub.as_object() else {
+            continue;
+        };
+        let mut stub = map.clone();
+        stub.insert(
+            "data".to_string(),
+            Value::Array(bytes.iter().map(|byte| Value::from(*byte as u64)).collect()),
+        );
+        attachments.insert(attachment_id.clone(), Value::Object(stub));
+    }
+    out.set("_attachments", Value::Object(attachments));
+    out
+}
+
 /// Replaces attachment payloads with stubs on rows bound for the meta instance.
 ///
 /// Ports `stripAttachmentsDataFromMetaWriteRows` (`helper.ts:71-86`).

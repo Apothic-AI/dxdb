@@ -51,6 +51,7 @@ pub mod conflict;
 pub mod conformance;
 pub mod convert;
 pub mod downstream;
+pub mod master;
 pub mod meta_instance;
 pub mod state;
 pub mod upstream;

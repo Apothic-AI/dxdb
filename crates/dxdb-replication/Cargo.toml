@@ -36,3 +36,8 @@ dxdb-jsstr = { path = "../dxdb-jsstr" }
 # The conformance suite and the throwaway double need no extra crates: the double uses
 # the library's own SHA-256 and ordered-JSON paths, so a fixture bug cannot hide behind
 # a different implementation.
+
+# The filesystem half of `m3-port-plan.md` section 12: the master contract must hold over a
+# real on-disk storage, not only over the in-memory fixture. A dev-dependency because the
+# protocol must never depend on a concrete storage (D1) — only this crate's tests do.
+dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
