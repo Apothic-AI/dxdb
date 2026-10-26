@@ -52,8 +52,8 @@ pub mod convert;
 pub mod downstream;
 pub mod meta_instance;
 pub mod state;
+pub mod adapters;
 pub mod upstream;
-pub mod websocket;
 
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
