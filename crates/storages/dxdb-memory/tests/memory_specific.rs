@@ -24,9 +24,9 @@
 
 use dxdb_memory::MemoryStorage;
 use dxdb_storage::{
-    now, BulkWriteRow, DocumentData, DocumentWriteData, DynRxStorageInstance,
-    InstanceCreationParams, PreparedQuery, RxStorage, RxStorageInstance, SortDirection, SortPart,
-    StorageError, StorageSchema,
+    now, AttachmentData, AttachmentWriteData, BulkWriteRow, DocumentData, DocumentWriteData,
+    DynRxStorageInstance, InstanceCreationParams, PreparedQuery, RxStorage, RxStorageInstance,
+    SortDirection, SortPart, StorageError, StorageSchema,
 };
 use serde_json::{json, Value};
 
@@ -88,6 +88,46 @@ fn test_data_schema() -> Value {
         "required": ["key", "value"],
         "indexes": [["value"]]
     }))
+}
+
+/// A schema that declares attachments, which is what makes the write-error path reachable.
+fn attachments_schema() -> Value {
+    filled(&json!({
+        "version": 0,
+        "type": "object",
+        "primaryKey": "key",
+        "attachments": {},
+        "properties": {
+            "key": { "type": "string", "maxLength": 100 },
+            "value": { "type": "string", "maxLength": 100 }
+        },
+        "required": ["key", "value"],
+        "indexes": [["value"]]
+    }))
+}
+
+/// A write carrying one attachment stub, with a payload or without.
+fn with_attachment(
+    document: DocumentData,
+    attachment_id: &str,
+    digest: &str,
+    payload: Option<&[u8]>,
+) -> DocumentWriteData {
+    let mut write = DocumentWriteData::new(document);
+    write.insert_attachment(
+        attachment_id,
+        AttachmentWriteData {
+            stub: AttachmentData {
+                // A stub's `length` is the payload length; the fixture uses 3 when the
+                // payload is absent, matching the digest's own length convention.
+                length: payload.map(|p| p.len() as u64).unwrap_or(3),
+                content_type: "text/plain".to_string(),
+                digest: digest.to_string(),
+            },
+            data: payload.map(<[u8]>::to_vec),
+        },
+    );
+    write
 }
 
 /// `getWriteData()` from the upstream file.
@@ -463,5 +503,226 @@ fn database_names_do_not_share_state() {
         // `remove` implies closed, so `close` afterwards is the documented no-op.
         one.close().await.expect("close one");
         two.close().await.expect("close two");
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Attachment write errors
+// ---------------------------------------------------------------------------
+
+/// A *new* attachment with no payload must be rejected, and the row must not be written.
+///
+/// This is upstream `it('should throw on a non-existing attachment')`-adjacent behaviour, and
+/// it is the narrow rule the whole attachment path turns on: only a **new** attachment needs
+/// `data`. A *changed digest on an existing id* with no payload is accepted — the shared
+/// suite's `add_multiple_attachments` covers exactly that case, which is why this rule is easy
+/// to believe it covers both.
+///
+/// Verified absent, not assumed: `suite.rs` contains no assertion mentioning
+/// `WRITE_ERROR_ATTACHMENT` or status 510. Its only three matches for "510"/"no payload" are
+/// two comments about the *existing*-stub case and one doc comment saying the schema
+/// declaration is what makes 510 reachable — it never triggers it.
+#[test]
+fn refuses_a_new_attachment_without_payload() {
+    futures::executor::block_on(async {
+        let instance = open(&attachments_schema()).await;
+        let response = instance
+            .bulk_write(
+                vec![BulkWriteRow::insert(with_attachment(
+                    write_data("no-payload", "v"),
+                    "att-1",
+                    "digest-1",
+                    None,
+                ))],
+                TEST_CONTEXT.to_string(),
+            )
+            .await
+            .expect("write");
+        assert_eq!(response.error.len(), 1, "the row must be rejected");
+        assert_eq!(
+            response.error[0].status(),
+            dxdb_storage::WRITE_ERROR_ATTACHMENT,
+            "a new attachment with no payload is a 510 write error"
+        );
+
+        // And it must not have been written: a storage that reports the error but stores the
+        // row anyway leaves a document whose attachment can never be fetched.
+        let found = instance
+            .find_documents_by_id(vec!["no-payload".to_string()], true)
+            .await
+            .expect("find");
+        assert!(found.is_empty(), "the row must not have been written");
+        instance.close().await.expect("close");
+    });
+}
+
+/// A wrong digest on a fetch is an error, not a mismatch to reconcile.
+///
+/// The shared suite does assert this (`getAttachmentData` with `"0".repeat(64)`), so this is a
+/// deliberate second opinion on the one behaviour where "return whatever you have" is a
+/// plausible wrong implementation. Kept because the failure mode is silent.
+#[test]
+fn a_wrong_digest_is_an_error() {
+    use dxdb_storage::RxStorageInstance as _;
+    futures::executor::block_on(async {
+        let instance = open(&attachments_schema()).await;
+        let payload = b"abc";
+        // The testkit's own SHA-256, so the fixture digest is the one the storage computes
+        // rather than a constant that would make this pass for the wrong reason.
+        let digest = dxdb_testkit::suite::sha256_hex(payload);
+        let response = instance
+            .bulk_write(
+                vec![BulkWriteRow::insert(with_attachment(
+                    write_data("with-att", "v"),
+                    "att-1",
+                    &digest,
+                    Some(payload),
+                ))],
+                TEST_CONTEXT.to_string(),
+            )
+            .await
+            .expect("write");
+        assert!(response.is_ok(), "the write must be accepted: {:?}", response.error);
+
+        let error = instance
+            .get_attachment_data("with-att".to_string(), "att-1".to_string(), "0".repeat(64))
+            .await
+            .expect_err("a wrong digest must be an error");
+        assert!(
+            matches!(error, StorageError::MissingAttachment(_)),
+            "a digest mismatch is `MissingAttachment` per `dxdb-storage`'s own doc on that \
+             variant (\"absent, or its digest does not match the request\"); got {error:?}"
+        );
+
+        // The right digest still works, so the assertion above is about the digest and not
+        // about a broken attachment.
+        let bytes = instance
+            .get_attachment_data("with-att".to_string(), "att-1".to_string(), digest)
+            .await
+            .expect("the correct digest must return the payload");
+        assert_eq!(bytes, payload);
+        instance.close().await.expect("close");
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Partial-failure batches
+// ---------------------------------------------------------------------------
+
+/// A batch with some bad rows must write the good ones and report the bad ones.
+///
+/// The shared suite exercises all-good and all-bad batches (every row conflicts, so
+/// `does_not_emit_a_bulk_when_every_row_failed`-shaped cases), but never a **mixture**. Mixed
+/// batches are where "abort the whole batch on any error" hides: that implementation passes
+/// both uniform cases and silently drops three good writes here.
+///
+/// Confirmed absent by search: `suite.rs` has no match for a partial/mixture batch assertion.
+#[test]
+fn a_batch_writes_the_good_rows_and_reports_the_bad_ones() {
+    futures::executor::block_on(async {
+        let instance = open(&pseudo_schema("key")).await;
+        // Two documents already stored, so two of the rows below must conflict.
+        for key in ["existing-a", "existing-b"] {
+            instance
+                .bulk_write(
+                    vec![BulkWriteRow::insert(DocumentWriteData::new(write_data(
+                        key, "old",
+                    )))],
+                    TEST_CONTEXT.to_string(),
+                )
+                .await
+                .expect("seed");
+        }
+
+        let rows = vec![
+            BulkWriteRow::insert(DocumentWriteData::new(write_data("new-1", "v"))),
+            BulkWriteRow::insert(DocumentWriteData::new(write_data("existing-a", "v"))),
+            BulkWriteRow::insert(DocumentWriteData::new(write_data("new-2", "v"))),
+            BulkWriteRow::insert(DocumentWriteData::new(write_data("existing-b", "v"))),
+            BulkWriteRow::insert(DocumentWriteData::new(write_data("new-3", "v"))),
+        ];
+        let response = instance
+            .bulk_write(rows, TEST_CONTEXT.to_string())
+            .await
+            .expect("bulk");
+
+        assert_eq!(response.error.len(), 2, "two rows must conflict");
+        assert_eq!(
+            response.failed_ids(),
+            vec!["existing-a", "existing-b"],
+            "the reported ids must be the failed ones"
+        );
+        // The good rows landed.
+        let found = instance
+            .find_documents_by_id(vec!["new-1".into(), "new-2".into(), "new-3".into()], false)
+            .await
+            .expect("find");
+        assert_eq!(found.len(), 3, "the non-conflicting rows must be written");
+        // And the conflicting ones were not overwritten.
+        let unchanged = instance
+            .find_documents_by_id(vec!["existing-a".into()], false)
+            .await
+            .expect("find");
+        assert_eq!(unchanged[0].get("value"), Some(&json!("old")));
+        instance.close().await.expect("close");
+    });
+}
+
+/// A row with no primary key must be rejected, not stored under an empty id.
+///
+/// Also absent from the shared suite. The failure mode is a document reachable only by
+/// `""`, which every later `find_documents_by_id` treats as a different document.
+#[test]
+fn a_row_without_a_primary_key_is_rejected() {
+    futures::executor::block_on(async {
+        let instance = open(&pseudo_schema("key")).await;
+        let orphan = DocumentData::from_value(json!({
+            "value": "no key",
+            "_deleted": false,
+            "_attachments": {},
+            "_rev": EXAMPLE_REVISION_1,
+            "_meta": { "lwt": now() }
+        }))
+        .expect("valid object");
+        let response = instance
+            .bulk_write(
+                vec![BulkWriteRow::insert(DocumentWriteData::new(orphan))],
+                TEST_CONTEXT.to_string(),
+            )
+            .await
+            .expect("bulk");
+        assert_eq!(response.error.len(), 1);
+        assert!(
+            instance
+                .find_documents_by_id(vec![String::new()], true)
+                .await
+                .expect("find")
+                .is_empty(),
+            "a row with no primary key must not be stored under an empty id"
+        );
+        instance.close().await.expect("close");
+    });
+}
+
+/// A closed instance must refuse a write with `Closed`.
+///
+/// The shared suite asserts `remove()` after `close()` errors and that `close()` after
+/// `remove()` does not, but never that a **write** after close is rejected. A storage that
+/// happily accepts a write on a closed handle would pass everything upstream has.
+#[test]
+fn a_closed_instance_refuses_writes() {
+    futures::executor::block_on(async {
+        let instance = open(&pseudo_schema("key")).await;
+        instance.close().await.expect("close");
+        let error = instance
+            .bulk_write(
+                vec![BulkWriteRow::insert(DocumentWriteData::new(write_data(
+                    "late", "v",
+                )))],
+                TEST_CONTEXT.to_string(),
+            )
+            .await
+            .expect_err("a closed instance must refuse a write");
+        assert!(matches!(error, StorageError::Closed), "got {error:?}");
     });
 }

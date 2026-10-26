@@ -82,9 +82,10 @@ oracles, and when two oracles disagree, deciding which is right means re-reading
 `storage_matrix.rs` also stops meaning anything if a storage passes its own suite and fails
 the shared one.
 
-**Five of its 50 tests assert something the shared suite genuinely cannot, and were kept** in
+**Ten of its 50 tests assert something the shared suite genuinely cannot, and were kept** in
 `crates/storages/dxdb-memory/tests/memory_specific.rs`. Each was checked against `suite.rs` by
-literal search rather than assumed:
+literal search rather than assumed — and the first pass got this wrong, see the correction
+below.
 
 | kept test | why the shared suite misses it |
 | --- | --- |
@@ -93,9 +94,34 @@ literal search rather than assumed:
 | `an_unknown_index_is_an_error` | upstream never plans a query against an index the schema does not declare; an empty result instead of an error is a silently wrong answer |
 | `orders_index_strings_by_code_unit_not_by_bytes` | upstream's sort case is ASCII and its umlaut case is a round-trip check. Neither separates UTF-16 code-unit order from UTF-8 byte order, and that pair (`"\u{FFFF}"` vs an astral char) is the only place a Rust port can silently differ. This is D5's one observable divergence |
 | `schema_versions_do_not_share_state`, `database_names_do_not_share_state` | the shared suite uses a fresh random database name per case, so it never opens two — these assertions pass whether or not the engine keys state correctly |
+| `refuses_a_new_attachment_without_payload` | **added in the correction below** |
+| `a_wrong_digest_is_an_error` | the shared suite *does* assert this; kept as a deliberate second opinion on the one behaviour whose failure mode is silent |
+| `a_batch_writes_the_good_rows_and_reports_the_bad_ones` | **added in the correction below** |
+| `a_row_without_a_primary_key_is_rejected` | **added in the correction below** |
+| `a_closed_instance_refuses_writes` | **added in the correction below** |
 
 Confirmed absent by search, not by impression: `suite.rs` contains zero occurrences of
 `Unsupported`, `UnknownIndex`, `keyCompression`, `encrypted`, or `u{FFFF}`.
+
+#### Correction: the first pass dropped four tests that were real gaps
+
+The first version of this file kept five tests and dropped the rest, on the strength of greps.
+Four of those greps were wrong, and the way they were wrong is worth recording so the next
+person does not repeat it:
+
+- `/510/` matched `suite.rs:1667`, which is `0x510e527f` — **a SHA-256 constant**. It also
+  matched two comments describing the *existing*-stub case. `WRITE_ERROR_ATTACHMENT` appears
+  **zero** times. The shared suite never asserts a 510.
+- `errors[|error.len()` matched the **409** conflict cases, not a mixed batch. `suite.rs` has no
+  mixed-batch assertion at all: it covers all-good and all-bad, and "abort the whole batch on
+  any error" passes both.
+- no match for a write after close; `suite.rs` only asserts `remove()` after `close()`.
+- so `refuses_a_new_attachment_without_payload`, `a_batch_writes_the_good_rows_and_reports_the_bad_ones`,
+  `a_row_without_a_primary_key_is_rejected`, and `a_closed_instance_refuses_writes` are restored.
+
+The lesson is the one this lane's brief already states about upstream behaviour: **a grep for a
+number or a symbol is not evidence that a behaviour is asserted.** Read the assertion, not the
+match.
 
 **A bug in my own new code, caught by the gate:** I wrote `close()` then `remove()` in the two
 isolation tests and got `Closed`. `remove` implies closed, not the reverse — the ordering the
