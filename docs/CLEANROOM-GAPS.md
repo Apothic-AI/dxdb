@@ -834,6 +834,141 @@ it through `make gate-storage`.
 **Would resolve it.** `dxdb-memory` becoming a real storage. Tracked here so the
 obligation is not quietly forgotten when the tests go green against the double.
 
+## B3: `dxdb-worker`
+
+### G-048: a worker is not a thread, so this crate lands on stable
+
+**Question.** PLAN.md 5.2 says Wasm threads need `wasm32-wasip1-threads` or nightly
+`-Z build-std`, because the prebuilt `wasm32-unknown-unknown` std is not compiled with
+atomics. Is `dxdb-worker` therefore blocked on a threads target?
+
+**Public evidence.** CLEANROOM.md 5.7 says "on threads, this crate is the one that needs
+`atomics` + shared memory (PLAN.md 5.2), so it is also where the wasm threading decision
+lands". The MDN pages for `Worker` and `SharedWorker` document separate realms; Node's
+`worker_threads` documents the same; neither shares linear memory by default.
+
+**Decision.** This crate implements **message-passing isolates** and lands on stable
+`wasm32-unknown-unknown`. A browser `Worker`, a `SharedWorker` and a Node `worker_thread`
+each have their own memory and communicate by message passing, so nothing in the
+protocol, handshake, backpressure or supervision needs atomics. Nothing in the crate uses
+`SharedArrayBuffer`, and `make wasm` gates it like any other crate.
+
+The cost is accepted and stated: no zero-copy transfer, so a `query` returning 10 000
+documents copies them, and every call pays a message hop. The benefit the documented
+plugin sells is *where the work runs* — taking CPU load off the main thread — not shared
+memory, so paying a copy to move encryption and index maintenance off the main thread is
+the right trade. A threads design would buy the copy away at the price of nightly-only
+builds and torn-read bugs.
+
+**Risk if wrong.** A caller pushing very large result sets through the boundary sees copy
+cost. That is measurable and is section 8's second target; if it turns out to dominate,
+the answer is a streaming protocol for large results, not shared memory.
+
+**Would resolve it.** Nothing; the model follows from the targets we must support on
+stable.
+
+### G-049: a write interrupted by worker death is a failure mode the storage contract does not have
+
+**Question.** `bulk_write` is per-document atomic inside a storage (PLAN.md 4.2). Across a
+worker boundary, when the worker dies mid-call, the caller cannot know which rows were
+applied. What must the transport do?
+
+**Public evidence.** None, because an in-process `bulk_write` cannot fail this way: the
+call either returns or the process is gone. Upstream's worker plugin documents nothing
+about it.
+
+**Decision.** The transport **never retries a write** after a worker death, and reports a
+distinct kind, `WorkerDiedDuringWrite { context }`, carrying the caller's own context
+string. The correct recovery is for the layer above to re-read the affected documents and
+reconcile, which is `dxdb-core`'s business. A retry would risk applying rows twice, which
+with revisions surfaces as a conflict the user did not cause, or as a silent duplicate
+write for a caller that generates its own revisions.
+
+**Risk if wrong.** A caller that expected transparent retry gets an error it must handle.
+That error is the information it needed: the outcome is genuinely unknown, and pretending
+otherwise is how a duplicate write ships.
+
+**Would resolve it.** Nothing; it is inherent to crossing a process boundary.
+
+### G-050: the heartbeat and call-deadline values are guesses until a device says otherwise
+
+**Question.** Section 3.4 detects a dead worker by exit callback plus heartbeat (5 s
+interval, 15 s timeout) and a hung call by a 30 s per-call deadline. Are those right?
+
+**Public evidence.** None. No public source documents a worker-unresponsive deadline, and
+the plausible range is wide: too short trips on a slow phone under a GC pause, too long
+makes a dead worker look like a slow one.
+
+**Decision.** Those are the defaults, they are configuration, and the spec does not claim
+they are correct. The three-way split they implement (dead / unresponsive / one slow call)
+is the part that matters and is independent of the numbers.
+
+**Risk if wrong.** A too-short heartbeat fails a healthy instance; a too-long one delays
+recovery. Both are visible in the counters this crate exposes (`heartbeats_missed`).
+
+**Would resolve it.** A measurement on a slow device under a forced GC pause, which needs
+a real browser rather than a Rust test.
+
+### G-051: no pre-built worker bundle ships with dxdb
+
+**Question.** Upstream ships ready-made worker files in
+`node_modules/rxdb-premium/dist/workers`, and the docs describe copying one to a
+webserver. Should dxdb?
+
+**Public evidence.** `docs-src/docs/rx-storage-worker.md`, "Pre-build workers". The
+section also says any valid worker file works for both Worker and SharedWorker, because
+`exposeWorkerRxStorage` detects where it runs.
+
+**Decision.** No. dxdb takes a `workerInput` that is either a URL or a constructor, and
+ships no bundle. A Rust crate cannot meaningfully ship a JavaScript bundle, and the
+bundled artefact for a JS consumer belongs to the JS surface crate (`dxdb-js`), not here.
+This is the same separation that keeps the clean-room crates free of platform plumbing.
+
+**Risk if wrong.** A JS user must supply a worker file. That is one line in the surface
+crate's docs and it is where it belongs.
+
+**Would resolve it.** Nothing; the split is deliberate.
+
+### G-052: the change-event buffer coalesces by dropping the oldest, not the newest
+
+**Question.** If a caller's event queue fills, which events should be dropped?
+
+**Public evidence.** The `EventBulk` contract documents that a checkpoint is carried
+"so a consumer can drop a duplicate" and that a live query re-runs on a checkpoint gap,
+but says nothing about which end to drop under pressure.
+
+**Decision.** Drop the **oldest unread** bulks and set a coalesced flag. Rationale: a
+consumer that sees a checkpoint gap recovers by re-running against current state, so a
+dropped old event is recoverable; a dropped *new* event stalls a live query with nothing
+to indicate it should re-read. This is a liveness decision, not a memory decision, and
+the counters expose `events_dropped_backpressure` so it is not silent.
+
+**Risk if wrong.** A consumer that assumed it saw every event in order gets a gap. It is
+told, via the flag and the counter, which is the difference between a coalescing buffer
+and a bug.
+
+**Would resolve it.** Nothing; it follows from what a checkpoint gap already means.
+
+### G-053: the wire protocol is ours, so an upstream worker cannot talk to a dxdb caller
+
+**Question.** Is the message protocol compatible with upstream's worker plugin?
+
+**Public evidence.** Upstream's worker and shared-worker pages describe the
+`exposeWorkerRxStorage` / `getRxStorageWorker` pair and the `workerInput` option. No
+message format is documented, and the runtime that handles it is a paid module.
+
+**Decision.** Not compatible and cannot be made so (G-001, G-002). dxdb defines its own
+request/response protocol with a versioned handshake (section 3.1-3.2). A dxdb caller
+needs a dxdb worker; an upstream worker cannot serve one, and mixing them is a
+`ProtocolMismatch` at the handshake rather than a mysterious hang.
+
+**Risk if wrong.** A user with an existing upstream worker bundle must build a dxdb one.
+That is inevitable given the protocol is undocumented, and the handshake makes the
+failure legible.
+
+**Would resolve it.** A published protocol specification from the vendor, obtained
+properly.
+
 ## Closed by fact, not by decision
 
 ### G-027: which upstream modules are in the Apache-2.0 tree (recorded, not decided)

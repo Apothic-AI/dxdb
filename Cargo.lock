@@ -573,6 +573,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-sharding"
+version = "0.0.0"
+dependencies = [
+ "dxdb-jsstr",
+ "dxdb-memory",
+ "dxdb-query",
+ "dxdb-schema",
+ "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-sqlite"
 version = "0.0.0"
 dependencies = [
