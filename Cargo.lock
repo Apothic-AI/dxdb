@@ -394,7 +394,6 @@ dependencies = [
  "dxdb-filesystem",
  "dxdb-js",
  "dxdb-memory",
- "dxdb-opfs",
  "dxdb-schema",
  "dxdb-sqlite",
  "dxdb-storage",
@@ -547,16 +546,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dxdb-meta-cache"
-version = "0.0.0"
-dependencies = [
- "dxdb-localstorage",
- "dxdb-storage",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "dxdb-node"
 version = "0.0.0"
 dependencies = [
@@ -570,22 +559,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "dxdb-opfs"
+name = "dxdb-plugin-backup"
 version = "0.0.0"
 dependencies = [
+ "dxdb-core",
  "dxdb-json",
- "dxdb-query",
- "dxdb-storage",
- "dxdb-testkit",
- "futures",
- "futures-channel",
- "js-sys",
- "serde",
+ "dxdb-plugin-json-dump",
  "serde_json",
  "thiserror",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]
@@ -593,6 +574,17 @@ name = "dxdb-plugin-cleanup"
 version = "0.0.0"
 dependencies = [
  "dxdb-core",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-json-dump"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-json",
+ "dxdb-schema",
  "serde_json",
  "thiserror",
 ]
@@ -809,21 +801,8 @@ dependencies = [
  "dxdb-filesystem",
  "dxdb-json",
  "dxdb-storage",
- "dxdb-testkit",
- "futures",
  "serde_json",
  "tempfile",
-]
-
-[[package]]
-name = "dxdb-worker"
-version = "0.0.0"
-dependencies = [
- "dxdb-memory",
- "dxdb-storage",
- "futures",
- "serde_json",
- "thiserror",
 ]
 
 [[package]]
