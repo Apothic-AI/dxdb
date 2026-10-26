@@ -559,10 +559,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-backup"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-json",
+ "dxdb-plugin-json-dump",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-cleanup"
 version = "0.0.0"
 dependencies = [
  "dxdb-core",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-json-dump"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-json",
+ "dxdb-schema",
  "serde_json",
  "thiserror",
 ]
