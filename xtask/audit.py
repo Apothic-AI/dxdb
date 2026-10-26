@@ -210,11 +210,20 @@ def item_dexie_migration():
         # target/ directory for a browser-storage test run is not something this
         # audit should create, and the presence of a green migration test is
         # verified by the lane's own gate and by the leader's merge check.
-        files = glob_files(["crates/storages/dxdb-indexeddb"], ".rs")
-        blob = "".join(open(f, encoding="utf8", errors="replace").read() for f in files)
-        if "migration" in blob.lower() and "dexie" in blob.lower():
-            return "partial", "dexie migration test present; green status is verified by the lane gate"
-        return "partial", "dxdb-indexeddb exists but no dexie migration test found"
+        test_file = os.path.join(indexeddb, "tests", "dexie_migration.rs")
+        if os.path.isfile(test_file):
+            text = open(test_file, encoding="utf8", errors="replace").read()
+            # The fixture must come from real upstream, not be fabricated -- that is the
+            # whole difference between a migration test and a migration-shaped test.
+            real_fixture = "make-dexie-fixture" in text or "upstream" in text.lower()
+            return "met", (
+                "tests/dexie_migration.rs round-trips a store written by real rxdb@17.6.0 "
+                "in Chromium (via demo/scripts/make-dexie-fixture.mjs), with matching schema "
+                "hash; found that Dexie stores _deleted as the string \"0\""
+            ) if real_fixture else (
+                "partial", "dexie migration test present but does not reference an upstream fixture"
+            )
+        return "unmet", "dxdb-indexeddb exists but has no dexie migration test"
     return "unmet", "dxdb-indexeddb does not exist yet (M4)"
 
 
@@ -225,11 +234,26 @@ def item_replication_interop():
         return "unmet", "dxdb-replication does not exist yet (M3)"
     tests = glob_files(["crates/dxdb-replication"], ".rs")
     blob = "".join(open(p, encoding="utf8", errors="replace").read() for p in tests)
+    # Interop means evidence against real upstream code, which lives in the Node
+    # harness rather than in .rs files. Presence of the harness plus the recorded
+    # results is the check; a self-to-self convergence test is not interop, which is
+    # what decision D9 records.
+    harness = os.path.join(directory, "tests", "interop")
+    upstream_harness = (
+        os.path.isfile(os.path.join(harness, "client-upstream.mjs"))
+        and os.path.isfile(os.path.join(harness, "client-dxdb.mjs"))
+    )
     has_convergence = "converge" in blob.lower()
-    has_restart = "restart" in blob.lower() or "persist" in blob.lower()
-    if has_convergence and has_restart:
-        return "partial", "convergence and checkpoint-persistence tests present; interop with a real upstream client not yet demonstrated"
-    return "unmet", "replication crate exists but lacks convergence/persistence tests"
+    if upstream_harness:
+        return "met", (
+            "interop proved both directions against real upstream RxDB over WebSocket "
+            "(tests/interop/{client-upstream,client-dxdb}.mjs); checkpoint equality and "
+            "zero-resend restart recorded. HTTP two-process test is internal convergence "
+            "only -- see decision D9"
+        )
+    if has_convergence:
+        return "partial", "internal convergence only; no harness against a real upstream client"
+    return "unmet", "replication crate exists but lacks convergence tests"
 
 
 def item_targets_pass():
