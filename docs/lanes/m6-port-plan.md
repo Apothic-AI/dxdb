@@ -610,20 +610,18 @@ aspirational one. Upstream line counts are measured with
 | 12 | `state` | 577 | `dxdb-plugin-state` | **done** | 26 |
 | 13 | `pipeline` | 497 | `dxdb-plugin-pipeline` | **done** | 18 |
 | 14 | `dev-mode` | 3,088 | `dxdb-plugin-dev-mode` | **done**, see §7.2 | 29 |
-| 15 | `vector` | 37 | `dxdb-plugin-vector` | **not started**, unblocked | — |
-| 16 | `attachments-compression` | 236 | `dxdb-plugin-attachments-compression` | **blocked** (§7.3) | — |
-| 17 | `encryption-crypto-js` | 233 | `dxdb-plugin-encryption` | **blocked** (§7.3) + cipher decision | — |
-| 18 | `validate-ajv` | 70 | `dxdb-plugin-validate` | **not started**, collapse proposed | — |
-| 19 | `validate-ajv-standalone` | 126 | same crate, `precompiled` feature | **not started** | — |
-| 20 | `validate-z-schema` | 58 | — | **proposed omission** (§7.4) | — |
-| 21 | `validate-is-my-json-valid` | 30 | — | **proposed omission** (§7.4) | — |
+| 15 | `vector` | 37 | `dxdb-plugin-vector` | **done** | 25 |
+| 16 | `validate-ajv` + `-standalone` | 70 + 126 | `dxdb-plugin-validate` (+ `precompiled`) | **done**, see §7.4 | 37 |
+| 17 | `attachments-compression` | 236 | `dxdb-plugin-attachments-compression` | **blocked** (§7.3) | — |
+| 18 | `encryption-crypto-js` | 233 | `dxdb-plugin-encryption` | **blocked** (§7.3) + cipher decision | — |
+| 19 | `validate-z-schema` | 58 | — | **omission** (§7.4) | — |
+| 20 | `validate-is-my-json-valid` | 30 | — | **omission** (§7.4) | — |
 
-**14 of 21 done.** The 7 remaining are **4 crates plus 3 omissions**: `vector`,
-`attachments-compression`, `encryption`, `validate` (with its `precompiled` feature), and
-`validate-z-schema` / `validate-is-my-json-valid` / — by the same argument — the second and
-third validator backends.
+**18 of 21 accounted for: 16 built, 2 omitted with reasons.** The only modules still
+unbuilt are `attachments-compression` and `encryption`, both blocked on §7.3. The two
+omitted validator backends are decided, not outstanding.
 
-Total tests across the fourteen crates: **344** (59 in-crate unit tests, 285 integration).
+Total tests across the sixteen crates: **406** (74 in-crate unit tests, 332 integration).
 Counted with `grep -c '#\[test\]'` per crate, not estimated.
 
 ### 7.2 dev-mode: agreeing with the divergence, with a sharper reason
@@ -660,12 +658,12 @@ dyn-compatible. A storage **wrapper** returns `Box<dyn RxStorageInstance>` by de
 no wrapper plugin can exist until lane D adds the `DynRxStorageInstance` twin (PLAN §3.3,
 `dynosaur`).
 
-That single dependency gates **three** of the remaining modules: `key-compression`'s wrapper
-(the transformation layer is written and tested; only the `dyn` plumbing is missing),
-`encryption`, and `attachments-compression`. When the twin lands those three become
-mechanical. Until then the honest statement is "18 of 21 reachable, 3 blocked on one trait".
+That single dependency gates **two** of the two remaining modules: `encryption` and
+`attachments-compression`, plus `key-compression`'s wrapper (whose transformation layer is
+written and tested — only the `dyn` plumbing is missing). When the twin lands all three are
+mechanical. Until then the honest statement is "19 of 21 reachable, 2 blocked on one trait".
 
-### 7.4 The validator question, answered
+### 7.4 The validator question, answered and built
 
 The four `validate-*` plugins differ only in **which JS library compiles the JSON Schema**:
 `ajv` (+`ajv-formats`), ajv precompiled, `is-my-json-valid`, `z-schema`. There is one engine
@@ -674,7 +672,8 @@ here (`jsonschema` 0.60.1, PLAN §9), already used by `dxdb-schema`.
 So porting all four mechanically would produce four crates that call the same function.
 Instead:
 
-- **`validate`** — one crate, porting `wrappedValidateStorageFactory`
+- **`validate`** — **built** (`crates/plugins/validate`, 37 tests). One crate, porting
+  `wrappedValidateStorageFactory`
   (`plugin-helpers.ts:55`). That has behaviour worth having independent of the engine: it
   strips read-only and meta properties before validating, and reports a failed write as a
   `RxStorageWriteError` with status 422 rather than storing bad data. That is *how a storage
@@ -691,10 +690,11 @@ Instead:
 
 | Order | Crate | Blocked on | Why here |
 | ---: | --- | --- | --- |
-| 1 | `vector` | nothing | 37 lines, three distance functions, depends only on `dxdb-jsnum`. Do it any time. |
-| 2 | `validate` (+ `precompiled`) | nothing (needs `dxdb-storage` write-error shape) | The 422 reporting contract is real behaviour and is cross-cutting. |
-| 3 | `attachments-compression` | `DynRxStorageInstance` + lane E's attachment data model | Shares the wrapper infrastructure with `encryption`; do them together. |
-| 4 | `encryption` | `DynRxStorageInstance` + the cipher decision (§6.2) | Same wrapper. The cipher is a recorded parity break, not a port. |
+| 1 | `attachments-compression` | `DynRxStorageInstance` + lane E's attachment data model | Shares the wrapper infrastructure with `encryption`; do them together. |
+| 2 | `encryption` | `DynRxStorageInstance` + the cipher decision (§6.2) | Same wrapper. The cipher is a recorded parity break, not a port. |
+
+`vector` and `validate` are done, so the queue is down to the two wrapper crates and both
+wait on the same trait.
 
 Order 3 and 4 are together because they are the same kind of crate — a `RxStorageInstance`
 wrapper — and building the wrapper plumbing twice would be the waste. `key-compression`'s
