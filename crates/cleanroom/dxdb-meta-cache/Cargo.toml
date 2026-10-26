@@ -1,0 +1,22 @@
+[package]
+name = "dxdb-meta-cache"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb clean-room metadata cache: a validated snapshot of collection metadata for fast startup"
+
+[dependencies]
+dxdb-storage = { path = "../../dxdb-storage" }
+# The snapshot store is `localStorage`, whose seam is already defined by the
+# localstorage storage's `Kv` trait. Reusing it rather than declaring a second
+# string-keyed store trait means a browser build wires the same object to both.
+dxdb-localstorage = { path = "../../storages/dxdb-localstorage" }
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# The real KV backend, used by every test. `MemoryKv` lives in the localstorage
+# crate rather than here so the cache cannot accidentally grow a second one.
+dxdb-localstorage = { path = "../../storages/dxdb-localstorage" }
