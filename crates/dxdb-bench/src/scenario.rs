@@ -244,6 +244,72 @@ impl OpTimings {
     }
 }
 
+/// The sorted full-scan query upstream runs: selector `{}`, sort `(var2, var1)`.
+///
+/// Built here rather than in the memory bench because the selector and sort are part of
+/// the shared mix: a bench that chose a different sort would not be measuring the same
+/// operation.
+pub fn sorted_query() -> dxdb_storage::PreparedQuery {
+    use dxdb_storage::{MangoQuery, PlanKey, QueryPlan, SortDirection, SortPart};
+    let query = MangoQuery {
+        selector: serde_json::json!({}),
+        sort: vec![
+            SortPart {
+                field: "var2".into(),
+                direction: SortDirection::Asc,
+            },
+            SortPart {
+                field: "var1".into(),
+                direction: SortDirection::Asc,
+            },
+            SortPart {
+                field: "id".into(),
+                direction: SortDirection::Asc,
+            },
+        ],
+        skip: 0,
+        limit: None,
+        index: None,
+    };
+    // A plan that promises nothing: the storage must filter and sort. Claiming
+    // `sort_satisfied_by_index` would be a lie a scan cannot honour.
+    let plan = QueryPlan {
+        index: vec!["_deleted".into(), "var2".into(), "id".into()],
+        sort_satisfied_by_index: false,
+        selector_satisfied_by_index: false,
+        start_keys: vec![PlanKey::index_min()],
+        end_keys: vec![PlanKey::index_max()],
+        inclusive_start: true,
+        inclusive_end: true,
+    };
+    dxdb_storage::PreparedQuery::new(query, plan)
+}
+
+/// A single-field equality selector query, `{ <field>: <value> }`.
+pub fn selector_query(field: &str, value: u64) -> dxdb_storage::PreparedQuery {
+    use dxdb_storage::{MangoQuery, PlanKey, QueryPlan, SortPart};
+    let query = MangoQuery {
+        selector: serde_json::json!({ field: { "$eq": value } }),
+        sort: vec![SortPart {
+            field: "id".into(),
+            direction: dxdb_storage::SortDirection::Asc,
+        }],
+        skip: 0,
+        limit: None,
+        index: None,
+    };
+    let plan = QueryPlan {
+        index: vec!["_deleted".into(), field.into(), "id".into()],
+        sort_satisfied_by_index: false,
+        selector_satisfied_by_index: false,
+        start_keys: vec![PlanKey::index_min()],
+        end_keys: vec![PlanKey::index_max()],
+        inclusive_start: true,
+        inclusive_end: true,
+    };
+    dxdb_storage::PreparedQuery::new(query, plan)
+}
+
 /// The scenario parameters. Defaults are upstream's.
 #[derive(Clone, Copy, Debug)]
 pub struct Scenario {

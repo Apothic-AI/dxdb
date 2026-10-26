@@ -130,8 +130,20 @@ REMOTE_DIR=""
 remote_run() { # remote_run <bin> <label>
   local bin=$1 label=$2
   local remote_out="/data/bench-results/$label.json"
+  # Each bench bin declares a `required-features` gate (so a `--lib` build for the wasm
+  # size fixtures does not have to compile every bench). Map bin -> feature here rather
+  # than making the bins ungated: the gate is what keeps the size-fixture build small.
+  local feature
+  case "$bin" in
+    bench-filesystem) feature=bench-filesystem ;;
+    bench-sqlite)     feature=bench-sqlite ;;
+    bench-memory)     feature=bench-memory ;;
+    *)                feature="" ;;
+  esac
+  local feat_flag=""
+  [ -n "$feature" ] && feat_flag="--features $feature"
   local cmd="cd $REMOTE_BUILD_DIR && \\
-/root/.cargo/bin/cargo run --release --package dxdb-bench --bin $bin -- --runs $RUNS --out $remote_out"
+/root/.cargo/bin/cargo run --release --package dxdb-bench $feat_flag --bin $bin -- --runs $RUNS --out $remote_out"
 
   echo "--- $bin (on the box) ---"
   # Sync the current tree first: /data/builds/<hash> may hold an older revision, and
@@ -162,9 +174,10 @@ remote_run() { # remote_run <bin> <label>
 }
 
 case "$ONLY" in
-  "")        remote_run bench-filesystem filesystem; remote_run bench-sqlite sqlite ;;
+  "")        remote_run bench-filesystem filesystem; remote_run bench-sqlite sqlite; remote_run bench-memory memory ;;
   filesystem) remote_run bench-filesystem filesystem ;;
   sqlite)     remote_run bench-sqlite sqlite ;;
+  memory)     remote_run bench-memory memory ;;
   *) echo "unknown --only value: $ONLY" >&2; exit 2 ;;
 esac
 
