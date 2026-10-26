@@ -72,3 +72,4 @@ features = ["sahpool"]
 [target.'cfg(not(target_family = "wasm"))'.dependencies.libsqlite3-sys]
 version = "0.39"
 features = ["bundled"]
+

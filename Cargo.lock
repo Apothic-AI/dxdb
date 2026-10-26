@@ -351,6 +351,17 @@ name = "dxdb-attachments"
 version = "0.0.0"
 
 [[package]]
+name = "dxdb-bench"
+version = "0.0.0"
+dependencies = [
+ "dxdb-filesystem",
+ "dxdb-sqlite",
+ "redb",
+ "rusqlite",
+ "serde_json",
+]
+
+[[package]]
 name = "dxdb-core"
 version = "0.0.0"
 dependencies = [
