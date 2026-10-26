@@ -1,0 +1,18 @@
+[package]
+name = "dxdb-plugin-backup"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: incremental per-document folder backup (RxDB src/plugins/backup)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-core = { path = "../../dxdb-core" }
+dxdb-plugin-json-dump = { path = "../json-dump" }
+
+[dev-dependencies]
+serde_json.workspace = true
+dxdb-json = { path = "../../dxdb-json" }
