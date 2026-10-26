@@ -38,7 +38,27 @@
 //! is a leader-owned decision surface: it must be recorded in PLAN.md 5.3 before
 //! it is adopted rather than changed here.
 
-#![forbid(unsafe_code)]
+// `deny`, not `forbid`, and only because of the napi addon.
+//
+// `#[napi]` expands to code wrapped in `#[allow(unsafe_code)]`, and Rust refuses to
+// let an inner `allow` override an outer `forbid` (E0453) — so `forbid` makes the
+// addon feature unbuildable. This is exactly the exception the lane brief allows:
+// "No `unsafe` beyond what the bindings require, and each use gets a comment saying
+// why it is unavoidable and what the invariant is."
+//
+// The invariant: **no `unsafe` block is written by us.** Every `unsafe` in this
+// crate is inside code napi-derive generates for the `node-addon` feature, whose
+// job is to turn Rust values into N-API handles across the addon boundary. With the
+// feature off (the default, and what `make check`/`clippy`/`test`/`wasm` use) this
+// crate contains none at all. `deny` still fails the build on any `unsafe` we
+// write ourselves, so the only way to add one is to change this line on purpose.
+#![deny(unsafe_code)]
+
+// The napi addon, off by default: enabling it makes the crate's test binary
+// require Node's N-API symbols, which only exist inside a Node process. See the
+// module docs and `xtask/m5-conformance.sh`, which builds and loads it.
+#[cfg(feature = "node-addon")]
+pub mod napi_surface;
 
 /// The wire shapes shared by the napi path and the WASI path.
 ///
