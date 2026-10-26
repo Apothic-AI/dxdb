@@ -431,7 +431,25 @@ impl<B: BackingStore + 'static> RxStorageInstance for IndexedDbInstance<B> {
         // The batched read: keys in `[lower, upper)`, `batchSize` at a time, via
         // `getAll`. This is the brief's "batched cursor reads with getAll over
         // explicit key ranges".
-        let start = index_prefix(&name, &lower, plan.inclusive_start);
+        // The plan's start keys are `[lwt, primary]`; the primary is the tail of the
+        // exclusive bound. Taken from the storage ABI's plan rather than from the
+        // encoded string, because the encoded string is a fixed-width concatenation and
+        // the primary is not recoverable from it without the schema.
+        let checkpoint_primary: Option<String> =
+            prepared
+                .query_plan
+                .start_keys
+                .last()
+                .and_then(|key| match key {
+                    dxdb_storage::PlanKey::String(text) => Some(text.clone()),
+                    _ => None,
+                });
+        let start = index_cursor(
+            &name,
+            &lower,
+            plan.inclusive_start,
+            checkpoint_primary.as_deref(),
+        );
         let total_needed = prepared.query.skip_plus_limit();
         let mut primary_keys: Vec<String> = Vec::new();
         let mut cursor = start;
@@ -620,7 +638,7 @@ impl<B: BackingStore + 'static> RxStorageInstance for IndexedDbInstance<B> {
         )?;
 
         let mut victims: Vec<String> = Vec::new();
-        let mut cursor = index_prefix(&name, &lower, false);
+        let mut cursor = index_cursor(&name, &lower, false, None);
         'outer: loop {
             let batch = self
                 .backing
@@ -717,17 +735,54 @@ fn key_index_string(key: &str) -> Option<String> {
     parts.next().map(str::to_string)
 }
 
-/// The prefix a batched read starts from.
+/// The cursor a batched read starts from.
 ///
-/// `inclusive` decides whether the lower bound itself is included. The `\u{0}`
-/// suffix is a trick that works because IDB compares strings by code unit: appending
-/// the lowest code unit makes a key strictly greater than the bound's own prefix
-/// while still sorting before every real key at that bound.
-fn index_prefix(name: &str, lower: &str, inclusive: bool) -> String {
+/// # Why the cursor must extend to the *whole* checkpoint key
+///
+/// Index row keys are `"{indexName}|{encodedIndexString}|{primary}"`. For an inclusive
+/// lower bound, `"{name}|{lower}"` is correct: every key with that prefix sorts at or
+/// after it.
+///
+/// For an **exclusive** bound the exclusion has to be by the `(encoded, primary)`
+/// *pair*, and the two obvious encodings are both wrong:
+///
+/// * `"{name}|{lower}\u{0}"` sorts *before* the checkpoint row rather than after it.
+///   `\u{0}` is below `'|'`, so the cursor lands before `"{lower}|k1"` and the
+///   checkpoint document is returned again — which was the real defect: every poll
+///   re-delivered the document it had already seen.
+/// * `"{name}|{lower}|\u{FFFF}"` fixes the common case but breaks when a primary value
+///   contains an astral character: in UTF-8 (which is what Rust compares) `U+1D11E`
+///   encodes above `U+FFFF`, so a checkpoint whose id is `"\u{1D11E}"` would be
+///   re-included.
+///
+/// The exact form appends to the *full* checkpoint key: `"{name}|{lower}|{primary}\u{0}"`.
+/// Because there is exactly one index row per `(index name, encoded string, primary)`,
+/// that cursor sorts immediately after the checkpoint's own row and before every other
+/// row — no code-unit reasoning required, and it works for any primary value.
+///
+/// # Why this is not "skip everything at this lwt"
+///
+/// The bound stays `(lwt, primary)`. A second document sharing the checkpoint's `lwt`
+/// but with a larger primary value forms a different key that sorts after the cursor,
+/// so it is still returned. `lwt > checkpoint.lwt` would have skipped it, which is
+/// exactly why the pair exists.
+fn index_cursor(
+    name: &str,
+    lower: &str,
+    inclusive: bool,
+    checkpoint_primary: Option<&str>,
+) -> String {
     if inclusive {
-        format!("{name}|{lower}")
-    } else {
-        format!("{name}|{lower}\u{0}")
+        return format!("{name}|{lower}");
+    }
+    match checkpoint_primary {
+        // The full key plus a character below every other, so only that one row is
+        // excluded.
+        Some(primary) => format!("{name}|{lower}|{primary}\u{0}"),
+        // No primary in the plan (an exclusive bound on a non-unique prefix). Fall back
+        // to just after the encoded string; `\u{10FFFF}` is above every scalar value in
+        // UTF-8, so this excludes the whole prefix run.
+        None => format!("{name}|{lower}|\u{10FFFF}"),
     }
 }
 
@@ -841,4 +896,33 @@ impl Future for Pending {
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
         Poll::Pending
     }
+}
+
+/// Test hook: the encoded bound string for a set of plan keys.
+///
+/// Exposed so the change-feed tests can assert that the lower bound equals the
+/// checkpoint document's own index string. That equality is the property an exclusive
+/// cursor depends on, and it cannot be checked from outside the crate otherwise.
+pub fn encoder_bound_for_test(
+    schema: &Value,
+    index: &[String],
+    keys: &[dxdb_storage::PlanKey],
+    lower: bool,
+) -> Result<String, StorageError> {
+    bound_string(
+        schema,
+        index,
+        keys,
+        if lower { Side::Lower } else { Side::Upper },
+    )
+}
+
+/// Test hook: one document's index string on an index.
+pub fn encoded_index_string_for_test(
+    schema: &Value,
+    index: &[String],
+    document: &DocumentData,
+) -> Result<String, StorageError> {
+    get_indexable_string(schema, index, document.as_value())
+        .map_err(|e| StorageError::InvalidSchema(format!("index string: {e}")))
 }
