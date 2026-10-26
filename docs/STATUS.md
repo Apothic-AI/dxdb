@@ -152,11 +152,11 @@ not parity gaps:
 | Milestone | Gate (command) | State |
 | --- | --- | --- |
 | M0 | `make check` + `make test` green on host and `wasm32-unknown-unknown` | **met** |
-| M1 | `make test -p dxdb-schema -p dxdb-query` incl. ported rx-query/rx-schema suites + fuzz vs JS oracle | **in progress** (60 tests; 900-case oracle green) |
+| M1 | `make test -p dxdb-schema -p dxdb-query` incl. ported rx-query/rx-schema suites + fuzz vs JS oracle | **met** (900-case index-string oracle, numeric-boundary corpus, selector-matching family, operator-interaction fuzz, proptest consistency) |
 | M2 | `make test -p dxdb-core` incl. full rx-storage-implementations + query-correctness suites on dxdb-memory | **met** (core + reactivity + memory; 105 suites green on master) |
 | M3 | `make test -p dxdb-replication` incl. ported replication-base-test-suite + two-process convergence | **met** (interop proved over WebSocket both directions; see D9 on why not HTTP) |
-| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | **in progress** (adapter green in 3 engines; indexeddb 49/49 conformance; size budgets partial) |
-| M5 | conformance under Wasmtime from .wasm component with preopen; under Node from napi and WASI builds | **in progress** (storage drivers landed; component run pending) |
-| M6 | full ported open-source plugin test corpus green | not started |
-| M7 | clean-room specs + implementations, invariants-first tests green, gaps register published | **in progress** (B0+B1 done; 3 B2 specs written) |
+| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | **in progress** (adapter green in 3 engines; indexeddb and opfs at 49/49 natively; budgets measured with the engine linked; in-browser suite run outstanding) |
+| M5 | conformance under Wasmtime from .wasm component with preopen; under Node from napi and WASI builds | **met** (48/48 on all five targets: native, wasmtime-wasip1, wasmtime-wasip2 component, node-wasi, node-napi) |
+| M6 | full ported open-source plugin test corpus green | **in progress** (13 of 21 portable plugin crates; remaining list in docs/lanes/m6-port-plan.md) |
+| M7 | clean-room specs + implementations, invariants-first tests green, gaps register published | **in progress** (6 of 9 clean-room crates: logger, encryption, sharding, meta-cache, worker; specs written for all) |
 
