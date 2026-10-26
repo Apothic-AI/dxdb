@@ -460,9 +460,11 @@ fn compress_schema_with_table(schema: &Value, table: &CompressionTable) -> Resul
                 }
                 out.insert("primaryKey".to_string(), Value::Object(rewritten));
             }
-            Some(other) => return Err(Error::InvalidSchema(format!(
+            Some(other) => {
+                return Err(Error::InvalidSchema(format!(
                 "primaryKey must be a string or a {{key, fields, separator}} object, got {other}"
-            ))),
+            )))
+            }
             None => return Err(Error::NoPrimaryKey("primaryKey is absent".to_string())),
         }
 

@@ -1,0 +1,17 @@
+[package]
+name = "dxdb-plugin-state"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: an observable, multi-instance-safe state store (RxDB src/plugins/state)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-core = { path = "../../dxdb-core" }
+dxdb-schema = { path = "../../dxdb-schema" }
+
+[dev-dependencies]
+serde_json.workspace = true

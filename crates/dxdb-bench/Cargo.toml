@@ -1,0 +1,106 @@
+[package]
+name = "dxdb-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "dxdb storage benchmarks: one shared scenario, one binary per storage, a JSON artifact per run"
+
+[features]
+# Which storage a size fixture links in. PLAN.md 5.3 defines four budgets against
+# `dxdb-js` plus one storage each; these features select the storage so one crate can
+# produce all of them. Empty by default, so building the native benches does not pull a
+# wasm-only dependency tree.
+default = []
+
+# Enables the cdylib artifact used for size measurement. Separate from the storage
+# features because building the lib for measurement is a different job from building the
+# native bench binaries.
+wasm-size-fixtures = ["dep:dxdb-js", "dep:wasm-bindgen"]
+
+# Which native bench binaries are buildable. Off by default so a `--lib` build for the
+# wasm size fixtures does not need to compile the SQLite/memory bench binaries, which
+# reference storages that are optional dependencies of *those features*.
+bench-filesystem = []
+bench-sqlite = ["dep:dxdb-sqlite"]
+bench-memory = ["dep:dxdb-memory"]
+# The measuring tool itself, so `--features wasm-size --bin wasm-size` works without
+# also pulling a storage.
+wasm-size = ["dep:brotli"]
+
+# One feature per budget row. `--features memory-bundle` links dxdb-memory, etc.
+memory-bundle = ["wasm-size-fixtures", "dep:dxdb-memory"]
+sqlite-bundle = ["wasm-size-fixtures", "dep:dxdb-sqlite"]
+
+# The OPFS bundle. `dxdb-opfs` is wasm32-only by construction (web-sys), which is fine:
+# this feature is only ever built for `wasm32-unknown-unknown`.
+opfs-bundle = ["wasm-size-fixtures", "dep:dxdb-opfs"]
+
+[dependencies]
+dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
+dxdb-sqlite = { path = "../storages/dxdb-sqlite", optional = true }
+dxdb-memory = { path = "../storages/dxdb-memory", optional = true }
+# The wasm size-budget fixtures need `dxdb-js`'s wasm-bindgen surface. Optional so the
+# native benches do not pay for a wasm-only dependency tree.
+dxdb-js = { path = "../dxdb-js", optional = true }
+dxdb-opfs = { path = "../storages/dxdb-opfs", optional = true }
+dxdb-storage = { path = "../dxdb-storage" }
+dxdb-schema = { path = "../dxdb-schema" }
+futures.workspace = true
+# brotli for the wasm size budgets. Quality 11 is what PLAN.md 5.3 defines them against.
+brotli = { version = "8", optional = true }
+# The size fixtures call through wasm-bindgen, so the artifact has the same binding
+# surface the real bundle does.
+wasm-bindgen = { version = "=0.2.129", optional = true }
+rusqlite = "0.41"
+redb = { version = "4.4.0", features = ["experimental-multiprocess"] }
+serde_json.workspace = true
+
+# The benchmark binaries.
+#
+# A separate crate rather than `benches/` or a `[[bin]]` inside each storage, for a
+# reason that matters: the shared scenario must be defined exactly once (PLAN.md 7.5
+# -- a number from a different operation mix is comparable to nothing), and the
+# alternative was making `dxdb-sqlite` depend on `dxdb-filesystem` purely to reuse a
+# test helper, which would be a wrong dependency in the shipping graph.
+#
+# `cargo bench` proper needs the unstable bench harness; these are plain release
+# binaries that emit the JSON artifact docs/BENCHMARKS.md records, which CI can diff.
+[[bin]]
+name = "bench-filesystem"
+path = "src/bin/bench-filesystem.rs"
+required-features = ["bench-filesystem"]
+
+[[bin]]
+name = "bench-sqlite"
+path = "src/bin/bench-sqlite.rs"
+required-features = ["bench-sqlite"]
+
+# The reference implementation. Measured through the real RxStorageInstance trait rather
+# than a driver API, so its numbers include the contract's own overhead -- recorded as a
+# separate axis in BENCHMARKS.md rather than in the same column.
+[[bin]]
+name = "bench-memory"
+path = "src/bin/bench-memory.rs"
+required-features = ["bench-memory"]
+
+# Measures a built wasm artifact against its brotli budget (PLAN.md 5.3).
+[[bin]]
+name = "wasm-size"
+path = "src/bin/wasm-size.rs"
+required-features = ["wasm-size"]
+
+# The wasm size-budget fixtures (PLAN.md 5.3).
+#
+# Each is a `cdylib` for `wasm32-unknown-unknown` that links `dxdb-js` plus one storage,
+# which is exactly what the budget rows describe. They live here rather than in
+# `crates/dxdb-js` because that crate belongs to another lane and the fixtures exist to
+# measure *combinations*, not to be dxdb-js's own artifact.
+[lib]
+name = "dxdb_bench"
+path = "src/lib.rs"
+# `cdylib` only when measuring: it is the artifact the size budgets are taken from.
+# `rlib` always, because the native bench binaries import the scenario module.
+crate-type = ["rlib", "cdylib"]

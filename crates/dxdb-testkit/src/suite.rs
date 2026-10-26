@@ -40,10 +40,7 @@ use dxdb_storage::{
 
 use crate::fixtures::objects::{EXAMPLE_REVISION_1, EXAMPLE_REVISION_2, EXAMPLE_REVISION_3};
 use crate::fixtures::write::{insert_row, test_doc_write_data, update_row};
-use crate::harness::{
-    build_correctness_query, build_prepared_query, describe, fill_with_default_settings,
-    ids, Harness, InstanceSpec,
-};
+use crate::harness::{describe, fill_with_default_settings, ids, Harness, InstanceSpec};
 
 /// The context string every write in the ported suite passes, matching upstream's
 /// `testContext`.
@@ -60,14 +57,66 @@ async fn open_test_doc<S: RxStorage>(storage: &S) -> (Harness, InstanceSpec) {
     (harness, spec)
 }
 
-/// A fixed `lwt` distinct per document, so a test never depends on the clock.
+/// An `lwt` that is *recent*, *ordered*, and **never in the future**.
+///
+/// Three properties, all load-bearing, and getting the third one wrong twice is why this
+/// has such a long comment:
+///
+/// * **Ordered and distinct**, so a case asserting `(_meta.lwt, primary)` order or that a
+///   checkpoint advances has something to assert. `lwt(2) > lwt(1)`.
+/// * **Recent**, so a retention assertion is about retention. The first version used the
+///   constant `1_700_000_000_000`; that is 2023-11-14, so every fixture tombstone was
+///   1,076 days old and `cleanup(1000 * 60 * 6)` — a six-minute window — correctly purged
+///   it. Three cases failed against a scaffold that was right.
+/// * **Not in the future.** The second version used `base + n`, where `base` is `now()`.
+///   With `n` up to a few hundred that puts `lwt` milliseconds *ahead* of the clock, and
+///   `cleanup(0)` — whose cutoff is exactly `now()` — then correctly refuses to purge
+///   them, because a tombstone cannot be aged out before it was written. That failed two
+///   different cases, again against a correct scaffold.
+///
+/// So every `lwt` is anchored to a base that is a few seconds in the **past**, and `n`
+/// ascends from there: `lwt(1) = base + 1`, `lwt(2) = base + 2`, and so on. Ascending, so
+/// `lwt(2) > lwt(1)` as every ordering and checkpoint assertion expects; anchored in the
+/// past by enough headroom that even a few hundred distinct documents stay behind `now()`.
 fn lwt(n: u64) -> f64 {
-    // Start at HOUR_MS-ish so it is clearly a plausible unix-millisecond value, and
-    // step by one per document. Fixed rather than drawn from `now()` because a
-    // conformance case that varies its own inputs is a case that fails
-    // intermittently.
-    1_700_000_000_000.0 + n as f64
+    base_lwt() + n as f64
 }
+
+/// The fixture `lwt` base, exposed so a test can assert it is near the clock.
+///
+/// Public because the assertion that matters — "the fixture is recent enough that a
+/// retention window admits it" — is a property of this number, and duplicating the number
+/// in a test is how the original bug survived review.
+pub fn fixture_lwt_base() -> f64 {
+    base_lwt()
+}
+
+/// The `lwt` base for one process: `now()`, floored to a whole millisecond, minus a
+/// one-second margin, resolved once.
+///
+/// Once per process, so two cases never share a base that moved between them and a case
+/// that writes `lwt(1)` then reads it back sees the same number.
+///
+/// The one-second margin exists so that `lwt(0)` — the newest fixture document — is
+/// comfortably in the past even if the process runs for a while before a `cleanup` call.
+/// Without it, a long test run could put `now()` *before* `base` for a case late in the
+/// binary, which is the future-dated bug in a subtler form. A second is far below any
+/// retention window a case uses (the smallest is zero, and its cutoff is `now()`, which is
+/// still later than `base`), so it costs nothing.
+fn base_lwt() -> f64 {
+    use std::sync::OnceLock;
+    static BASE: OnceLock<f64> = OnceLock::new();
+    *BASE.get_or_init(|| dxdb_storage::now().floor() - FIXTURE_LWT_HEADROOM_MS)
+}
+
+/// How far in the past the fixture `lwt` base sits.
+///
+/// Large enough that a case may write a few hundred ascending `lwt`s (`lwt(500)`) and still
+/// be behind `now()`, small enough that the fixture is unambiguously *recent* for any
+/// retention window a case uses. One minute satisfies both: the largest `n` in the suite is
+/// under a thousand, so the newest fixture document is at most a second past the base and
+/// still ~59 seconds before now.
+const FIXTURE_LWT_HEADROOM_MS: f64 = 60_000.0;
 
 // ---------------------------------------------------------------------------
 // creation
@@ -255,11 +304,7 @@ pub async fn deleted_not_found_without_with_deleted<S: RxStorage>(storage: &S) {
     );
 
     let with = harness.find(&["foobar"], true).await;
-    assert_eq!(
-        with.len(),
-        1,
-        "with_deleted=true must return the tombstone"
-    );
+    assert_eq!(with.len(), 1, "with_deleted=true must return the tombstone");
     assert!(
         with[0].is_deleted(),
         "the returned document must be marked deleted"
@@ -297,8 +342,7 @@ pub async fn cannot_overwrite_deleted_without_previous<S: RxStorage>(storage: &S
         .await;
 
     // 1. An insert with no `previous` over a tombstone.
-    let as_insert =
-        test_doc_write_data("foobar", "barfoo3", lwt(3), Map::new());
+    let as_insert = test_doc_write_data("foobar", "barfoo3", lwt(3), Map::new());
     let response = harness.write(vec![insert_row(as_insert)]).await;
     assert_eq!(
         response.error.len(),
@@ -472,9 +516,7 @@ pub async fn write_only_meta_fields_changed<S: RxStorage>(storage: &S) {
             Value::String(EXAMPLE_REVISION_3.to_string()),
         )]),
     );
-    harness
-        .write_ok(vec![update_row(meta_only, third)])
-        .await;
+    harness.write_ok(vec![update_row(meta_only, third)]).await;
     let found = harness.find(&["foobar"], false).await;
     let height = dxdb_storage::get_height_of_revision(found[0].rev().expect("rev"));
     assert_eq!(height, 3, "the third write must be at revision height 3");
@@ -741,10 +783,8 @@ pub async fn query_find_all<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(rows).await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }));
     let found = harness.query_ids(prepared).await;
     assert_eq!(
         found, expected,
@@ -774,10 +814,8 @@ pub async fn query_sorts_correctly<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(rows).await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }));
     let found = harness.query_ids(prepared).await;
     assert_eq!(
         found,
@@ -787,10 +825,8 @@ pub async fn query_sorts_correctly<S: RxStorage>(storage: &S) {
 
     // And descending, which upstream notes no storage has an index for: the storage
     // must re-sort.
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "desc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "desc" }] }));
     let found = harness.query_ids(prepared).await;
     assert_eq!(
         found,
@@ -831,13 +867,10 @@ pub async fn query_finds_deleted_documents<S: RxStorage>(storage: &S) {
         .write_ok(vec![update_row(doomed.clone(), tombstone)])
         .await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({
-            "selector": { "_deleted": true },
-            "sort": [{ "key": "asc" }],
-        }),
-        &harness.primary_path,
-    );
+    let prepared = harness.prepare(&serde_json::json!({
+        "selector": { "_deleted": true },
+        "sort": [{ "key": "asc" }],
+    }));
     let found = harness.query_ids(prepared).await;
     assert_eq!(
         found,
@@ -846,13 +879,10 @@ pub async fn query_finds_deleted_documents<S: RxStorage>(storage: &S) {
     );
 
     // And the same query for live documents must exclude it.
-    let prepared = build_prepared_query(
-        &serde_json::json!({
-            "selector": { "_deleted": false },
-            "sort": [{ "key": "asc" }],
-        }),
-        &harness.primary_path,
-    );
+    let prepared = harness.prepare(&serde_json::json!({
+        "selector": { "_deleted": false },
+        "sort": [{ "key": "asc" }],
+    }));
     let found = harness.query_ids(prepared).await;
     assert_eq!(
         found,
@@ -884,10 +914,8 @@ pub async fn query_deterministic_order<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(rows).await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "value": "asc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "value": "asc" }] }));
     let first = harness.query_ids(prepared.clone()).await;
     assert_eq!(
         first,
@@ -924,15 +952,12 @@ pub async fn query_skip_limit_non_indexed_sort<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(rows).await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({
-            "selector": {},
-            "sort": [{ "value": "asc" }],
-            "skip": 5,
-            "limit": 5,
-        }),
-        &harness.primary_path,
-    );
+    let prepared = harness.prepare(&serde_json::json!({
+        "selector": {},
+        "sort": [{ "value": "asc" }],
+        "skip": 5,
+        "limit": 5,
+    }));
     let found = harness.query_ids(prepared).await;
     // `value` ascending is v05..v09, whose keys are k14..k10.
     assert_eq!(
@@ -959,14 +984,14 @@ pub async fn query_over_nested_object<S: RxStorage>(storage: &S) {
         .expect("create_storage_instance failed");
 
     let mut rows = Vec::new();
-    for (n, (id, ted)) in [("a", "one"), ("b", "two"), ("c", "one")].iter().enumerate() {
+    for (n, (id, ted)) in [("a", "one"), ("b", "two"), ("c", "one")]
+        .iter()
+        .enumerate()
+    {
         rows.push(insert_row(crate::fixtures::write::write_data_with(
             Map::from_iter([
                 ("id".to_string(), Value::String((*id).to_string())),
-                (
-                    "nes".to_string(),
-                    serde_json::json!({ "ted": *ted }),
-                ),
+                ("nes".to_string(), serde_json::json!({ "ted": *ted })),
             ]),
             lwt(n as u64 + 1),
             Map::new(),
@@ -974,13 +999,10 @@ pub async fn query_over_nested_object<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(rows).await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({
-            "selector": { "nes.ted": "one" },
-            "sort": [{ "id": "asc" }],
-        }),
-        &harness.primary_path,
-    );
+    let prepared = harness.prepare(&serde_json::json!({
+        "selector": { "nes.ted": "one" },
+        "sort": [{ "id": "asc" }],
+    }));
     let found = harness.query_ids(prepared).await;
     assert_eq!(
         found,
@@ -1009,10 +1031,8 @@ pub async fn query_many_documents<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(rows).await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }));
     let found = harness.query_ids(prepared).await;
     assert_eq!(
         found.len(),
@@ -1051,10 +1071,8 @@ pub async fn count_correct_amount<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(rows).await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }));
     let count = harness.count(prepared.clone()).await;
     assert_eq!(
         count.count as u64, amount,
@@ -1062,10 +1080,8 @@ pub async fn count_correct_amount<S: RxStorage>(storage: &S) {
     );
 
     // With a limit, count must agree with query().len() rather than with the total.
-    let limited = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }], "limit": 3 }),
-        &harness.primary_path,
-    );
+    let limited = harness
+        .prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }], "limit": 3 }));
     let count = harness.count(limited.clone()).await;
     let query = harness.query(limited).await;
     assert_eq!(
@@ -1105,10 +1121,8 @@ pub async fn count_correct_amount<S: RxStorage>(storage: &S) {
         .write_ok(vec![update_row(previous.into_value(), tombstone)])
         .await;
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }));
     let count = harness.count(prepared).await;
     assert_eq!(
         count.count as u64, amount,
@@ -1118,10 +1132,10 @@ pub async fn count_correct_amount<S: RxStorage>(storage: &S) {
 
     // And the caller-side filter must exclude it, which is what the correctness suite
     // relies on. Asserting both halves pins the division of responsibility.
-    let filtered = build_correctness_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
-        &harness.primary_path,
-    );
+    let filtered = harness.prepare(&serde_json::json!({
+        "selector": { "_deleted": false },
+        "sort": [{ "key": "asc" }],
+    }));
     let count = harness.count(filtered).await;
     assert_eq!(
         count.count as u64,
@@ -1300,13 +1314,22 @@ pub async fn find_many_documents<S: RxStorage>(storage: &S) {
     for i in 0..amount {
         let key = format!("key-{i:05}");
         all_ids.push(key.clone());
-        rows.push(insert_row(test_doc_write_data(&key, "v", lwt(i as u64 + 1), Map::new())));
+        rows.push(insert_row(test_doc_write_data(
+            &key,
+            "v",
+            lwt(i as u64 + 1),
+            Map::new(),
+        )));
     }
     harness.write_ok(rows).await;
 
     let id_refs: Vec<&str> = all_ids.iter().map(String::as_str).collect();
     let found = harness.find(&id_refs, false).await;
-    assert_eq!(found.len(), amount, "findByIds over {amount} ids must return all");
+    assert_eq!(
+        found.len(),
+        amount,
+        "findByIds over {amount} ids must return all"
+    );
 
     harness.remove().await;
 }
@@ -1324,7 +1347,12 @@ pub async fn changed_documents_since_latest<S: RxStorage>(storage: &S) {
     for n in 1..=3u64 {
         let key = format!("k{n}");
         harness
-            .write_ok(vec![insert_row(test_doc_write_data(&key, "v", lwt(n), Map::new()))])
+            .write_ok(vec![insert_row(test_doc_write_data(
+                &key,
+                "v",
+                lwt(n),
+                Map::new(),
+            ))])
             .await;
     }
 
@@ -1333,7 +1361,11 @@ pub async fn changed_documents_since_latest<S: RxStorage>(storage: &S) {
         .get_changed_documents_since(1, None)
         .await
         .expect("get_changed_documents_since failed");
-    assert_eq!(changed.documents.len(), 1, "limit 1 must return one document");
+    assert_eq!(
+        changed.documents.len(),
+        1,
+        "limit 1 must return one document"
+    );
     assert_eq!(
         changed.documents[0].get("key").and_then(Value::as_str),
         Some("k1"),
@@ -1409,7 +1441,11 @@ pub async fn changed_documents_since_amount<S: RxStorage>(storage: &S) {
     let mut sorted = seen.clone();
     sorted.sort();
     sorted.dedup();
-    assert_eq!(sorted.len(), amount as usize, "no document may be returned twice");
+    assert_eq!(
+        sorted.len(),
+        amount as usize,
+        "no document may be returned twice"
+    );
 
     harness.remove().await;
 }
@@ -1426,7 +1462,12 @@ pub async fn changed_documents_since_iterate_checkpoints<S: RxStorage>(storage: 
     for n in 1..=5u64 {
         let key = format!("k{n}");
         harness
-            .write_ok(vec![insert_row(test_doc_write_data(&key, "v", lwt(n), Map::new()))])
+            .write_ok(vec![insert_row(test_doc_write_data(
+                &key,
+                "v",
+                lwt(n),
+                Map::new(),
+            ))])
             .await;
         let changed = harness
             .instance
@@ -1460,7 +1501,12 @@ pub async fn change_stream_one_event_per_write<S: RxStorage>(storage: &S) {
     let mut stream = Box::pin(&mut stream);
 
     harness
-        .write_ok(vec![insert_row(test_doc_write_data("aa", "a", lwt(1), Map::new()))])
+        .write_ok(vec![insert_row(test_doc_write_data(
+            "aa",
+            "a",
+            lwt(1),
+            Map::new(),
+        ))])
         .await;
 
     let bulks = crate::harness::collect_until(&mut stream, 8, |collected| {
@@ -1488,10 +1534,20 @@ pub async fn change_stream_all_events<S: RxStorage>(storage: &S) {
     let mut stream = Box::pin(&mut stream);
 
     harness
-        .write_ok(vec![insert_row(test_doc_write_data("aa", "a", lwt(1), Map::new()))])
+        .write_ok(vec![insert_row(test_doc_write_data(
+            "aa",
+            "a",
+            lwt(1),
+            Map::new(),
+        ))])
         .await;
     harness
-        .write_ok(vec![insert_row(test_doc_write_data("bb", "b", lwt(2), Map::new()))])
+        .write_ok(vec![insert_row(test_doc_write_data(
+            "bb",
+            "b",
+            lwt(2),
+            Map::new(),
+        ))])
         .await;
 
     let bulks = crate::harness::collect_until(&mut stream, 8, |collected| {
@@ -1510,7 +1566,9 @@ pub async fn change_stream_all_events<S: RxStorage>(storage: &S) {
         vec!["aa", "bb"],
         "events must be in write order"
     );
-    assert!(events.iter().all(|event| event.operation == Operation::Insert));
+    assert!(events
+        .iter()
+        .all(|event| event.operation == Operation::Insert));
 
     // The second write's revision must be the one written, through the event.
     assert_eq!(events[1].document_data.rev(), Some(EXAMPLE_REVISION_1));
@@ -1526,7 +1584,12 @@ pub async fn change_stream_all_events<S: RxStorage>(storage: &S) {
 pub async fn change_stream_no_empty_bulk<S: RxStorage>(storage: &S) {
     let (harness, _spec) = open_test_doc(storage).await;
     harness
-        .write_ok(vec![insert_row(test_doc_write_data("aa", "a", lwt(1), Map::new()))])
+        .write_ok(vec![insert_row(test_doc_write_data(
+            "aa",
+            "a",
+            lwt(1),
+            Map::new(),
+        ))])
         .await;
 
     let mut stream = harness.instance.as_ref().change_stream();
@@ -1534,14 +1597,24 @@ pub async fn change_stream_no_empty_bulk<S: RxStorage>(storage: &S) {
 
     // A conflicting write: only errors.
     let response = harness
-        .write(vec![insert_row(test_doc_write_data("aa", "b", lwt(2), Map::new()))])
+        .write(vec![insert_row(test_doc_write_data(
+            "aa",
+            "b",
+            lwt(2),
+            Map::new(),
+        ))])
         .await;
     assert_eq!(response.error.len(), 1);
 
     // A subsequent successful write must produce the *first* event on the stream: if
     // the failed write emitted an empty bulk, it would arrive first.
     harness
-        .write_ok(vec![insert_row(test_doc_write_data("bb", "b", lwt(3), Map::new()))])
+        .write_ok(vec![insert_row(test_doc_write_data(
+            "bb",
+            "b",
+            lwt(3),
+            Map::new(),
+        ))])
         .await;
 
     let bulks = crate::harness::collect_until(&mut stream, 8, |collected| {
@@ -1662,7 +1735,8 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 /// Builds a spec whose schema declares `attachments`, which is what makes the `510`
 /// write error and the `_attachments` payload path reachable.
 async fn open_attachment_instance<S: RxStorage>(storage: &S) -> Harness {
-    let mut schema = fill_with_default_settings(crate::schemas::pseudo_schema_for_version(0, "key"));
+    let mut schema =
+        fill_with_default_settings(crate::schemas::pseudo_schema_for_version(0, "key"));
     // Upstream's `createAttachments` does `const schemaJson = clone(schemas.human);
     // schemaJson.attachments = {};` — an empty object is the declaration.
     if let Some(object) = schema.as_object_mut() {
@@ -1716,20 +1790,14 @@ pub async fn store_and_retrieve_attachment<S: RxStorage>(storage: &S) {
         Map::new(),
     );
     let (write, digest) = attachment_write(document, "att-1", "text/plain", bytes);
-    harness
-        .write_ok(vec![BulkWriteRow::insert(write)])
-        .await;
+    harness.write_ok(vec![BulkWriteRow::insert(write)]).await;
 
     let read = harness
         .instance
         .get_attachment_data("aa".to_string(), "att-1".to_string(), digest.clone())
         .await
         .expect("get_attachment_data failed");
-    assert_eq!(
-        read,
-        bytes.to_vec(),
-        "the attachment bytes must round-trip"
-    );
+    assert_eq!(read, bytes.to_vec(), "the attachment bytes must round-trip");
 
     // A wrong digest must be an error, not a mismatch to reconcile.
     let wrong = harness
@@ -1792,10 +1860,8 @@ pub async fn attachment_stub_on_all_fetch_methods<S: RxStorage>(storage: &S) {
     assert_eq!(found.len(), 1);
     assert_stub(&found[0], "findDocumentsById");
 
-    let prepared = build_prepared_query(
-        &serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }),
-        &harness.primary_path,
-    );
+    let prepared =
+        harness.prepare(&serde_json::json!({ "selector": {}, "sort": [{ "key": "asc" }] }));
     let queried = harness.query(prepared).await;
     assert_eq!(queried.len(), 1);
     assert_stub(&queried[0], "query");
@@ -1832,7 +1898,8 @@ pub async fn add_multiple_attachments<S: RxStorage>(storage: &S) {
         lwt(1),
         Map::new(),
     );
-    let (first_write, first_digest) = attachment_write(document, "att-1", "text/plain", first_bytes);
+    let (first_write, first_digest) =
+        attachment_write(document, "att-1", "text/plain", first_bytes);
     harness
         .write_ok(vec![BulkWriteRow::insert(first_write)])
         .await;
@@ -1854,10 +1921,9 @@ pub async fn add_multiple_attachments<S: RxStorage>(storage: &S) {
         .attachment("att-1")
         .cloned()
         .expect("the first write must have stored the att-1 stub");
-    second_write.document_mut().set(
-        "_rev",
-        Value::String(EXAMPLE_REVISION_2.to_string()),
-    );
+    second_write
+        .document_mut()
+        .set("_rev", Value::String(EXAMPLE_REVISION_2.to_string()));
     second_write.document_mut().set_lwt(lwt(2)).expect("lwt");
     // att-1: same stub, no payload.
     let mut attachments = Map::new();
@@ -1933,9 +1999,7 @@ pub async fn deleted_document_loses_attachments<S: RxStorage>(storage: &S) {
         Map::new(),
     );
     let (write, digest) = attachment_write(document, "att-1", "text/plain", bytes);
-    harness
-        .write_ok(vec![BulkWriteRow::insert(write)])
-        .await;
+    harness.write_ok(vec![BulkWriteRow::insert(write)]).await;
 
     let previous = harness
         .find(&["aa"], false)
@@ -2016,9 +2080,7 @@ pub async fn load_multiple_attachments<S: RxStorage>(storage: &S) {
         );
         expected.push((id, digest, bytes));
     }
-    harness
-        .write_ok(vec![BulkWriteRow::insert(write)])
-        .await;
+    harness.write_ok(vec![BulkWriteRow::insert(write)]).await;
 
     for (id, digest, bytes) in expected {
         let read = harness
@@ -2058,13 +2120,24 @@ pub async fn cleanup_removes_deleted_document<S: RxStorage>(storage: &S) {
         .write_ok(vec![update_row(live.clone(), tombstone)])
         .await;
 
-    // A threshold far in the future: everything is old enough to clean.
-    let cleaned = harness
-        .instance
-        .cleanup(f64::MAX / 2.0)
-        .await
-        .expect("cleanup failed");
-    assert!(cleaned, "cleanup must report completion");
+    // `cleanup(0)` removes every tombstone: the cutoff is `now() - 0`, and every stored
+    // `lwt` is at or before now. Upstream calls exactly this
+    // (`rx-storage-implementations.test.ts:3451`) and loops while it returns `false`.
+    //
+    // The parameter is a **duration in milliseconds**, not an absolute deadline. An
+    // earlier version of this case passed `f64::MAX`, which as a duration is a cutoff
+    // infinitely far in the past — so nothing matched and a correct storage looked broken.
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        if harness.instance.cleanup(0.0).await.expect("cleanup failed") {
+            break;
+        }
+        assert!(
+            attempts < 100,
+            "cleanup(0) returned false 100 times; it must report completion eventually"
+        );
+    }
 
     let found = harness.find(&["aa"], true).await;
     assert!(
@@ -2107,11 +2180,18 @@ pub async fn cleanup_removes_all_deleted<S: RxStorage>(storage: &S) {
     }
     harness.write_ok(tombstones).await;
 
-    harness
-        .instance
-        .cleanup(f64::MAX / 2.0)
-        .await
-        .expect("cleanup failed");
+    // `cleanup(0)` is upstream's call (`:3533`); the loop is the contract.
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        if harness.instance.cleanup(0.0).await.expect("cleanup failed") {
+            break;
+        }
+        assert!(
+            attempts < 100,
+            "cleanup(0) must report completion eventually"
+        );
+    }
 
     let found = harness.find(&["k0", "k1", "k2", "k3", "k4"], true).await;
     assert!(
@@ -2153,40 +2233,40 @@ pub async fn cleanup_returns_false_while_work_remains<S: RxStorage>(storage: &S)
         .write_ok(vec![update_row(live.clone(), tombstone)])
         .await;
 
-    // A threshold below the tombstone's lwt: nothing is old enough.
-    let cleaned = harness
-        .instance
-        .cleanup(lwt(2) - 1.0)
-        .await
-        .expect("cleanup failed");
-    assert!(
-        cleaned,
-        "cleanup with nothing to do must still report completion"
-    );
+    // A six-minute **duration** must not remove a tombstone written just now. That is
+    // upstream's first assertion in this case (`:3441`, `cleanup(1000 * 60 * 6)`), and it
+    // is the half a storage that ignores its argument gets wrong.
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        if harness
+            .instance
+            .cleanup(1000.0 * 60.0 * 6.0)
+            .await
+            .expect("cleanup failed")
+        {
+            break;
+        }
+        assert!(attempts < 100, "cleanup must report completion eventually");
+    }
     let found = harness.find(&["aa"], true).await;
     assert_eq!(
         found.len(),
         1,
-        "a tombstone newer than the threshold must be kept"
+        "a tombstone newer than the six-minute window must be kept"
     );
 
-    // Now old enough. Loop until cleanup says it is done, which is the documented
-    // contract, and bound the loop so a storage that never returns true fails instead
-    // of hanging.
+    // Then `cleanup(0)`, which removes it. The difference between the two calls is the
+    // whole assertion.
     let mut attempts = 0;
     loop {
         attempts += 1;
-        let cleaned = harness
-            .instance
-            .cleanup(lwt(2) + 1.0)
-            .await
-            .expect("cleanup failed");
-        if cleaned {
+        if harness.instance.cleanup(0.0).await.expect("cleanup failed") {
             break;
         }
         assert!(
             attempts < 100,
-            "cleanup returned false 100 times; it must eventually report completion"
+            "cleanup(0) returned false 100 times; it must report completion eventually"
         );
     }
     let found = harness.find(&["aa"], true).await;
@@ -2223,7 +2303,12 @@ pub async fn close_multiple_times<S: RxStorage>(storage: &S) {
 pub async fn remove_deletes_all_data<S: RxStorage>(storage: &S) {
     let (harness, spec) = open_test_doc(storage).await;
     harness
-        .write_ok(vec![insert_row(test_doc_write_data("aa", "a", lwt(1), Map::new()))])
+        .write_ok(vec![insert_row(test_doc_write_data(
+            "aa",
+            "a",
+            lwt(1),
+            Map::new(),
+        ))])
         .await;
 
     let database_name = spec.database_name.clone();
@@ -2273,7 +2358,11 @@ pub async fn remove_after_close_throws<S: RxStorage>(storage: &S) {
 /// later `close` is a no-op, but `close` does not imply removed.
 pub async fn close_after_remove_does_not_throw<S: RxStorage>(storage: &S) {
     let (harness, _spec) = open_test_doc(storage).await;
-    harness.instance.remove().await.expect("remove must succeed");
+    harness
+        .instance
+        .remove()
+        .await
+        .expect("remove must succeed");
     let result = harness.instance.close().await;
     assert!(
         result.is_ok(),
@@ -2327,7 +2416,8 @@ pub async fn schema_versions_do_not_interfere<S: RxStorage>(storage: &S) {
     ))])
     .await;
 
-    let zero_prepared = crate::harness::full_scan(&zero.primary_path);
+    let zero_prepared =
+        zero.prepare(&serde_json::json!({"selector": {}, "sort": [{"key": "asc"}]}));
     let zero_docs = zero.query(zero_prepared).await;
     assert_eq!(
         zero_docs.len(),
@@ -2339,7 +2429,7 @@ pub async fn schema_versions_do_not_interfere<S: RxStorage>(storage: &S) {
         Some("zero")
     );
 
-    let one_prepared = crate::harness::full_scan(&one.primary_path);
+    let one_prepared = one.prepare(&serde_json::json!({"selector": {}, "sort": [{"key": "asc"}]}));
     let one_docs = one.query(one_prepared).await;
     assert_eq!(
         one_docs.len(),
@@ -2411,27 +2501,27 @@ pub async fn run_exercised_case<S: RxStorage>(storage: &S, upstream_line: u32) {
         420 => deleted_not_found_without_with_deleted(storage).await, // impl-findbyids-01 FindByIds
         483 => cannot_overwrite_deleted_without_previous(storage).await, // impl-conflict-03 Conflict
         600 => update_deleted_document_state(storage).await, // impl-revision-01 Revision
-        661 => unset_property(storage).await, // impl-bulkwrite-05 BulkWrite
+        661 => unset_property(storage).await,                // impl-bulkwrite-05 BulkWrite
         773 => write_only_meta_fields_changed(storage).await, // impl-revision-02 Revision
         848 => create_second_instance_after_write(storage).await, // impl-bulkwrite-07 BulkWrite
-        900 => revision_height_may_jump(storage).await, // impl-revision-03 Revision
+        900 => revision_height_may_jump(storage).await,      // impl-revision-03 Revision
         951 => multiple_instances_same_database_write(storage).await, // impl-bulkwrite-08 BulkWrite
-        996 => write_and_read_umlauts(storage).await, // impl-bulkwrite-09 BulkWrite
+        996 => write_and_read_umlauts(storage).await,        // impl-bulkwrite-09 BulkWrite
         1058 => resurrect_deleted_document_with_previous(storage).await, // impl-conflict-04 Conflict
         1130 => persists_all_parallel_bulk_writes(storage).await, // impl-bulkwrite-10 BulkWrite
-        1512 => query_find_all(storage).await, // impl-query-01 Query
-        1578 => query_sorts_correctly(storage).await, // impl-query-02 Query
-        1626 => query_finds_deleted_documents(storage).await, // impl-query-03 Query
-        1693 => query_deterministic_order(storage).await, // impl-query-04 Query
+        1512 => query_find_all(storage).await,                    // impl-query-01 Query
+        1578 => query_sorts_correctly(storage).await,             // impl-query-02 Query
+        1626 => query_finds_deleted_documents(storage).await,     // impl-query-03 Query
+        1693 => query_deterministic_order(storage).await,         // impl-query-04 Query
         1847 => query_skip_limit_non_indexed_sort(storage).await, // impl-query-05 Query
-        2021 => query_over_nested_object(storage).await, // impl-query-06 Query
-        2077 => query_many_documents(storage).await, // impl-query-07 Query
-        2123 => count_correct_amount(storage).await, // impl-count-01 Count
-        2184 => find_documents_by_id(storage).await, // impl-findbyids-02 FindByIds
+        2021 => query_over_nested_object(storage).await,          // impl-query-06 Query
+        2077 => query_many_documents(storage).await,              // impl-query-07 Query
+        2123 => count_correct_amount(storage).await,              // impl-count-01 Count
+        2184 => find_documents_by_id(storage).await,              // impl-findbyids-02 FindByIds
         2221 => find_documents_primary_key_underscore_id(storage).await, // impl-findbyids-03 FindByIds
         2292 => find_deleted_documents(storage).await, // impl-findbyids-04 FindByIds
         2346 => with_deleted_finds_live_documents(storage).await, // impl-findbyids-05 FindByIds
-        2430 => find_many_documents(storage).await, // impl-findbyids-06 FindByIds
+        2430 => find_many_documents(storage).await,    // impl-findbyids-06 FindByIds
         2462 => changed_documents_since_latest(storage).await, // impl-changedsince-01 ChangedSince
         2546 => changed_documents_since_amount(storage).await, // impl-changedsince-02 ChangedSince
         2642 => changed_documents_since_iterate_checkpoints(storage).await, // impl-changedsince-03 ChangedSince
@@ -2446,8 +2536,8 @@ pub async fn run_exercised_case<S: RxStorage>(storage: &S, upstream_line: u32) {
         3369 => cleanup_removes_deleted_document(storage).await, // impl-cleanup-01 Cleanup
         3470 => cleanup_removes_all_deleted(storage).await, // impl-cleanup-02 Cleanup
         3550 => cleanup_returns_false_while_work_remains(storage).await, // impl-cleanup-03 Cleanup
-        3613 => close_multiple_times(storage).await, // impl-cleanup-04 Cleanup
-        3633 => remove_deletes_all_data(storage).await, // impl-cleanup-05 Cleanup
+        3613 => close_multiple_times(storage).await,     // impl-cleanup-04 Cleanup
+        3633 => remove_deletes_all_data(storage).await,  // impl-cleanup-05 Cleanup
         3676 => remove_after_close_throws(storage).await, // impl-cleanup-06 Cleanup
         3693 => close_after_remove_does_not_throw(storage).await, // impl-cleanup-07 Cleanup
         4046 => schema_versions_do_not_interfere(storage).await, // impl-query-11 Query

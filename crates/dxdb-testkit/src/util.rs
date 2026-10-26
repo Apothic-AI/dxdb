@@ -96,44 +96,74 @@ impl Rng {
     }
 }
 
-thread_local! {
-    /// The process-wide generator upstream gets from `Math.random()`.
-    static GLOBAL_RNG: Rng = Rng::new(initial_seed());
-    /// The seed the global generator was created with, for the failure message.
-    static GLOBAL_SEED: Cell<Option<u64>> = const { Cell::new(None) };
-}
+// The generator is **process-wide, not thread-local**, and that distinction is
+// load-bearing.
+//
+// It was thread-local first, on the reasoning that a test should not share mutable state
+// with another test. That was wrong in a specific, expensive way: a `#[test]` runs on a
+// fresh thread, so every test started from the *same seed* and therefore drew the *same*
+// "random" tokens. `dxdb-memory` keys its collection state on a process-global registry,
+// so two tests that both opened database `vaiboanflmkh`/collection `rofhametopiy` shared
+// one collection — and the second one's inserts conflicted with the first one's
+// tombstones. Eight `dxdb-memory` cases failed that way, all of them reading as storage
+// bugs. Upstream has no such failure because `Math.random()` is process-wide and never
+// repeats.
+//
+// So the counter is a `static` with an atomic guard rather than a `thread_local`. Sharing
+// the *sequence* across threads reproduces upstream's property (values differ per call),
+// while `seed()` remains a way to make a run replayable. `Rng` itself is `Cell`-based and
+// therefore not `Sync`; a `Mutex` around it is the smallest correct fix and the cost is
+// irrelevant next to a remote build.
+static GLOBAL_RNG: std::sync::Mutex<Option<Rng>> = std::sync::Mutex::new(None);
+static GLOBAL_SEED: std::sync::Mutex<Option<u64>> = std::sync::Mutex::new(None);
 
 /// Reads `DXDB_TESTKIT_SEED`, falling back to a fixed default.
 ///
 /// A fixed default means a failing suite is reproducible by default, which is the
-/// opposite of upstream's `Math.random()` and the right trade: the fixtures only
-/// need *varied* values, and reproducing a failure is worth more than an
-/// unrepeatable draw.
+/// opposite of upstream's `Math.random()` and the right trade: the fixtures only need
+/// *varied* values, and reproducing a failure is worth more than an unrepeatable draw.
+///
+/// "Varied" is per *call*, not per *thread* — see the note on [`GLOBAL_RNG`].
 fn initial_seed() -> u64 {
-    let seed = std::env::var("DXDB_TESTKIT_SEED")
+    std::env::var("DXDB_TESTKIT_SEED")
         .ok()
         .and_then(|raw| raw.trim().parse::<u64>().ok())
-        .unwrap_or(0x5EED_D5DB_0071_2345);
-    GLOBAL_SEED.with(|cell| cell.set(Some(seed)));
-    seed
+        .unwrap_or(0x5EED_D5DB_0071_2345)
+}
+
+/// Runs `f` with the process-wide generator, initialising it on first use.
+fn with_rng<T>(f: impl FnOnce(&Rng) -> T) -> T {
+    let mut guard = GLOBAL_RNG
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if guard.is_none() {
+        let seed = initial_seed();
+        *guard = Some(Rng::new(seed));
+        *GLOBAL_SEED
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(seed);
+    }
+    f(guard.as_ref().expect("initialised above"))
 }
 
 /// Reseeds the process-wide generator, so a failing run can be replayed.
 pub fn seed(value: u64) {
-    GLOBAL_RNG.with(|rng| rng.state.set(Rng::new(value).state.get()));
-    GLOBAL_SEED.with(|cell| cell.set(Some(value)));
+    *GLOBAL_RNG
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(Rng::new(value));
+    *GLOBAL_SEED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(value);
 }
 
 /// The seed in use, printed by a failing run's panic message.
 pub fn current_seed() -> u64 {
     // Force initialisation so the value reported is the value in use.
-    GLOBAL_RNG.with(|_| ());
-    GLOBAL_SEED.with(|cell| cell.get()).unwrap_or(0)
-}
-
-/// Draws from the process-wide generator.
-pub fn with_rng<T>(f: impl FnOnce(&Rng) -> T) -> T {
-    GLOBAL_RNG.with(f)
+    with_rng(|_| ());
+    GLOBAL_SEED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .unwrap_or(0)
 }
 
 /// `randomNumber(min = 0, max = 1000)`, inclusive at both ends.

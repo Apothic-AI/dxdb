@@ -167,7 +167,11 @@ pub fn composed_primary_key_of_document_data(
     document: &Value,
 ) -> Result<String, SchemaError> {
     let primary_path = primary_field_of_primary_key(schema)?;
-    if schema.get("primaryKey").map(Value::is_string).unwrap_or(false) {
+    if schema
+        .get("primaryKey")
+        .map(Value::is_string)
+        .unwrap_or(false)
+    {
         return match value_at_path(document, &primary_path) {
             Some(Value::String(s)) => Ok(s.clone()),
             Some(other) => Ok(js_value_to_key_part(other)),
@@ -435,7 +439,10 @@ pub fn fill_with_default_settings(schema: &Value) -> Result<Value, SchemaError> 
             Value::Array(items) => items,
             other => vec![other],
         };
-        if !fields.iter().any(|field| field.as_str() == Some(primary_path.as_str())) {
+        if !fields
+            .iter()
+            .any(|field| field.as_str() == Some(primary_path.as_str()))
+        {
             fields.push(Value::String(primary_path.clone()));
         }
         if fields.first().and_then(Value::as_str) != Some("_deleted") {
@@ -488,12 +495,7 @@ pub fn fill_with_default_settings(schema: &Value) -> Result<Value, SchemaError> 
 
     out.insert(
         "indexes".into(),
-        Value::Array(
-            use_indexes
-                .into_iter()
-                .map(Value::Array)
-                .collect(),
-        ),
+        Value::Array(use_indexes.into_iter().map(Value::Array).collect()),
     );
 
     if encrypted.is_empty() {
@@ -635,9 +637,7 @@ pub fn json_schema_without_meta(schema: &Value) -> Result<Value, SchemaError> {
             Value::Array(
                 required
                     .iter()
-                    .filter(|item| {
-                        !item.as_str().map(|s| s.starts_with('_')).unwrap_or(false)
-                    })
+                    .filter(|item| !item.as_str().map(|s| s.starts_with('_')).unwrap_or(false))
                     .cloned()
                     .collect(),
             ),
@@ -832,7 +832,10 @@ impl Schema {
             .ok_or_else(|| {
                 SchemaError::new(
                     SchemaErrorCode::Sc39,
-                    format!("primary key `{}` has no finite maxLength", self.primary_path),
+                    format!(
+                        "primary key `{}` has no finite maxLength",
+                        self.primary_path
+                    ),
                 )
             })
     }

@@ -285,7 +285,11 @@ fn apply_op(world: &mut BTreeMap<String, DocumentData>, rng: &mut Rng, op: &Op) 
         Op::Resurrect { id, revision } => {
             // The previous state must be the tombstone the world holds, or the event lies about
             // the revision and event-reduce's height-driven decisions become meaningless.
-            let previous = world
+            // Named with a leading underscore: the value documents the precondition the
+            // comment above asserts, but the resurrection path deliberately does not forward
+            // it (a resurrection is an INSERT event with no previous state). Reading it here
+            // also proves the world held a tombstone, so keeping the lookup is not dead code.
+            let _previous = world
                 .get(id)
                 .cloned()
                 .unwrap_or_else(|| tombstone(id, revision.saturating_sub(1)));
@@ -468,6 +472,9 @@ type BoxedMatcher = Box<dyn Fn(&DocumentData) -> bool>;
 /// A prepared query plus the compiled matcher and comparator, which is what event-reduce needs and
 /// also what the ground truth uses.
 struct Live {
+    /// Only read in failure output, which is the point: a fuzz failure that does not
+    /// say which query shape broke is not reproducible.
+    #[allow(dead_code)]
     label: &'static str,
     prepared: dxdb_query::normalize::FilledMangoQuery,
     matcher: dxdb_query::matcher::Matcher,

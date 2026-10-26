@@ -13,6 +13,7 @@ thiserror.workspace = true
 dxdb-jsnum = { path = "../../dxdb-jsnum" }
 dxdb-jsstr = { path = "../../dxdb-jsstr" }
 dxdb-json = { path = "../../dxdb-json" }
+dxdb-core = { path = "../../dxdb-core" }
 
 [dev-dependencies]
 serde_json.workspace = true

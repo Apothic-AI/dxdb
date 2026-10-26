@@ -1,0 +1,18 @@
+[package]
+name = "dxdb-plugin-json-dump"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: JSON export and import of a database or collection (RxDB src/plugins/json-dump)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-core = { path = "../../dxdb-core" }
+dxdb-json = { path = "../../dxdb-json" }
+dxdb-schema = { path = "../../dxdb-schema" }
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -75,8 +75,24 @@ fn the_registered_operator_set_is_closed_and_small() {
     // The eighteen from `src/types/rx-query.d.ts:43`. `$options` is not in the list: it is
     // folded into `$regex` by mingo's `normalize` rather than registered as an operator.
     let documented: std::collections::BTreeSet<&str> = [
-        "$and", "$elemMatch", "$eq", "$exists", "$gt", "$gte", "$in", "$lt", "$lte", "$mod",
-        "$ne", "$nin", "$nor", "$not", "$or", "$regex", "$size", "$type",
+        "$and",
+        "$elemMatch",
+        "$eq",
+        "$exists",
+        "$gt",
+        "$gte",
+        "$in",
+        "$lt",
+        "$lte",
+        "$mod",
+        "$ne",
+        "$nin",
+        "$nor",
+        "$not",
+        "$or",
+        "$regex",
+        "$size",
+        "$type",
     ]
     .into_iter()
     .collect();
@@ -87,14 +103,29 @@ fn the_registered_operator_set_is_closed_and_small() {
          operators would be MongoDB parity RxDB does not have, missing ones would be a \
          selector dxdb cannot run"
     );
-    assert_eq!(registered.len(), 18, "the set is eighteen operators, not a range");
+    assert_eq!(
+        registered.len(),
+        18,
+        "the set is eighteen operators, not a range"
+    );
 
     // And the deliberately absent operators, each of which exists in MongoDB. A port that
     // accepted one would run queries upstream rejects.
     for absent in [
-        "$all", "$bitsAllClear", "$bitsAllSet", "$bitsAnyClear", "$bitsAnySet", "$comment",
-        "$expr", "$geoIntersects", "$geoWithin", "$jsonSchema", "$near", "$nearSphere",
-        "$text", "$where",
+        "$all",
+        "$bitsAllClear",
+        "$bitsAllSet",
+        "$bitsAnyClear",
+        "$bitsAnySet",
+        "$comment",
+        "$expr",
+        "$geoIntersects",
+        "$geoWithin",
+        "$jsonSchema",
+        "$near",
+        "$nearSphere",
+        "$text",
+        "$where",
     ] {
         assert!(
             !registered.contains(absent),

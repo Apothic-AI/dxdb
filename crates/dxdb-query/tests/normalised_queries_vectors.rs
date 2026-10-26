@@ -23,8 +23,8 @@
 use serde_json::Value;
 
 use dxdb_query::{
-    get_query_plan, get_sort_comparator, normalize_mango_query, MangoQuery, Matcher,
-    PlanKey, QueryPlan,
+    get_query_plan, get_sort_comparator, normalize_mango_query, MangoQuery, Matcher, PlanKey,
+    QueryPlan,
 };
 
 fn load() -> Value {
@@ -220,17 +220,19 @@ fn normalized_queries_and_plans_match_upstream_oracle() {
         let schema_name = case["schema"].as_str().expect("schema");
         let why = case["why"].as_str().unwrap_or_default();
         let schema = filled(schema_name, &lookup);
-        let primary_key =
-            dxdb_schema::primary_field_of_primary_key(&schema).expect("primary key");
-        let schema_indexes = dxdb_schema::get_string_indexes(&schema)
-            .unwrap_or_default();
+        let primary_key = dxdb_schema::primary_field_of_primary_key(&schema).expect("primary key");
+        let schema_indexes = dxdb_schema::get_string_indexes(&schema).unwrap_or_default();
 
         // Some cases record that upstream *failed* rather than recording a result:
         // `normalizedQuery` is `null` and `expectedUpstreamFailure` is true, with a
         // `rejected` reason. They are asserted by
         // `schemas_upstream_cannot_plan_are_rejected_here`, so they are counted and
         // skipped here rather than compared against `null`.
-        if case.get("normalizedQuery").map(Value::is_null).unwrap_or(true) {
+        if case
+            .get("normalizedQuery")
+            .map(Value::is_null)
+            .unwrap_or(true)
+        {
             rejected += 1;
             continue;
         }
@@ -238,7 +240,9 @@ fn normalized_queries_and_plans_match_upstream_oracle() {
         let query = match MangoQuery::from_json(&case["query"]) {
             Ok(query) => query,
             Err(error) => {
-                failures.push(format!("{schema_name} {why}: query does not parse: {error}"));
+                failures.push(format!(
+                    "{schema_name} {why}: query does not parse: {error}"
+                ));
                 continue;
             }
         };
@@ -370,10 +374,8 @@ fn schemas_upstream_cannot_plan_are_rejected_here() {
         let Ok(schema) = dxdb_schema::fill_with_default_settings(schema_input) else {
             continue;
         };
-        let primary_key =
-            dxdb_schema::primary_field_of_primary_key(&schema).expect("primary key");
-        let schema_indexes = dxdb_schema::get_string_indexes(&schema)
-            .unwrap_or_default();
+        let primary_key = dxdb_schema::primary_field_of_primary_key(&schema).expect("primary key");
+        let schema_indexes = dxdb_schema::get_string_indexes(&schema).unwrap_or_default();
         // The same query shapes the failing cases used.
         let sample_query = cases
             .iter()
@@ -408,8 +410,7 @@ fn sort_orderings_match_upstream_oracle() {
     let lookup = schema_lookup();
     let schema = filled("human", &lookup);
     let primary_key = dxdb_schema::primary_field_of_primary_key(&schema).expect("primary key");
-    let schema_indexes = dxdb_schema::get_string_indexes(&schema)
-            .unwrap_or_default();
+    let schema_indexes = dxdb_schema::get_string_indexes(&schema).unwrap_or_default();
 
     for ordering in orderings {
         let why = ordering["why"].as_str().expect("why");
@@ -431,7 +432,8 @@ fn sort_orderings_match_upstream_oracle() {
         // Upstream built the comparator from the *recorded* normalized sort, and
         // that is what the ids were produced with.
         assert_eq!(
-            normalized.to_json()["sort"], sort,
+            normalized.to_json()["sort"],
+            sort,
             "{why}: re-normalising the recorded sort must be a no-op"
         );
         let comparator = get_sort_comparator(&normalized);

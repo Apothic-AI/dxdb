@@ -490,7 +490,9 @@ impl Report {
     }
 
     /// The cases that do not run, grouped by status.
-    pub fn unexercised(&self) -> std::collections::BTreeMap<&'static str, Vec<&'static crate::decl::Case>> {
+    pub fn unexercised(
+        &self,
+    ) -> std::collections::BTreeMap<&'static str, Vec<&'static crate::decl::Case>> {
         crate::decl::unexercised_by_status()
     }
 
@@ -671,7 +673,10 @@ pub fn validate() -> Vec<String> {
         .iter()
         .map(|group| group.queries.len())
         .sum();
-    let declared_queries: usize = QUERY_CORRECTNESS_CASES.iter().map(|c| c.queries as usize).sum();
+    let declared_queries: usize = QUERY_CORRECTNESS_CASES
+        .iter()
+        .map(|c| c.queries as usize)
+        .sum();
     if group_queries != declared_queries {
         problems.push(format!(
             "correctness data has {group_queries} queries but the table declares {declared_queries}"

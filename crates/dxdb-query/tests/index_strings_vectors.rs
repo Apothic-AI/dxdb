@@ -155,9 +155,9 @@ fn index_string_lengths_match_upstream_oracle() {
             Ok(actual) => failures.push(format!(
                 "{schema_name} [{index:?}]: width {actual} != upstream {expected}"
             )),
-            Err(error) => failures.push(format!(
-                "{schema_name} [{index:?}]: width failed: {error}"
-            )),
+            Err(error) => {
+                failures.push(format!("{schema_name} [{index:?}]: width failed: {error}"))
+            }
         }
     }
 
@@ -167,7 +167,10 @@ fn index_string_lengths_match_upstream_oracle() {
         failures.len(),
         failures.join("\n")
     );
-    assert!(checked >= 80, "expected at least 80 length cases, got {checked}");
+    assert!(
+        checked >= 80,
+        "expected at least 80 length cases, got {checked}"
+    );
 }
 
 /// `kind: "bounds"` — the lower and upper bound strings for one probe value.
@@ -214,10 +217,12 @@ fn bounds_match_upstream_oracle() {
                 continue;
             };
             bound_values.push(match part.get("type").and_then(Value::as_str) {
-                Some("number") | Some("integer") => match part.get("minimum").and_then(Value::as_f64) {
-                    Some(minimum) => BoundValue::Number(minimum),
-                    None => BoundValue::Number(0.0),
-                },
+                Some("number") | Some("integer") => {
+                    match part.get("minimum").and_then(Value::as_f64) {
+                        Some(minimum) => BoundValue::Number(minimum),
+                        None => BoundValue::Number(0.0),
+                    }
+                }
                 Some("boolean") => BoundValue::Bool(false),
                 _ => BoundValue::String(String::new()),
             });
@@ -232,18 +237,18 @@ fn bounds_match_upstream_oracle() {
             Ok(actual) => failures.push(format!(
                 "{schema_name} [{index:?}] {why}: lower {actual:?} != upstream {expected_lower:?}"
             )),
-            Err(error) => {
-                failures.push(format!("{schema_name} [{index:?}] {why}: lower bound failed: {error}"))
-            }
+            Err(error) => failures.push(format!(
+                "{schema_name} [{index:?}] {why}: lower bound failed: {error}"
+            )),
         }
         match get_start_index_string_from_upper_bound(&schema, &index, &bound_values) {
             Ok(actual) if actual == expected_upper => checked += 1,
             Ok(actual) => failures.push(format!(
                 "{schema_name} [{index:?}] {why}: upper {actual:?} != upstream {expected_upper:?}"
             )),
-            Err(error) => {
-                failures.push(format!("{schema_name} [{index:?}] {why}: upper bound failed: {error}"))
-            }
+            Err(error) => failures.push(format!(
+                "{schema_name} [{index:?}] {why}: upper bound failed: {error}"
+            )),
         }
     }
 

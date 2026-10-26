@@ -10,9 +10,206 @@
     "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call"
   },
   "algorithm": "sha256 hex of JSON.stringify(defaultedSchema)",
-  "caseCount": 52,
+  "caseCount": 53,
   "failedSchemas": [],
   "cases": [
+    {
+      "name": "averageSchema",
+      "origin": "fixture",
+      "input": {
+        "title": "averageSchema_uczcq",
+        "version": 0,
+        "primaryKey": "id",
+        "type": "object",
+        "keyCompression": false,
+        "properties": {
+          "id": {
+            "description": "id",
+            "type": "string",
+            "maxLength": 12
+          },
+          "var1": {
+            "description": "var1",
+            "type": "string",
+            "maxLength": 12
+          },
+          "var2": {
+            "description": "var2",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 50000,
+            "multipleOf": 1
+          },
+          "deep": {
+            "type": "object",
+            "properties": {
+              "deep1": {
+                "type": "string",
+                "maxLength": 10
+              },
+              "deep2": {
+                "type": "string",
+                "maxLength": 10
+              }
+            }
+          },
+          "list": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "deep1": {
+                  "type": "string"
+                },
+                "deep2": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "var1",
+          "var2"
+        ],
+        "indexes": [
+          "var1",
+          "var2",
+          "deep.deep1",
+          [
+            "var2",
+            "var1"
+          ]
+        ],
+        "sharding": {
+          "shards": 6,
+          "mode": "collection"
+        }
+      },
+      "hash": "9fc676b98046672467bb8734e2d1a61fc88c7b566cc01f4e822886c3af9288b8",
+      "hashInputLength": 1137,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "var1",
+            "id"
+          ],
+          [
+            "_deleted",
+            "var2",
+            "id"
+          ],
+          [
+            "_deleted",
+            "deep.deep1",
+            "id"
+          ],
+          [
+            "_deleted",
+            "var2",
+            "var1",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "deep": {
+            "properties": {
+              "deep1": {
+                "maxLength": 10,
+                "type": "string"
+              },
+              "deep2": {
+                "maxLength": 10,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "id": {
+            "description": "id",
+            "maxLength": 12,
+            "type": "string"
+          },
+          "list": {
+            "items": {
+              "properties": {
+                "deep1": {
+                  "type": "string"
+                },
+                "deep2": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "var1": {
+            "description": "var1",
+            "maxLength": 12,
+            "type": "string"
+          },
+          "var2": {
+            "description": "var2",
+            "maximum": 50000,
+            "minimum": 0,
+            "multipleOf": 1,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "var1",
+          "var2",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
+        "sharding": {
+          "mode": "collection",
+          "shards": 6
+        },
+        "title": "averageSchema_uczcq",
+        "type": "object",
+        "version": 0
+      }
+    },
     {
       "name": "bigHuman",
       "origin": "fixture",

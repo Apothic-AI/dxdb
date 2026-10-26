@@ -37,10 +37,10 @@ fn upstream_root() -> Option<std::path::PathBuf> {
         std::env::var_os("RXDB_UPSTREAM").map(std::path::PathBuf::from),
         Some(Path::new(&std::env::var("HOME").unwrap_or_default()).join("Code/rxdb")),
     ];
-    candidates
-        .into_iter()
-        .flatten()
-        .find(|path| path.join("test/unit/rx-storage-implementations.test.ts").exists())
+    candidates.into_iter().flatten().find(|path| {
+        path.join("test/unit/rx-storage-implementations.test.ts")
+            .exists()
+    })
 }
 
 /// Every declared line must exist in the upstream file it names.
@@ -82,7 +82,11 @@ fn every_declared_line_exists_upstream() {
         if !line.contains(expected_marker) {
             problems.push(format!(
                 "{}: {}:{} does not contain {:?}; it reads {:?}",
-                case.id, case.upstream_file, case.upstream_line, expected_marker, line.trim()
+                case.id,
+                case.upstream_file,
+                case.upstream_line,
+                expected_marker,
+                line.trim()
             ));
         }
     }
@@ -244,7 +248,10 @@ fn statuses_in_use_are_a_subset_of_the_vocabulary() {
         .map(|status| status.as_str())
         .collect();
     for status in &used {
-        assert!(known.contains(status), "unknown status in the table: {status}");
+        assert!(
+            known.contains(status),
+            "unknown status in the table: {status}"
+        );
     }
     // And at least one case must be exercised, or the crate does nothing.
     assert!(
@@ -473,10 +480,7 @@ fn group_schemas_are_storage_schemas() {
                 if storage_schema.primary_path != group.primary_path {
                     problems.push(format!(
                         "group {} ({}): declared primary path {:?} but the schema says {:?}",
-                        group.index,
-                        group.title,
-                        group.primary_path,
-                        storage_schema.primary_path
+                        group.index, group.title, group.primary_path, storage_schema.primary_path
                     ));
                 }
             }
@@ -571,19 +575,71 @@ fn random_token_shape() {
     assert_eq!(util::random_token(0), "");
 }
 
-/// `randomToken` must vary, and it must vary under the seeded generator.
+/// `randomToken` must vary per call, and must vary under a reseed.
+///
+/// The per-call property is the one that matters most and the one this test used to miss.
+/// The generator was `thread_local`, so every `#[test]` (which runs on a fresh thread)
+/// started from the same seed and produced the *same* "random" database name. Against
+/// `dxdb-memory`, whose collection registry is process-global, that meant two tests shared
+/// one collection and eight cases failed as apparent storage bugs. Upstream never sees
+/// this because `Math.random()` is process-wide, so the assertion here is deliberately
+/// about the generator being shared rather than about one `#[test]`'s local draws.
 #[test]
 fn random_token_varies_and_is_seeded() {
     let first: Vec<String> = (0..8).map(|_| util::random_token(10)).collect();
     let unique: BTreeSet<&String> = first.iter().collect();
-    assert!(unique.len() > 1, "randomToken produced one value: {first:?}");
+    assert!(
+        unique.len() > 1,
+        "randomToken produced one value across 8 calls: {first:?}"
+    );
 
     // Same seed, same sequence: this is what makes a failure replayable.
-    util::seed(12345);
-    let a: Vec<String> = (0..8).map(|_| util::random_token(10)).collect();
-    util::seed(12345);
-    let b: Vec<String> = (0..8).map(|_| util::random_token(10)).collect();
-    assert_eq!(a, b, "the same seed must produce the same sequence");
+    //
+    // Asserted on a *local* generator rather than through `util::seed`, because tests in
+    // one binary run in parallel and a global reseed would perturb every other test's
+    // draws. The property under test is the generator's, not the global's.
+    let draw = |seed: u64| -> Vec<String> {
+        let rng = util::Rng::new(seed);
+        (0..8)
+            .map(|_| {
+                let chars: Vec<char> = util::COUCH_NAME_CHARS.chars().collect();
+                (0..10)
+                    .map(|_| chars[(rng.next_f64() * chars.len() as f64) as usize])
+                    .collect()
+            })
+            .collect()
+    };
+    assert_eq!(draw(12345), draw(12345), "the same seed must replay");
+    assert_ne!(
+        draw(1),
+        draw(2),
+        "two seeds must not produce the same sequence, or the seed is decorative"
+    );
+}
+
+/// Two tokens drawn on **different threads** must differ.
+///
+/// This is the regression test for the bug above. A `thread_local` generator passes the
+/// single-threaded assertions and fails this one, because both threads start at the same
+/// seed. It is the property upstream gets from `Math.random()` being process-wide.
+#[test]
+fn random_tokens_differ_across_threads() {
+    // No `util::seed` here: the point is that the *shared* counter advances between
+    // threads, which is what a thread-local generator fails regardless of seeding. Seeding
+    // would also race the other tests in this binary.
+    let first = std::thread::spawn(|| util::random_token(12))
+        .join()
+        .expect("thread");
+    let second = std::thread::spawn(|| util::random_token(12))
+        .join()
+        .expect("thread");
+
+    assert_ne!(
+        first, second,
+        "two threads drew the same token ({first}). The generator is thread-local, so \
+         every test process shares one collection with every other and storage state leaks \
+         between cases."
+    );
 }
 
 /// `randomStringWithSpecialChars` respects its length bounds in *UTF-16* units.
@@ -717,10 +773,8 @@ fn fast_mode_reads_node_env() {
     // The suite runs with a fixed environment, so assert the function's shape rather
     // than mutating `NODE_ENV`, which would race other tests in this binary.
     let value = util::is_fast_mode();
-    let expected = matches!(
-        std::env::var("NODE_ENV").as_deref(),
-        Ok("fast")
-    ) || std::env::var_os("DXDB_FAST_TEST_MODE").is_some();
+    let expected = matches!(std::env::var("NODE_ENV").as_deref(), Ok("fast"))
+        || std::env::var_os("DXDB_FAST_TEST_MODE").is_some();
     assert_eq!(value, expected);
     // And `fast_or` must pick consistently with it.
     assert_eq!(
@@ -804,6 +858,129 @@ fn schema_fixtures_are_storage_schemas() {
         }
     }
     assert!(problems.is_empty(), "{}", problems.join("\n  "));
+}
+
+/// The filled fixture schema must declare `_meta.lwt`, because its own indexes
+/// reference it.
+///
+/// This is a regression test for the worst kind of fixture bug: one that makes every
+/// storage look broken. The testkit's old local `fill_with_default_settings` injected
+/// `_meta` as a bare `{"type": "object"}`, while `fillWithDefaultSettings` prepends
+/// `_meta.lwt` to essentially every index (PLAN.md 4.3, the change-feed sort key). The
+/// result was a schema whose own index could not be resolved, and `dxdb-indexeddb` failed
+/// 43 of 49 cases with
+///
+/// ```text
+/// CI1: index field `_meta.lwt` is not in the schema
+/// ```
+///
+/// before any storage code ran. Asserting the property here means the next time someone
+/// is tempted to hand-build a schema in a fixture, it fails in the testkit's own suite
+/// rather than in a downstream storage's.
+#[test]
+fn fixture_schema_declares_the_meta_lwt_its_indexes_reference() {
+    for (name, upstream, schema) in dxdb_testkit::schemas::all_fixtures() {
+        let filled = dxdb_testkit::harness::fill_with_default_settings(schema);
+
+        // 1. `_meta.lwt` must be a declared property, which is what CI1 checks.
+        let lwt = filled
+            .get("properties")
+            .and_then(|properties| properties.get("_meta"))
+            .and_then(|meta| meta.get("properties"))
+            .and_then(|properties| properties.get("lwt"));
+        assert!(
+            lwt.is_some(),
+            "{name} ({upstream}): properties._meta has no lwt, but the change-feed index \
+             keys on _meta.lwt. Filled _meta was: {:?}",
+            filled.get("properties").and_then(|p| p.get("_meta"))
+        );
+
+        // 2. The storage projection must accept the schema. This is the exact call that
+        //    produced "CI1: index field `_meta.lwt` is not in the schema".
+        let storage_schema =
+            dxdb_storage::StorageSchema::from_value(&filled).unwrap_or_else(|err| {
+                panic!("{name} ({upstream}): filled schema is not a storage schema: {err}")
+            });
+
+        // 3. And the change-feed index must be resolvable through that projection.
+        assert!(
+            storage_schema.change_feed_index().is_some(),
+            "{name} ({upstream}): no resolvable change-feed index; indexes were {:?}",
+            storage_schema.indexes
+        );
+    }
+}
+
+/// Every index field must be a path the schema actually declares.
+///
+/// The general form of the `_meta.lwt` bug: a fixture may not carry an index that
+/// references a field its `properties` does not define. This checks every index of every
+/// fixture against the filled `properties`, so the whole class fails here rather than one
+/// instance of it at a time.
+#[test]
+fn every_index_field_resolves_against_the_filled_properties() {
+    let mut problems = Vec::new();
+    for (name, upstream, schema) in dxdb_testkit::schemas::all_fixtures() {
+        let filled = dxdb_testkit::harness::fill_with_default_settings(schema);
+        let storage_schema = match dxdb_storage::StorageSchema::from_value(&filled) {
+            Ok(schema) => schema,
+            Err(err) => {
+                problems.push(format!("{name} ({upstream}): {err}"));
+                continue;
+            }
+        };
+        for index in &storage_schema.indexes {
+            for field in index {
+                // Index fields are dot paths into a *document* (`_meta.lwt`,
+                // `deep.deep1`). Resolving one against a schema is not the same walk as
+                // resolving it against a document: in a schema each level is
+                // `{"type": "object", "properties": {...}}`, so the next segment is a key
+                // of the nested `properties`, not a key of the level itself. Walking with
+                // `get_object_path` would look for `_meta.lwt` as `properties._meta.lwt`
+                // and miss the `properties` keyword — which is exactly the mistake my
+                // first version of this test made.
+                let declared = schema_declares_path(&filled, field);
+                if !declared {
+                    problems.push(format!(
+                        "{name} ({upstream}): index {index:?} references `{field}`, which \
+                         the filled schema does not declare in properties"
+                    ));
+                }
+            }
+        }
+    }
+    assert!(
+        problems.is_empty(),
+        "indexes reference undeclared fields — this is the bug class that made every \
+         indexeddb case fail before any storage code ran:\n  {}",
+        problems.join("\n  ")
+    );
+}
+
+/// True when `properties` in `schema` declares `path`, following nested `properties`.
+///
+/// A schema level is `{"type": "object", "properties": {...}}`, so the segment after an
+/// object field is a key of that nested `properties` map. A document path and a schema
+/// path are deliberately not the same walk, and conflating them produces a false negative
+/// for every nested index.
+fn schema_declares_path(schema: &serde_json::Value, path: &str) -> bool {
+    let mut level = match schema.get("properties") {
+        Some(properties) => properties,
+        None => return false,
+    };
+    for segment in path.split('.') {
+        let Some(next) = level.get(segment) else {
+            return false;
+        };
+        // Descend through `properties` when the field is an object with a declared
+        // shape. A field declared as `{"type": "object"}` with no `properties` (which
+        // filling never produces for `_meta`) has no further path to resolve.
+        level = match next.get("properties") {
+            Some(nested) => nested,
+            None => next,
+        };
+    }
+    true
 }
 
 /// Filling a schema is a **one-shot** operation, matching upstream.
@@ -935,10 +1112,8 @@ fn write_data_overrides_win() {
 /// order, so the append is the reason they can be asserted at all.
 #[test]
 fn mango_query_appends_primary_key_to_sort() {
-    let query = dxdb_testkit::harness::mango_query(
-        &serde_json::json!({ "selector": {} }),
-        "passportId",
-    );
+    let query =
+        dxdb_testkit::harness::mango_query(&serde_json::json!({ "selector": {} }), "passportId");
     assert_eq!(query.sort.len(), 1, "the primary key must be appended");
     assert_eq!(query.sort[0].field, "passportId");
     assert_eq!(query.skip, 0, "skip must default to 0");
@@ -951,7 +1126,11 @@ fn mango_query_appends_primary_key_to_sort() {
         }),
         "passportId",
     );
-    assert_eq!(query.sort.len(), 2, "the primary key must not be duplicated");
+    assert_eq!(
+        query.sort.len(),
+        2,
+        "the primary key must not be duplicated"
+    );
     assert_eq!(query.sort[0].field, "age");
 }
 
@@ -975,15 +1154,68 @@ fn prepared_query_plan_claims_nothing() {
         !prepared.query_plan.sort_satisfied_by_index,
         "the testkit's plan must not claim the index satisfies the sort"
     );
+    // The plan must name an index the storage **actually has**. That is the invariant,
+    // and it is the one the old synthesized-index version of this harness got wrong: it
+    // produced `_deleted,value,key` for a schema that had no such index, and three
+    // `dxdb-memory` cases failed against a correct storage with `UnknownIndex`.
+    //
+    // A change-feed index (`_meta.lwt`, primary) is a legitimate answer and is *not*
+    // `_deleted`-prefixed — upstream appends it after the prefixing loop
+    // (`rx-schema-helper.ts:283`) because it must enumerate tombstones. So the assertion
+    // is "resolvable against the schema", not "`_deleted`-prefixed".
+    let schema = dxdb_testkit::harness::fill_with_default_settings(dxdb_testkit::schemas::human());
+    let storage_schema = dxdb_storage::StorageSchema::from_value(&schema).expect("schema");
     assert!(
-        prepared.query_plan.index.first().map(String::as_str) == Some("_deleted"),
-        "the planned index must be _deleted-prefixed, got {:?}",
-        prepared.query_plan.index
+        storage_schema.indexes.contains(&prepared.query_plan.index),
+        "the planned index {:?} is not one the schema materialised: {:?}",
+        prepared.query_plan.index,
+        storage_schema.indexes
     );
     assert!(
-        prepared.query_plan.index.iter().any(|field| field == "passportId"),
+        prepared
+            .query_plan
+            .index
+            .iter()
+            .any(|field| field == "passportId"),
         "the planned index must include the primary key, got {:?}",
         prepared.query_plan.index
+    );
+}
+
+/// The suite's fixture `lwt`s must be **recent**, not a frozen constant.
+///
+/// This is a regression test for a bug that made a correct storage look broken. The
+/// suite's `lwt` helper used the constant `1_700_000_000_000` so a case would not depend on
+/// the clock. That constant is 2023-11-14, so every fixture tombstone was over a thousand
+/// days old, and `cleanup(1000 * 60 * 6)` — a six-minute retention window — correctly
+/// deleted it. The case asserting "a tombstone newer than the window must be kept" then
+/// failed against a scaffold that was right.
+///
+/// The lesson is narrow and worth pinning: a retention assertion is only meaningful if the
+/// fixture's timestamps are near the clock the retention window is measured against.
+#[test]
+fn suite_fixture_timestamps_are_recent() {
+    // The suite's `lwt` base is private, so reconstruct the property from behaviour:
+    // a freshly written tombstone must survive a six-minute retention window, and the only
+    // way that can be true is if its `lwt` is within six minutes of `now()`.
+    let now = dxdb_storage::now();
+    let six_minutes_ms = 1000.0 * 60.0 * 6.0;
+
+    // Read the base the suite uses, via the same helper the suite calls. If the helper is
+    // not public, this test would have to duplicate the constant — which is exactly the
+    // coupling that let the bug in — so the suite exposes it for this assertion.
+    let base = dxdb_testkit::suite::fixture_lwt_base();
+    let age_ms = now - base;
+    assert!(
+        age_ms.abs() < six_minutes_ms,
+        "the suite's fixture lwt base is {age_ms:.0}ms from now — outside a six-minute \
+         retention window. Any case asserting that a fresh tombstone survives cleanup() \
+         will fail against a correct storage, because the fixture is older than the \
+         window. Base was {base}, now is {now}."
+    );
+    assert!(
+        age_ms > -six_minutes_ms,
+        "the suite's fixture lwt base is in the future ({age_ms:.0}ms ahead of now)"
     );
 }
 

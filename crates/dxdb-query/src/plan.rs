@@ -39,9 +39,9 @@
 
 use serde_json::Value;
 
+use crate::custom_index::INDEX_MIN;
 use crate::error::{QueryError, QueryErrorCode};
 use crate::normalize::FilledMangoQuery;
-use crate::custom_index::INDEX_MIN;
 
 /// `INDEX_MAX` — the highest UTF-16 code unit, used as the "no upper bound"
 /// sentinel (`:15`).
@@ -217,7 +217,11 @@ impl QueryPlan {
         out.push_str("],\"inclusiveEnd\":");
         out.push_str(if self.inclusive_end { "true" } else { "false" });
         out.push_str(",\"inclusiveStart\":");
-        out.push_str(if self.inclusive_start { "true" } else { "false" });
+        out.push_str(if self.inclusive_start {
+            "true"
+        } else {
+            "false"
+        });
         out.push_str(",\"sortSatisfiedByIndex\":");
         out.push_str(if self.sort_satisfied_by_index {
             "true"
@@ -284,7 +288,10 @@ pub struct RangeOpts {
 /// `$eq` sets both ends and both are inclusive; `$lt`/`$gt` set one end and make it
 /// exclusive. An operator outside the five is `SNH` upstream because the caller has
 /// already filtered by [`LOGICAL_OPERATORS`]; the same is true here.
-pub fn get_matcher_query_opts(operator: &str, operator_value: &Value) -> Result<RangeOpts, QueryError> {
+pub fn get_matcher_query_opts(
+    operator: &str,
+    operator_value: &Value,
+) -> Result<RangeOpts, QueryError> {
     let key = PlanKey::from_value(Some(operator_value));
     match operator {
         "$eq" => Ok(RangeOpts {
@@ -394,10 +401,7 @@ fn compare_primitive(a: &Value, b: &Value) -> std::cmp::Ordering {
 ///    is what lets `{status: 'active'}` with `sort: [{age: 'asc'}]` use an index
 ///    that starts with `status`.
 /// 4. Per index, compute bounds per position, then rate and keep the best.
-pub fn get_query_plan(
-    schema: &Value,
-    query: &FilledMangoQuery,
-) -> Result<QueryPlan, QueryError> {
+pub fn get_query_plan(schema: &Value, query: &FilledMangoQuery) -> Result<QueryPlan, QueryError> {
     // Candidate indexes: the query's own if it names one, otherwise the schema's.
     //
     // Upstream assigns `indexes = schema.indexes.slice(0)` and then *overwrites* it
@@ -426,7 +430,8 @@ pub fn get_query_plan(
 
     let sort_irrelevant_fields = sort_irrelevant_fields(schema, &query.selector);
 
-    let optimal_sort_index: Vec<String> = query.sort.iter().map(|part| part.field.clone()).collect();
+    let optimal_sort_index: Vec<String> =
+        query.sort.iter().map(|part| part.field.clone()).collect();
     let optimal_sort_index_compare_string = optimal_sort_index
         .iter()
         .filter(|field| !sort_irrelevant_fields.contains(*field))
@@ -670,8 +675,10 @@ fn sort_irrelevant_fields(schema: &Value, selector: &Value) -> std::collections:
         // array operand does not pin a single sortable value.
         let pinned = field_type == Some("boolean")
             || has_enum
-            || (matches!(field_type, Some("string") | Some("number") | Some("integer"))
-                && (eq_value.is_string() || eq_value.is_number()));
+            || (matches!(
+                field_type,
+                Some("string") | Some("number") | Some("integer")
+            ) && (eq_value.is_string() || eq_value.is_number()));
         if pinned {
             out.insert(field.clone());
         }
@@ -764,7 +771,10 @@ pub fn is_selector_satisfied_by_index(
     // "If the index contains a non-relevant field between the relevant fields, then
     // the index is not satisfying."
     for (position, field_name) in index.iter().enumerate() {
-        for set in [&mut lower_operator_field_names, &mut upper_operator_field_names] {
+        for set in [
+            &mut lower_operator_field_names,
+            &mut upper_operator_field_names,
+        ] {
             if !set.contains(field_name) && !set.is_empty() {
                 return false;
             }
@@ -776,7 +786,9 @@ pub fn is_selector_satisfied_by_index(
             (Some(start), Some(end)) => !start.same_as(end),
             _ => true,
         };
-        if differs && !lower_operator_field_names.is_empty() && !upper_operator_field_names.is_empty()
+        if differs
+            && !lower_operator_field_names.is_empty()
+            && !upper_operator_field_names.is_empty()
         {
             return false;
         }
@@ -873,4 +885,3 @@ pub fn promote_out_of_range_bound(
     }
     (inclusive_start, inclusive_end)
 }
-

@@ -210,18 +210,19 @@ impl MangoQuery {
                 ))
             }
         };
-        let numeric = |key: &str| -> Result<Option<u64>, QueryError> {
-            match object.get(key) {
-                None | Some(Value::Null) => Ok(None),
-                Some(Value::Number(n)) => Ok(Some(n.as_u64().unwrap_or_else(|| {
-                    n.as_f64().map(|f| f.max(0.0) as u64).unwrap_or_default()
-                }))),
-                Some(other) => Err(QueryError::new(
-                    QueryErrorCode::InvalidOperatorPayload,
-                    format!("{key} must be a number, got {other}"),
-                )),
-            }
-        };
+        let numeric =
+            |key: &str| -> Result<Option<u64>, QueryError> {
+                match object.get(key) {
+                    None | Some(Value::Null) => Ok(None),
+                    Some(Value::Number(n)) => Ok(Some(n.as_u64().unwrap_or_else(|| {
+                        n.as_f64().map(|f| f.max(0.0) as u64).unwrap_or_default()
+                    }))),
+                    Some(other) => Err(QueryError::new(
+                        QueryErrorCode::InvalidOperatorPayload,
+                        format!("{key} must be a number, got {other}"),
+                    )),
+                }
+            };
         Ok(Self {
             selector,
             index,
@@ -354,7 +355,9 @@ pub fn normalize_mango_query(
         // `count()` queries, where order is irrelevant and the index-matching
         // computation below would be wasted work.
         (None, true) => vec![SortPart::new(primary_key, SortDirection::Asc)],
-        (None, false) => sort_from_index_or_selector(&selector, index.as_deref(), primary_key, schema_indexes),
+        (None, false) => {
+            sort_from_index_or_selector(&selector, index.as_deref(), primary_key, schema_indexes)
+        }
         (Some(parts), _) => {
             let mut parts = parts.clone();
             if !parts.iter().any(|part| part.field == primary_key) {
@@ -393,7 +396,9 @@ fn sort_from_index_or_selector(
     if let Some(object) = selector.as_object() {
         for (field, matcher) in object {
             let has_logical = match matcher {
-                Value::Object(map) => map.keys().any(|op| LOGICAL_OPERATORS.contains(&op.as_str())),
+                Value::Object(map) => map
+                    .keys()
+                    .any(|op| LOGICAL_OPERATORS.contains(&op.as_str())),
                 _ => true,
             };
             if has_logical {

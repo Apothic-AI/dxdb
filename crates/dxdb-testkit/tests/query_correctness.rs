@@ -38,7 +38,7 @@ mod support;
 
 use dxdb_testkit::fixtures::correctness;
 use dxdb_testkit::fixtures::correctness_support::{Group, Query};
-use dxdb_testkit::harness::{build_prepared_query, fill_with_default_settings, Harness, InstanceSpec};
+use dxdb_testkit::harness::{fill_with_default_settings, Harness, InstanceSpec};
 use dxdb_testkit::schemas;
 use support::reference_storage::ReferenceStorage;
 
@@ -59,7 +59,9 @@ fn run_group<S: RxStorage>(storage: &S, group: &Group) {
         for (n, document) in group.data.iter().enumerate() {
             let mut payload = document
                 .as_object()
-                .unwrap_or_else(|| panic!("group {}: a fixture document is not an object", group.index))
+                .unwrap_or_else(|| {
+                    panic!("group {}: a fixture document is not an object", group.index)
+                })
                 .clone();
             // Upstream wraps each fixture document with the four meta fields:
             // `_deleted: false, _attachments: {}, _meta: { lwt: now() }, _rev:
@@ -97,22 +99,18 @@ async fn assert_query(harness: &Harness, group: &Group, query: &Query) {
         .map(|id| (*id).to_string())
         .collect();
 
-    let prepared = build_prepared_query(&query.query, group.primary_path);
+    // Build against the *instance's* schema so the plan names an index the storage has.
+    // A synthesized index name fails a correct storage with `UnknownIndex`.
+    let prepared = harness.prepare(&query.query);
     let actual = harness.query_ids(prepared.clone()).await;
 
     assert_eq!(
-        actual,
-        expected,
+        actual, expected,
         "\n  upstream: {}:{}\n  group: {}\n  query: {}\n  expected: {:?}\n  actual:   {:?}\n\
          \n  (upstream also compares this against its in-memory statics; that half needs \
          dxdb-query and is not run here, so a wrong fixture would look identical to a \
          storage bug.)",
-        group.upstream_line,
-        "",
-        group.title,
-        query.info,
-        expected,
-        actual,
+        group.upstream_line, "", group.title, query.info, expected, actual,
     );
 
     // Upstream only asserts `.count()` when the query has neither skip nor limit
@@ -275,7 +273,10 @@ fn every_group_runs() {
     for group in correctness::groups() {
         let needle = format!("run_group_named({})", group.index);
         if !source.contains(&needle) {
-            missing.push(format!("group {} ({}): {}", group.index, group.title, group.upstream_line));
+            missing.push(format!(
+                "group {} ({}): {}",
+                group.index, group.title, group.upstream_line
+            ));
         }
     }
     assert!(
@@ -374,8 +375,25 @@ fn count_is_asserted_only_without_skip_or_limit() {
 fn fixture_operators_are_in_the_documented_set() {
     /// The operator set from PLAN.md 4.3, verbatim.
     const DOCUMENTED: &[&str] = &[
-        "$eq", "$gt", "$gte", "$lt", "$lte", "$ne", "$in", "$nin", "$regex", "$options",
-        "$exists", "$type", "$mod", "$not", "$size", "$elemMatch", "$and", "$or", "$nor",
+        "$eq",
+        "$gt",
+        "$gte",
+        "$lt",
+        "$lte",
+        "$ne",
+        "$in",
+        "$nin",
+        "$regex",
+        "$options",
+        "$exists",
+        "$type",
+        "$mod",
+        "$not",
+        "$size",
+        "$elemMatch",
+        "$and",
+        "$or",
+        "$nor",
     ];
 
     let mut seen = std::collections::BTreeSet::new();
@@ -411,7 +429,9 @@ fn fixture_operators_are_in_the_documented_set() {
     // would fail for a reason that has nothing to do with the storage contract.
     let unimplemented: Vec<&String> = seen
         .iter()
-        .filter(|operator| !support::reference_storage::SUPPORTED_OPERATORS.contains(&operator.as_str()))
+        .filter(|operator| {
+            !support::reference_storage::SUPPORTED_OPERATORS.contains(&operator.as_str())
+        })
         .collect();
     assert!(
         unimplemented.is_empty(),
@@ -454,9 +474,7 @@ fn named_schemas_resolve() {
         let materialised = match &group.schema {
             SchemaSource::Named(make) => make(),
             SchemaSource::WithIndexes { base, .. } => base(),
-            SchemaSource::Inline(text) => {
-                serde_json::from_str(text).expect("inline schema parses")
-            }
+            SchemaSource::Inline(text) => serde_json::from_str(text).expect("inline schema parses"),
         };
         assert!(
             materialised.is_object(),
@@ -509,8 +527,6 @@ fn run_group_named(index: usize) {
     let group = groups
         .iter()
         .find(|group| group.index == index)
-        .unwrap_or_else(|| {
-            panic!("no correctness group at index {index}; the extraction changed")
-        });
+        .unwrap_or_else(|| panic!("no correctness group at index {index}; the extraction changed"));
     run_group(&ReferenceStorage::new(), group);
 }

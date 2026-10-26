@@ -450,13 +450,75 @@ step), which is a few hundred cases, not a random walk — reproducible failures
 sample size for a cache-coherence protocol. `INV-8` is exhaustive over all 256 format
 bytes.
 
+## Verification record
+
+Implemented as `crates/cleanroom/dxdb-meta-cache`. All four workspace gates green
+(`check`, `clippy`, `test`, `wasm` all exit 0). Every invariant and acceptance number
+above is implemented by a passing test with that number in its name.
+
+### The one thing this spec got wrong, and how it was resolved
+
+Section 3.1 assumed the port would have RxDB's internal store (`_rxdb_internal`) with its
+collection documents, so the cache could sit in front of it. **It does not.**
+`dxdb-core::Database::create` takes a storage and `add_collections` builds collections
+directly from it; `_rxdb_internal` appears nowhere in the workspace outside this lane's own
+constants (`docs/CLEANROOM-GAPS.md` G-054).
+
+The resolution is a `MetadataLedger` trait: the contract the cache actually needs is "list
+the metadata documents" / "replace them" / "read and write a generation document", and that
+is what the trait declares. The invariants are therefore proven against a faithful
+implementation rather than deferred until `dxdb-core` grows an internal store, and when it
+does, it implements this trait and the proof carries over unchanged. That is the same
+reasoning as `dxdb-logger`'s specification envelope (G-020), and it is recorded rather than
+silently substituted.
+
+### What the tests found
+
+Three genuine implementation bugs, all caught by the invariants rather than by review:
+
+- **INV-7 failed first, and it was the important one.** A snapshot-store write failure
+  propagated out of `open`, so a browser at quota would have refused to open a database
+  whose documents were perfectly readable. That is the exact failure the invariant exists
+  to forbid. Fixed by making generation-document creation best-effort: the cache's job is
+  to serve documents, and caching them is an optimisation.
+- **INV-3 failed**, and the diagnosis mattered: it was a *test* bug, not a code bug. The
+  test reopened twice and asserted both opens were misses; the second legitimately hits,
+  because the first open rebuilds the snapshot from the post-mutation store. Asserting the
+  second miss would have been asserting that the cache never works. The test now asserts a
+  miss on the **first** open after a mutation — which is the assertion that actually
+  catches a missing bump — and that the collection stays gone on later opens.
+- **INV-1 failed** on a test fake whose `instance_id` was derived from the store's key
+  count, so an ordinary open could hand out a new identity. That in turn broke INV-3's
+  premise. Fixed by keying the identity on a recreation counter.
+
+This is worth recording because two of the three were test bugs. An invariant that fails
+is evidence of *a* disagreement, and the spec or the test is as likely to be wrong as the
+code.
+
+### INV-9, the cost bound, is measured not asserted
+
+A hit performs **zero** metadata-document reads: the test seeds 12 collections, warms the
+snapshot, and asserts `document_reads == 0` on the next open. The one read the design
+spends is the generation document, which the ledger counts separately.
+
+### Remaining unproven, stated rather than claimed
+
+- **No performance number.** Section 6's targets are unmeasured; no bench exists. The
+  crate may not be described as saving any milliseconds until `docs/BENCHMARKS.md` has one.
+- **The browser path is untested here.** Every test uses `dxdb-localstorage`'s `MemoryKv`
+  through the `Kv` trait, which is the same interface `WebStorage` implements, but the real
+  `localStorage` — including its quota and eviction behaviour — has not been exercised. The
+  `Kv` seam means it can be, at the JS boundary.
+
 ## Open questions this spec does not settle
 
-1. **Where the bump hook attaches.** Section 3.4 requires one mutation helper inside
-   the port's internal-store writer, which is `dxdb-core`'s code, not this crate's. If
-   `dxdb-core` does not expose a single mutation point, this crate cannot guarantee
-   `INV-6` without editing another lane's crate. That is a cross-lane dependency to
-   resolve before implementation, and it is recorded in G-043.
+1. **Where the bump hook attaches — RESOLVED.** Section 3.4 required one mutation helper
+   inside the port's internal-store writer. Since `dxdb-core` has no internal store, the
+   bump lives in [`MetaCache::write`], which is the *only* way to mutate metadata through
+   this crate and therefore the only place the generation is touched. `INV-6` is thus a
+   property of the API surface rather than of a callback registry — a stronger arrangement
+   than the one the spec originally described, because there is no way to mutate metadata
+   and forget to bump.
 2. **Whether the generation document belongs in the internal store or in the cache-key
    namespace.** Putting it in the internal store costs one read (the design's whole
    cost) and makes it transactional with the data it describes; putting it outside

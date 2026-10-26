@@ -87,9 +87,7 @@ impl MergeOrder {
     /// primary key within a tie, because the normalised query appends the primary key
     /// to the sort (upstream's `normalizeMangoQuery` does exactly this).
     pub fn compare(&self, left: &DocumentData, right: &DocumentData) -> Ordering {
-        let by_sort = self
-            .comparator
-            .compare(left.as_value(), right.as_value());
+        let by_sort = self.comparator.compare(left.as_value(), right.as_value());
         if by_sort != Ordering::Equal {
             return by_sort;
         }
@@ -166,10 +164,7 @@ pub fn shard_query(prepared: &PreparedQuery, shard_limit: Option<usize>) -> Prep
 /// Each input must already be in the query's order, which the inner storage's contract
 /// guarantees. The merge is a stable k-way merge: on a tie the earlier input wins,
 /// which combined with the primary-key tiebreak in [`MergeOrder`] gives a total order.
-pub fn merge_sorted(
-    order: &MergeOrder,
-    shards: Vec<Vec<DocumentData>>,
-) -> Vec<DocumentData> {
+pub fn merge_sorted(order: &MergeOrder, shards: Vec<Vec<DocumentData>>) -> Vec<DocumentData> {
     // A simple k-way merge. `shards` is small (the config's shard count) and each
     // vector is already sorted, so a cursor per shard is O(total * log N) with a small
     // constant and no allocation of a heap node per document.
@@ -206,7 +201,11 @@ pub fn merge_sorted(
 /// Applies the global window to a merged sequence.
 ///
 /// `skip` then `limit`, in that order, which is what the unsharded storage does.
-pub fn apply_window(mut documents: Vec<DocumentData>, skip: usize, limit: Option<usize>) -> Vec<DocumentData> {
+pub fn apply_window(
+    mut documents: Vec<DocumentData>,
+    skip: usize,
+    limit: Option<usize>,
+) -> Vec<DocumentData> {
     if skip >= documents.len() {
         return Vec::new();
     }
@@ -256,7 +255,9 @@ pub fn sharded_count(per_shard: &[usize], skip: usize, limit: Option<usize>) -> 
 #[cfg(test)]
 mod tests {
     use super::{apply_window, per_shard_limit, sharded_count, MergeOrder};
-    use dxdb_storage::{DocumentData, MangoQuery, PreparedQuery, QueryPlan, SortDirection, SortPart};
+    use dxdb_storage::{
+        DocumentData, MangoQuery, PreparedQuery, QueryPlan, SortDirection, SortPart,
+    };
     use serde_json::json;
 
     fn document(id: &str, name: &str) -> DocumentData {
@@ -292,8 +293,14 @@ mod tests {
 
     #[test]
     fn per_shard_limit_is_skip_plus_limit() {
-        assert_eq!(per_shard_limit(&prepared("name", 0, Some(5), false)), Some(5));
-        assert_eq!(per_shard_limit(&prepared("name", 3, Some(5), false)), Some(8));
+        assert_eq!(
+            per_shard_limit(&prepared("name", 0, Some(5), false)),
+            Some(5)
+        );
+        assert_eq!(
+            per_shard_limit(&prepared("name", 3, Some(5), false)),
+            Some(8)
+        );
         assert_eq!(per_shard_limit(&prepared("name", 3, None, false)), None);
     }
 
@@ -309,7 +316,12 @@ mod tests {
                 .iter()
                 .map(|document| document.get("name").expect("name").clone())
                 .collect::<Vec<_>>(),
-            vec![json!("alpha"), json!("bravo"), json!("charlie"), json!("delta")]
+            vec![
+                json!("alpha"),
+                json!("bravo"),
+                json!("charlie"),
+                json!("delta")
+            ]
         );
     }
 
@@ -345,7 +357,12 @@ mod tests {
             .collect();
         assert_eq!(
             names,
-            vec![json!("delta"), json!("charlie"), json!("bravo"), json!("alpha")]
+            vec![
+                json!("delta"),
+                json!("charlie"),
+                json!("bravo"),
+                json!("alpha")
+            ]
         );
     }
 
@@ -386,9 +403,21 @@ mod tests {
         // **Skip is applied before the limit.** These are the cases the differential
         // test against dxdb-memory caught: a clamp that ignores the skip answers "how
         // many match" instead of "how many the query returns".
-        assert_eq!(sharded_count(&[2, 2, 2], 1, Some(2)), 2, "matched 6, skip 1, limit 2");
-        assert_eq!(sharded_count(&[2, 2, 2], 5, Some(2)), 1, "matched 6, skip 5, limit 2");
-        assert_eq!(sharded_count(&[2, 2, 2], 6, Some(2)), 0, "skip past the end");
+        assert_eq!(
+            sharded_count(&[2, 2, 2], 1, Some(2)),
+            2,
+            "matched 6, skip 1, limit 2"
+        );
+        assert_eq!(
+            sharded_count(&[2, 2, 2], 5, Some(2)),
+            1,
+            "matched 6, skip 5, limit 2"
+        );
+        assert_eq!(
+            sharded_count(&[2, 2, 2], 6, Some(2)),
+            0,
+            "skip past the end"
+        );
         assert_eq!(sharded_count(&[2, 2, 2], 100, Some(2)), 0);
         assert_eq!(sharded_count(&[2, 2, 2], 3, Some(100)), 3);
     }

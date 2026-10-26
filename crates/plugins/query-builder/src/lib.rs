@@ -848,3 +848,60 @@ mod tests {
         assert_eq!(parse_sort_direction(&Value::from(2)), None);
     }
 }
+
+// ---------------------------------------------------------------------------
+// The plugin, on the core registry
+// ---------------------------------------------------------------------------
+
+/// The hooks this plugin registers.
+///
+/// Empty, and that is upstream's shape: `RxDBQueryBuilderPlugin`
+/// (`src/plugins/query-builder/index.ts:54-81`) has a `prototypes` block and **no**
+/// `hooks` block. The builder is a pure computation over a `MangoQuery`, so there is
+/// nothing for the registry to dispatch.
+///
+/// It is worth being explicit that this plugin reads a *hook-adjacent* thing without
+/// registering one: upstream's `applyBuildingStep` consults `overwritable.isDevMode()`
+/// to reject `findByIds` chaining (`index.ts:42-47`). That is the dev-mode overwritable,
+/// available from [`dxdb_core::Overwritables::is_dev_mode`], not a hook.
+pub const HOOKS: &[dxdb_core::HookName] = &[];
+
+/// The `RxDBQueryBuilderPlugin` equivalent.
+///
+/// Install with `database.add_plugin(QueryBuilderPlugin)?`. Behaviour arrives through
+/// [`QueryBuilder`], the extension-trait spelling of upstream's prototype methods.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct QueryBuilderPlugin;
+
+impl dxdb_core::Plugin for QueryBuilderPlugin {
+    fn name(&self) -> &'static str {
+        // The upstream plugin's `name` field (`src/plugins/query-builder/index.ts:55`).
+        "query-builder"
+    }
+
+    fn install(
+        &self,
+        _registrations: &mut dxdb_core::Registrations,
+        _overwritables: &mut dxdb_core::Overwritables,
+    ) -> std::result::Result<(), dxdb_core::PluginError> {
+        Ok(())
+    }
+}
+
+/// Chains a building step onto an existing [`MangoQuery`], the way
+/// `runBuildingStep` does (`src/plugins/query-builder/index.ts:15-35`).
+///
+/// Upstream clones the query, builds a `NoSqlQueryBuilder` from it, applies one method,
+/// and returns a *new* `RxQuery` carrying the accumulated `queryBuilderPath` in its
+/// `other` bag. The Rust equivalent returns a new [`QueryBuilder`] seeded from the query
+/// and its previous path, which is the same value without the `RxQuery` wrapper (that
+/// needs lane D's query handle).
+pub fn continue_building(
+    query: &MangoQuery,
+    previous_path: Option<&str>,
+    step: impl FnOnce(&mut QueryBuilder) -> Result<()>,
+) -> Result<QueryBuilderJson> {
+    let mut builder = QueryBuilder::new(query, previous_path.map(str::to_string))?;
+    step(&mut builder)?;
+    builder.to_json()
+}

@@ -12,6 +12,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 dxdb-json = { path = "../../dxdb-json" }
 dxdb-storage = { path = "../../dxdb-storage" }
+dxdb-core = { path = "../../dxdb-core" }
 
 [dev-dependencies]
 serde_json.workspace = true

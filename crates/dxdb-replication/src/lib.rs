@@ -44,12 +44,15 @@
 
 #![forbid(unsafe_code)]
 
+pub mod attachments;
 pub mod checkpoint;
 pub mod conflict;
 pub mod conformance;
 pub mod convert;
+pub mod downstream;
 pub mod meta_instance;
 pub mod state;
+pub mod adapters;
 pub mod upstream;
 
 use std::sync::Arc;
