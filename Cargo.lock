@@ -774,6 +774,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-worker"
+version = "0.0.0"
+dependencies = [
+ "dxdb-memory",
+ "dxdb-storage",
+ "futures",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dynosaur"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
