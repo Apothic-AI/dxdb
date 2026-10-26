@@ -79,10 +79,9 @@ pub trait Kv {
 /// behaviour that a real browser gives for free.
 ///
 /// Exposed publicly because the contract tests live in `tests/`, which is a
-/// separate crate from this one. It is not compiled into a browser bundle in
-/// practice — nothing in `LocalStorageStorage` constructs it — but it does cost
-/// bytes if it is reachable, so it is behind a feature a browser build leaves off.
-#[cfg(any(test, feature = "memory-kv"))]
+/// separate crate from this one and therefore cannot see a `#[cfg(test)]` item.
+/// Nothing in `LocalStorageStorage` constructs it, so it contributes no reachable
+/// code to a browser bundle that only opens the real `WebStorage`.
 #[derive(Clone, Default)]
 pub struct MemoryKv {
     inner: Rc<RefCell<HashMap<String, String>>>,
@@ -92,7 +91,6 @@ pub struct MemoryKv {
     fail_writes: Rc<RefCell<bool>>,
 }
 
-#[cfg(any(test, feature = "memory-kv"))]
 impl MemoryKv {
     #[must_use]
     pub fn new() -> Self {
@@ -121,7 +119,6 @@ impl MemoryKv {
     }
 }
 
-#[cfg(any(test, feature = "memory-kv"))]
 impl Kv for MemoryKv {
     fn get_item(&self, key: &str) -> Result<Option<String>, KvError> {
         Ok(self.inner.borrow().get(key).cloned())

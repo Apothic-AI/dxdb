@@ -37,6 +37,9 @@ js-sys = "0.3.106"
 web-sys = { version = "0.3.106", features = ["Storage", "Window"] }
 
 [dev-dependencies]
+# The contract tests drive the futures directly; there is no runtime in the tests
+# and none in the crate (no tokio, per the lane constraints).
+futures = { workspace = true }
 # The in-process KV used by the contract tests. Deliberately *not* a dependency
 # of the crate: a `HashMap` backend shipping in the bundle would be dead weight,
 # and the tests that use it are the ones that must run on the host.

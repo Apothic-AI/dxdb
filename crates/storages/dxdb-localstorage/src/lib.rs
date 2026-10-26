@@ -35,7 +35,7 @@ pub mod web;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::future::{ready, Ready};
+use std::future::ready;
 use std::rc::Rc;
 
 use dxdb_query::custom_index::{
@@ -47,10 +47,10 @@ use dxdb_storage::{
     categorize_bulk_write_rows, index_name, BulkWriteResponse, BulkWriteRow, ChangeEvent,
     ChangeStream, Checkpoint, CountMode, CountResult, DocumentData, DynRxStorageInstance,
     EventBulk, FindAttachmentResult, InstanceCreationParams, Operation, PlanKey, PreparedQuery,
-    QueryPlan, RxStorage, RxStorageInstance, StorageError, StorageSchema, WriteError,
+    RxStorage, RxStorageInstance, StorageError, StorageSchema,
 };
 
-pub use kv::{Kv, KvError};
+pub use kv::{Kv, KvError, MemoryKv};
 
 /// The storage name upstream reports for this plugin (`RX_STORAGE_NAME_LOCALSTORAGE`).
 pub const STORAGE_NAME: &str = "localstorage";
