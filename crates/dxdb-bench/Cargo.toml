@@ -25,7 +25,7 @@ wasm-size-fixtures = ["dep:dxdb-js", "dep:wasm-bindgen"]
 # reference storages that are optional dependencies of *those features*.
 bench-filesystem = []
 bench-sqlite = ["dep:dxdb-sqlite"]
-bench-memory = ["dep:dxdb-memory"]
+bench-memory = ["dep:dxdb-memory", "dep:dxdb-schema"]
 # The measuring tool itself, so `--features wasm-size --bin wasm-size` works without
 # also pulling a storage.
 wasm-size = ["dep:brotli"]
@@ -38,6 +38,42 @@ sqlite-bundle = ["wasm-size-fixtures", "dep:dxdb-sqlite"]
 # this feature is only ever built for `wasm32-unknown-unknown`.
 opfs-bundle = ["wasm-size-fixtures", "dep:dxdb-opfs"]
 
+# --- The engine-linked bundles. These are the measurement that matters. ---
+#
+# The rows above link a storage to the binding floor and come out at 6.7-14 KiB, which
+# says the *binding layer* is small -- not that the budget is achievable. dxdb-js links
+# exactly one workspace crate (dxdb-storage), so no bundle measured so far contains the
+# schema validator, the query planner or the index-string encoder. These features link
+# them, which is what makes PLAN.md 5.3's numbers a real constraint.
+engine = ["dep:dxdb-schema", "dep:dxdb-query"]
+
+# Engine + memory: the 320 KiB row as it should be measured.
+engine-memory-bundle = ["wasm-size-fixtures", "engine", "dep:dxdb-memory"]
+
+# Engine + sqlite: the 900 KiB row, and the one most likely to break.
+engine-sqlite-bundle = ["wasm-size-fixtures", "engine", "dep:dxdb-sqlite"]
+
+# Breakdown fixtures, to attribute the engine's cost rather than guess at it.
+# `schema-only` links the schema crate and nothing else; `engine` adds the query crate
+# (which itself depends on schema), so the difference attributes the planner.
+schema-only-bundle = ["wasm-size-fixtures", "dep:dxdb-schema"]
+
+# Isolates the ECMAScript-regex dependency that dxdb-query pulls in, so the planner's
+# cost can be attributed between our code and that crate rather than lumped together.
+regress-only-bundle = ["wasm-size-fixtures", "dep:regress"]
+
+# The whole engine: core, schema, query, reactivity. This is the bundle the caveat was
+# pointing at -- "the budget becomes a real constraint the first time dxdb-schema and
+# dxdb-query are linked in" -- taken to its conclusion so the caveat can be retired
+# rather than merely narrowed.
+full-engine-memory-bundle = [
+  "wasm-size-fixtures",
+  "engine",
+  "dep:dxdb-core",
+  "dep:dxdb-reactivity",
+  "dep:dxdb-memory",
+]
+
 [dependencies]
 dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
 dxdb-sqlite = { path = "../storages/dxdb-sqlite", optional = true }
@@ -46,8 +82,13 @@ dxdb-memory = { path = "../storages/dxdb-memory", optional = true }
 # native benches do not pay for a wasm-only dependency tree.
 dxdb-js = { path = "../dxdb-js", optional = true }
 dxdb-opfs = { path = "../storages/dxdb-opfs", optional = true }
+# The engine: what a real bundle has to contain and the current fixtures do not.
+dxdb-schema = { path = "../dxdb-schema", optional = true }
+dxdb-query = { path = "../dxdb-query", optional = true }
+regress = { version = "0.12", optional = true }
+dxdb-core = { path = "../dxdb-core", optional = true }
+dxdb-reactivity = { path = "../dxdb-reactivity", optional = true }
 dxdb-storage = { path = "../dxdb-storage" }
-dxdb-schema = { path = "../dxdb-schema" }
 futures.workspace = true
 # brotli for the wasm size budgets. Quality 11 is what PLAN.md 5.3 defines them against.
 brotli = { version = "8", optional = true }

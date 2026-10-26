@@ -8450,88 +8450,102 @@
       "schema": "compoundIndex",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "age": "asc"
+          },
+          {
+            "passportCountry": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "age",
+          "passportCountry",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"age\",\"passportCountry\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "compoundIndex",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "age": "asc"
+          },
+          {
+            "passportCountry": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "age",
+          "passportCountry",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"age\",\"passportCountry\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -8541,9 +8555,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "asc"
           }
         ]
@@ -8551,9 +8562,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "asc"
           },
@@ -8591,9 +8599,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "desc"
           }
         ]
@@ -8601,9 +8606,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "desc"
           },
@@ -8641,9 +8643,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "passportId": "asc"
           }
         ]
@@ -8651,9 +8650,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -8686,21 +8682,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -8708,15 +8698,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -8724,7 +8711,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -8733,21 +8720,16 @@
       "query": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ]
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -8755,15 +8737,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -8771,7 +8750,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -9480,12 +9459,7 @@
       "schema": "compoundIndexNoString",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "rejected": "usePath.replace is not a function",
       "expectedUpstreamFailure": true
@@ -9494,12 +9468,7 @@
       "schema": "compoundIndexNoString",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "rejected": "usePath.replace is not a function",
       "expectedUpstreamFailure": true
@@ -9510,9 +9479,6 @@
       "query": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "asc"
           }
@@ -9528,9 +9494,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "desc"
           }
         ]
@@ -9545,9 +9508,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "passportId": "asc"
           }
         ]
@@ -9560,21 +9520,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -9582,15 +9536,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -9598,7 +9549,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -9607,21 +9558,16 @@
       "query": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ]
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -9629,15 +9575,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -9645,7 +9588,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -11094,188 +11037,180 @@
       "schema": "humanSubIndex",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "other.age": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "other.age",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"other.age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "humanSubIndex",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "other.age": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "other.age",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"other.age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "humanSubIndex",
       "why": "sort-asc-two-fields",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "age": "asc"
+            "other.age": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "other.age",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"other.age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "humanSubIndex",
       "why": "sort-mixed-directions",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "age": "desc"
+            "other.age": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "other.age",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"other.age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -11285,9 +11220,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "passportId": "asc"
           }
         ]
@@ -11295,9 +11227,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -11330,21 +11259,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -11352,15 +11275,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -11368,7 +11288,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -11377,21 +11297,16 @@
       "query": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ]
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -11399,15 +11314,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -11415,7 +11327,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -11423,42 +11335,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "passportId"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -11466,7 +11364,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -13069,9 +12967,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "asc"
           }
         ]
       },
@@ -13080,9 +12975,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "asc"
           },
           {
             "passportId": "asc"
@@ -13119,9 +13011,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "desc"
           }
         ]
       },
@@ -13130,9 +13019,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "desc"
           },
           {
             "passportId": "asc"
@@ -13306,42 +13192,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "passportId"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -13349,7 +13221,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -14732,28 +14604,23 @@
       "schema": "deepNestedHuman",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "passportId"
         ],
         "startKeys": [
@@ -14766,38 +14633,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "deepNestedHuman",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "passportId"
         ],
         "startKeys": [
@@ -14810,44 +14672,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "deepNestedHuman",
       "why": "sort-asc-two-fields",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
+            "_deleted": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "passportId"
         ],
         "startKeys": [
@@ -14860,44 +14711,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "deepNestedHuman",
       "why": "sort-mixed-directions",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
+            "_deleted": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "passportId"
         ],
         "startKeys": [
@@ -14910,10 +14750,10 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -14923,9 +14763,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "passportId": "asc"
           }
         ]
@@ -14933,9 +14770,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -14968,21 +14802,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -14990,15 +14818,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -15006,7 +14831,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -15015,21 +14840,16 @@
       "query": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ]
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -15037,15 +14857,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -15053,7 +14870,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -15061,42 +14878,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "passportId"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -15104,7 +14907,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -16671,9 +16474,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "asc"
           }
         ]
       },
@@ -16682,9 +16482,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "asc"
           }
         ],
         "skip": 0
@@ -16718,9 +16515,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "desc"
           }
         ]
       },
@@ -16729,9 +16523,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "desc"
           }
         ],
         "skip": 0
@@ -16765,9 +16556,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
           }
         ]
       },
@@ -16776,9 +16564,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
           }
         ],
         "skip": 0
@@ -16849,37 +16634,29 @@
       "query": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId"
+          "firstName"
         ]
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId"
+          "firstName"
         ],
         "skip": 0,
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
           }
         ]
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId"
+          "firstName"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -16887,7 +16664,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"firstName\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -16895,42 +16672,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "firstName"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "firstName": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "firstName"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -16938,7 +16701,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"firstName\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"firstName\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -18635,88 +18398,90 @@
       "schema": "humanWithTimestamp",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "updatedAt": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "updatedAt",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"updatedAt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "humanWithTimestamp",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "updatedAt": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "updatedAt",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"updatedAt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -18726,9 +18491,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "asc"
           }
         ]
@@ -18736,9 +18498,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "asc"
           },
@@ -18776,9 +18535,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "desc"
           }
         ]
@@ -18786,9 +18542,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "desc"
           },
@@ -18823,50 +18576,45 @@
       "schema": "humanWithTimestamp",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "passportId": "asc"
+            "updatedAt": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "updatedAt",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"updatedAt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -18874,21 +18622,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "id": "asc"
           }
@@ -18896,15 +18638,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -18912,7 +18651,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -18920,26 +18659,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "id": "asc"
           }
@@ -18947,18 +18675,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -18966,7 +18688,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -20744,88 +20466,90 @@
       "schema": "humanWithTimestampAllIndex",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "name": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "name",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "humanWithTimestampAllIndex",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "name": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "name",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -20835,9 +20559,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "asc"
           }
         ]
@@ -20845,9 +20566,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "asc"
           },
@@ -20885,9 +20603,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "desc"
           }
         ]
@@ -20895,9 +20610,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "desc"
           },
@@ -20932,50 +20644,45 @@
       "schema": "humanWithTimestampAllIndex",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "passportId": "asc"
+            "name": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "name",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -20983,21 +20690,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "id": "asc"
           }
@@ -21005,15 +20706,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -21021,7 +20719,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -21029,26 +20727,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "id": "asc"
           }
@@ -21056,18 +20743,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -21075,7 +20756,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -22853,88 +22534,90 @@
       "schema": "humanWithSimpleAndCompoundIndexes",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "name": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "name",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "humanWithSimpleAndCompoundIndexes",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "name": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "name",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -22944,9 +22627,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "asc"
           }
         ]
@@ -22954,9 +22634,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "asc"
           },
@@ -22994,9 +22671,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "desc"
           }
         ]
@@ -23004,9 +22678,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "desc"
           },
@@ -23041,50 +22712,45 @@
       "schema": "humanWithSimpleAndCompoundIndexes",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "passportId": "asc"
+            "name": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "name",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -23092,21 +22758,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "id": "asc"
           }
@@ -23114,15 +22774,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -23130,7 +22787,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -23138,26 +22795,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "id": "asc"
           }
@@ -23165,18 +22811,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -23184,7 +22824,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -24962,88 +24602,90 @@
       "schema": "humanIdAndAgeIndex",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "age": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "age",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"age\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "humanIdAndAgeIndex",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "age": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "age",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"age\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -25053,9 +24695,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "asc"
           }
         ]
@@ -25063,9 +24702,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "asc"
           },
@@ -25103,9 +24739,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "desc"
           }
         ]
@@ -25113,9 +24746,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "desc"
           },
@@ -25150,50 +24780,45 @@
       "schema": "humanIdAndAgeIndex",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "passportId": "asc"
+            "age": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "age",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"age\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -25201,21 +24826,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "id": "asc"
           }
@@ -25223,15 +24842,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -25239,7 +24855,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -25247,26 +24863,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "id": "asc"
           }
@@ -25274,18 +24879,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -25293,7 +24892,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -26757,28 +26356,23 @@
       "schema": "point",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "id"
         ],
         "startKeys": [
@@ -26791,38 +26385,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "point",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "id"
         ],
         "startKeys": [
@@ -26835,44 +26424,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "point",
       "why": "sort-asc-two-fields",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
+            "_deleted": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "id"
         ],
         "startKeys": [
@@ -26885,44 +26463,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "point",
       "why": "sort-mixed-directions",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
+            "_deleted": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "id"
         ],
         "startKeys": [
@@ -26935,44 +26502,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "point",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
+            "_deleted": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "id"
         ],
         "startKeys": [
@@ -26985,10 +26541,10 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -26996,21 +26552,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "id": "asc"
           }
@@ -27018,15 +26568,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -27034,7 +26581,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -27042,26 +26589,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "id": "asc"
           }
@@ -27069,18 +26605,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -27088,7 +26618,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -27096,42 +26626,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "id"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -27139,7 +26655,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -28522,28 +28038,23 @@
       "schema": "refHuman",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -28556,38 +28067,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "refHuman",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -28600,44 +28106,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "refHuman",
       "why": "sort-asc-two-fields",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -28650,44 +28145,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "refHuman",
       "why": "sort-mixed-directions",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -28700,44 +28184,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "refHuman",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -28750,10 +28223,10 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -28761,21 +28234,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "name"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "name": "asc"
           }
@@ -28783,15 +28250,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "name"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -28799,7 +28263,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"name\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -28807,26 +28271,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "name"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "name": "asc"
           }
@@ -28834,18 +28287,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "name"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -28853,7 +28300,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"name\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -28861,42 +28308,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "name"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "name"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -28904,7 +28337,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"name\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -30645,9 +30078,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "asc"
           }
         ]
       },
@@ -30656,9 +30086,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "asc"
           },
           {
             "id": "asc"
@@ -30695,9 +30122,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "desc"
           }
         ]
       },
@@ -30706,9 +30130,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "age": "desc"
           },
           {
             "id": "asc"
@@ -30745,9 +30166,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
           }
         ]
       },
@@ -30756,9 +30174,6 @@
         "sort": [
           {
             "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
           },
           {
             "id": "asc"
@@ -30839,15 +30254,13 @@
       "query": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId"
+          "firstName"
         ]
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
           "firstName",
-          "passportId",
           "id"
         ],
         "skip": 0,
@@ -30856,9 +30269,6 @@
             "firstName": "asc"
           },
           {
-            "passportId": "asc"
-          },
-          {
             "id": "asc"
           }
         ]
@@ -30866,16 +30276,13 @@
       "plan": {
         "index": [
           "firstName",
-          "passportId",
           "id"
         ],
         "startKeys": [
           -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿",
           "￿"
         ],
@@ -30884,7 +30291,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"firstName\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -30892,42 +30299,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "id"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -30935,7 +30328,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -32662,88 +32055,90 @@
       "schema": "simpleHumanV3",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "age": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "age",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "simpleHumanV3",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "age": "asc"
           },
           {
             "passportId": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "age",
           "passportId"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"age\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -32753,9 +32148,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "asc"
           }
         ]
@@ -32763,9 +32155,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "asc"
           },
@@ -32803,9 +32192,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "age": "desc"
           }
         ]
@@ -32813,9 +32199,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "age": "desc"
           },
@@ -32853,9 +32236,6 @@
         "selector": {},
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
             "passportId": "asc"
           }
         ]
@@ -32863,9 +32243,6 @@
       "normalizedQuery": {
         "selector": {},
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -32898,21 +32275,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -32920,15 +32291,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -32936,7 +32304,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -32945,21 +32313,16 @@
       "query": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ]
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "passportId"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "passportId": "asc"
           }
@@ -32967,15 +32330,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "passportId"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -32983,7 +32343,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"passportId\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -34447,28 +33807,23 @@
       "schema": "heroArray",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -34481,38 +33836,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "heroArray",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -34525,44 +33875,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "heroArray",
       "why": "sort-asc-two-fields",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -34575,44 +33914,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "heroArray",
       "why": "sort-mixed-directions",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -34625,44 +33953,33 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "heroArray",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
+            "_deleted": "asc"
           },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
           "name"
         ],
         "startKeys": [
@@ -34675,10 +33992,10 @@
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -34686,21 +34003,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "name"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "name": "asc"
           }
@@ -34708,15 +34019,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "name"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -34724,7 +34032,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"name\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -34732,26 +34040,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "name"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "name": "asc"
           }
@@ -34759,18 +34056,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "name"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -34778,7 +34069,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"name\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -34786,42 +34077,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "name"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "name": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "name"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -34829,7 +34106,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"name\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"name\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -36402,238 +35679,225 @@
       "schema": "averageSchema",
       "why": "sort-asc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
+          },
+          {
+            "var1": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "var1",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"var1\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "averageSchema",
       "why": "sort-desc-one-field",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "desc"
+            "_deleted": "asc"
+          },
+          {
+            "var1": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "var1",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"var1\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "averageSchema",
       "why": "sort-asc-two-fields",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "age": "asc"
+            "var1": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "var1",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"var1\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "averageSchema",
       "why": "sort-mixed-directions",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "age": "desc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "age": "desc"
+            "var1": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "var1",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"var1\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
       "schema": "averageSchema",
       "why": "sort-including-pk",
       "query": {
-        "selector": {},
-        "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          }
-        ]
+        "selector": {}
       },
       "normalizedQuery": {
         "selector": {},
+        "skip": 0,
         "sort": [
           {
-            "firstName": "asc"
+            "_deleted": "asc"
           },
           {
-            "passportId": "asc"
+            "var1": "asc"
           },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "_meta.lwt",
+          "_deleted",
+          "var1",
           "id"
         ],
         "startKeys": [
+          -9007199254740991,
           -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
           "￿",
+          "￿",
           "￿"
         ],
         "inclusiveStart": true,
         "inclusiveEnd": true,
-        "sortSatisfiedByIndex": false,
+        "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"_meta.lwt\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":false,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"_deleted\",\"var1\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -36641,21 +35905,15 @@
       "why": "index-without-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
           {
             "id": "asc"
           }
@@ -36663,15 +35921,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -36679,7 +35934,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -36687,26 +35942,15 @@
       "why": "index-with-pk",
       "query": {
         "selector": {},
-        "index": [
-          "firstName",
-          "passportId"
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "skip": 0,
         "sort": [
-          {
-            "firstName": "asc"
-          },
-          {
-            "passportId": "asc"
-          },
           {
             "id": "asc"
           }
@@ -36714,18 +35958,12 @@
       },
       "plan": {
         "index": [
-          "firstName",
-          "passportId",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -36733,7 +35971,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"firstName\",\"passportId\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {
@@ -36741,42 +35979,28 @@
       "why": "index-and-sort",
       "query": {
         "selector": {},
-        "index": [
-          "age"
-        ],
-        "sort": [
-          {
-            "age": "asc"
-          }
-        ]
+        "index": []
       },
       "normalizedQuery": {
         "selector": {},
         "index": [
-          "age",
           "id"
         ],
+        "skip": 0,
         "sort": [
-          {
-            "age": "asc"
-          },
           {
             "id": "asc"
           }
-        ],
-        "skip": 0
+        ]
       },
       "plan": {
         "index": [
-          "age",
           "id"
         ],
         "startKeys": [
-          -9007199254740991,
           -9007199254740991
         ],
         "endKeys": [
-          "￿",
           "￿"
         ],
         "inclusiveStart": true,
@@ -36784,7 +36008,7 @@
         "sortSatisfiedByIndex": true,
         "selectorSatisfiedByIndex": true
       },
-      "planJson": "{\"index\":[\"age\",\"id\"],\"startKeys\":[-9007199254740991,-9007199254740991],\"endKeys\":[\"￿\",\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
+      "planJson": "{\"index\":[\"id\"],\"startKeys\":[-9007199254740991],\"endKeys\":[\"￿\"],\"inclusiveEnd\":true,\"inclusiveStart\":true,\"sortSatisfiedByIndex\":true,\"selectorSatisfiedByIndex\":true}",
       "planRoundTripEqual": true
     },
     {

@@ -157,11 +157,23 @@ fn every_vector_sort_is_expressible_through_the_builder() {
             case["why"]
         );
     }
-    // 114 sort cases in the file at generation time: 109 normalising, 5 rejected by
-    // the normaliser before it can emit a sort.
-    assert_eq!(with_sort, 114, "the corpus's sort-case count changed");
+    // 59 sort cases in the file at generation time: 56 normalising, 3 rejected by the
+    // normaliser before it can emit a sort.
+    //
+    // This was 114/5 before lane C fixed `pruneToSchema` in the normalised-queries
+    // generator: it pruned the selector against the schema but not `sort` or `index`, so
+    // a sort shape naming `firstName` was recorded against fixtures that have no such
+    // field. Those cases were counted here as if they were valid sorts. When the pruning
+    // was fixed, a shape whose sort names a field the fixture lacks either lost that
+    // part or lost the sort entirely (falling back to the schema's own index order), so
+    // the population legitimately shrank. Nothing about this test's invariant changed;
+    // only how many cases carry a sort, so the constants moved with the corpus.
+    //
+    // If these fire again, check whether the corpus really changed before editing: the
+    // assertion exists so a silent collapse in sort coverage is not read as success.
+    assert_eq!(with_sort, 59, "the corpus's sort-case count changed");
     assert_eq!(
-        expected_failures, 5,
+        expected_failures, 3,
         "the corpus's rejected-sort-case count changed"
     );
 }

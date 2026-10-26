@@ -34,6 +34,9 @@
 //! glossed: a storage bug and a wrong fixture would be indistinguishable here. When
 //! `dxdb-query` lands, step (1) becomes the oracle and this caveat disappears.
 
+// NOTE: per-case catching, so this reports all failures -- but only under
+// `panic = "unwind"`. See dxdb_testkit::suite::PANIC_STRATEGY.
+
 mod support;
 
 use dxdb_testkit::fixtures::correctness;

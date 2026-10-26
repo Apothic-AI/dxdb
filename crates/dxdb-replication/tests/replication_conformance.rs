@@ -29,6 +29,9 @@
 //! DXDB_RUN_CONFORMANCE=1 make test                   # of this crate: cases fail, protocol absent
 //! ```
 
+// NOTE: per-case catching, so this reports all failures -- but only under
+// `panic = "unwind"`. See dxdb_testkit::suite::PANIC_STRATEGY.
+
 mod common {
     pub mod double;
 }

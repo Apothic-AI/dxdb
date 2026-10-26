@@ -17,6 +17,12 @@
 //! module here that runs the same suite against it** — the suite functions are generic
 //! over `RxStorage`, so that is a one-line addition per storage, not a rewrite.
 
+// NOTE: this harness reports every failing case by catching a panic per case, which
+// only works under `panic = "unwind"`. cargo test uses the dev profile, so it does.
+// A release-profile build of this harness would abort on the first failure instead
+// (measured: catch_unwind cannot catch under panic="abort"). See
+// dxdb_testkit::suite::PANIC_STRATEGY.
+
 mod support;
 
 use dxdb_testkit::decl::{exercised_cases, Case};
