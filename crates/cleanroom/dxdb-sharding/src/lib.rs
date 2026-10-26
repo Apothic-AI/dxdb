@@ -18,12 +18,14 @@ pub mod routing;
 use std::sync::Arc;
 
 use dxdb_storage::{
-    BulkWriteResponse, ChangedDocuments, ChangeStream, Checkpoint, CountResult, DocumentData,
+    BulkWriteResponse, ChangeStream, ChangedDocuments, Checkpoint, CountResult, DocumentData,
     DocumentWriteData, DynRxStorageInstance, EventBulk, InstanceCreationParams, PreparedQuery,
     RxStorage, RxStorageInstance, StorageError, StorageSchema, WriteError,
 };
 
-use crate::merge::{apply_window, merge_sorted, per_shard_limit, shard_query, sharded_count, MergeOrder};
+use crate::merge::{
+    apply_window, merge_sorted, per_shard_limit, shard_query, sharded_count, MergeOrder,
+};
 use crate::routing::{shard_names, ShardingConfig};
 
 /// Everything this crate can fail with.
@@ -127,7 +129,8 @@ impl<S: RxStorage> RxStorage for ShardedStorage<S> {
             shard_params.database_name = database_name;
             // The shard marker rides in the collection name so two configs cannot share
             // one set of instances.
-            shard_params.collection_name = format!("{collection_name}#{}", shard_marker(self.config));
+            shard_params.collection_name =
+                format!("{collection_name}#{}", shard_marker(self.config));
             let instance = self
                 .inner
                 .create_storage_instance(shard_params)
@@ -274,10 +277,7 @@ impl RxStorageInstance for ShardedInstance {
             }
         }
         // Return in the order the caller asked, which is what an unsharded storage does.
-        Ok(ids
-            .into_iter()
-            .filter_map(|id| found.remove(&id))
-            .collect())
+        Ok(ids.into_iter().filter_map(|id| found.remove(&id)).collect())
     }
 
     /// Runs the query on every shard and merges the results.
@@ -353,7 +353,11 @@ impl RxStorageInstance for ShardedInstance {
     /// per-storage and the events of one shard do not order against another's; the
     /// consumer's `EventBulk` contract is per-bulk, and each bulk remains valid.
     fn change_stream(&self) -> ChangeStream {
-        let streams: Vec<ChangeStream> = self.shards.iter().map(|shard| shard.change_stream()).collect();
+        let streams: Vec<ChangeStream> = self
+            .shards
+            .iter()
+            .map(|shard| shard.change_stream())
+            .collect();
         Box::pin(futures::stream::select_all(streams))
     }
 

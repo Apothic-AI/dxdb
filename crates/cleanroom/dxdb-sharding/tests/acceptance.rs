@@ -83,10 +83,6 @@ fn insert(document: DocumentData) -> BulkWriteRow {
     BulkWriteRow::insert(DocumentWriteData::new(document))
 }
 
-fn update(previous: DocumentData, document: DocumentData) -> BulkWriteRow {
-    BulkWriteRow::update(previous, DocumentWriteData::new(document))
-}
-
 fn full_scan() -> PreparedQuery {
     dxdb_testkit::harness::build_prepared_query(
         &json!({"selector": {}, "sort": [{"name": "asc"}]}),
@@ -118,7 +114,14 @@ fn inv_04_routing_is_pure_and_matches_the_specification() {
     }
     for shards in [1u32, 2, 3, 7, 10, 64, 1000] {
         let config = config(shards, ShardMode::Collection);
-        for key in ["doc-0", "doc-1", "tie-00", "", "😀 astral", "_rxdb_internal"] {
+        for key in [
+            "doc-0",
+            "doc-1",
+            "tie-00",
+            "",
+            "😀 astral",
+            "_rxdb_internal",
+        ] {
             assert_eq!(
                 config.shard_of(key),
                 expected(key, shards),
@@ -129,8 +132,14 @@ fn inv_04_routing_is_pure_and_matches_the_specification() {
         }
     }
     // A fixed vector, so a change of hash is a visible diff here.
-    assert_eq!(config(10, ShardMode::Collection).shard_of("doc-0"), expected("doc-0", 10));
-    assert_eq!(config(2, ShardMode::Collection).shard_of("a"), expected("a", 2));
+    assert_eq!(
+        config(10, ShardMode::Collection).shard_of("doc-0"),
+        expected("doc-0", 10)
+    );
+    assert_eq!(
+        config(2, ShardMode::Collection).shard_of("a"),
+        expected("a", 2)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -142,10 +151,9 @@ fn inv_04_routing_is_pure_and_matches_the_specification() {
 #[test]
 fn inv_05_per_row_errors_match_unsharded() {
     // The reference: one unsharded memory instance.
-    let reference = block_on(MemoryStorage::new().create_storage_instance(params(
-        &schema_for(None),
-        "reference",
-    )))
+    let reference = block_on(
+        MemoryStorage::new().create_storage_instance(params(&schema_for(None), "reference")),
+    )
     .expect("reference");
 
     let sharded = open(config(4, ShardMode::Collection), "errors");
@@ -217,10 +225,9 @@ fn inv_09_cleanup_and_remove_cover_every_shard() {
 
     // `remove` must clear every shard, so a read afterwards finds nothing.
     block_on(instance.remove()).expect("remove");
-    let found = block_on(instance.find_documents_by_id(
-        (0..9).map(|index| format!("doc-{index}")).collect(),
-        true,
-    ));
+    let found = block_on(
+        instance.find_documents_by_id((0..9).map(|index| format!("doc-{index}")).collect(), true),
+    );
     // The shards are removed, so either an empty result or a removed/closed error is
     // correct; what must not happen is documents surviving in some shard.
     match found {
@@ -252,7 +259,8 @@ fn inv_07_config_mismatch_is_refused() {
     let wrapper = config(3, ShardMode::Collection);
     let storage = ShardedStorage::new(MemoryStorage::new(), wrapper);
     let mismatched_schema = schema_for(Some(config(5, ShardMode::Collection)));
-    let Err(error) = block_on(storage.create_storage_instance(params(&mismatched_schema, "mismatch")))
+    let Err(error) =
+        block_on(storage.create_storage_instance(params(&mismatched_schema, "mismatch")))
     else {
         panic!("a shard-count mismatch must be refused");
     };
@@ -263,7 +271,8 @@ fn inv_07_config_mismatch_is_refused() {
 
     // A mode mismatch is refused too.
     let mode_schema = schema_for(Some(config(3, ShardMode::Database)));
-    let Err(error) = block_on(storage.create_storage_instance(params(&mode_schema, "mismatch-mode")))
+    let Err(error) =
+        block_on(storage.create_storage_instance(params(&mode_schema, "mismatch-mode")))
     else {
         panic!("a mode mismatch must be refused");
     };
@@ -271,7 +280,9 @@ fn inv_07_config_mismatch_is_refused() {
 
     // And a matching schema opens.
     let matching_schema = schema_for(Some(config(3, ShardMode::Collection)));
-    assert!(block_on(storage.create_storage_instance(params(&matching_schema, "matching"))).is_ok());
+    assert!(
+        block_on(storage.create_storage_instance(params(&matching_schema, "matching"))).is_ok()
+    );
 }
 
 /// Acceptance 16: `shards: 0` is rejected before it reaches storage.
@@ -302,7 +313,8 @@ fn acceptance_12_unconfigured_collection_passes_through() {
     ))
     .expect("write");
     assert!(response.is_ok());
-    let found = block_on(instance.find_documents_by_id(vec!["a".to_string()], false)).expect("read");
+    let found =
+        block_on(instance.find_documents_by_id(vec!["a".to_string()], false)).expect("read");
     assert_eq!(found.len(), 1);
 }
 
@@ -342,26 +354,32 @@ fn acceptance_17_modes_agree_with_each_other() {
     let in_collection = open(collection, "mode-collection");
     let in_database = open(database, "mode-database");
     for instance in [in_collection.as_ref(), in_database.as_ref()] {
-        block_on(instance.bulk_write(
-            (0..20)
-                .map(|index| {
-                    insert(document(
-                        &format!("doc-{index:02}"),
-                        &format!("name {}", index % 7),
-                        "1-a",
-                    ))
-                })
-                .collect(),
-            "seed".to_string(),
-        ))
+        block_on(
+            instance.bulk_write(
+                (0..20)
+                    .map(|index| {
+                        insert(document(
+                            &format!("doc-{index:02}"),
+                            &format!("name {}", index % 7),
+                            "1-a",
+                        ))
+                    })
+                    .collect(),
+                "seed".to_string(),
+            ),
+        )
         .expect("seed");
     }
     let left = block_on(in_collection.query(full_scan())).expect("query");
     let right = block_on(in_database.query(full_scan())).expect("query");
     assert_eq!(left, right, "the mode must not change results");
     assert_eq!(
-        block_on(in_collection.count(full_scan())).expect("count").count,
-        block_on(in_database.count(full_scan())).expect("count").count
+        block_on(in_collection.count(full_scan()))
+            .expect("count")
+            .count,
+        block_on(in_database.count(full_scan()))
+            .expect("count")
+            .count
     );
 }
 
