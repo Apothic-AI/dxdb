@@ -747,7 +747,7 @@ fn regex_matches(value: Option<&Value>, pattern: &str, options: &str) -> bool {
         .trim_end_matches('$')
         .to_string();
 
-    let atoms = parse_atoms(&core, pattern);
+    let atoms = parse_atoms(&core, &pattern);
 
     // Try every start offset the anchors permit; a match is a full run of atoms.
     let haystack: Vec<char> = text.chars().collect();
