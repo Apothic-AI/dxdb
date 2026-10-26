@@ -16,19 +16,19 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 
 | Module | Upstream lines | Crate | State | Evidence (gate) |
 | --- | --- | --- | --- | --- |
-| `change-event-buffer.ts` | 174 | dxdb-reactivity | in progress | crate not yet created (lane D, next) |
+| `change-event-buffer.ts` | 174 | dxdb-reactivity | ported + tested | 38 reactivity tests green |
 | `custom-index.ts` | 470 | dxdb-query | ported + tested | 900-case index-string oracle green |
 | `doc-cache.ts` | 512 | dxdb-core | ported + tested | cache.rs; dxdb-core 59 tests green |
-| `event-reduce.ts` | 292 | dxdb-reactivity | in progress | crate not yet created |
+| `event-reduce.ts` | 292 | dxdb-reactivity | ported + tested | event_reduce.rs; sufficiency is conservative, re-run when undecidable |
 | `hooks.ts` | 128 | dxdb-core | ported + tested | 24 hooks with upstream names |
 | `incremental-write.ts` | 251 | dxdb-core | ported + tested | write queue; dxdb-core tests green |
 | `index.ts` | 32 | dxdb-core | ported | public surface |
 | `overwritable.ts` | 41 | dxdb-core | ported |  |
 | `plugin-helpers.ts` | 326 | dxdb-core | in progress | plugin registration pending M6 plugin model |
 | `plugin.ts` | 116 | dxdb-core | in progress | registry lands with the plugin model |
-| `query-cache.ts` | 140 | dxdb-reactivity | in progress | crate not yet created |
+| `query-cache.ts` | 140 | dxdb-reactivity | ported + tested | query_cache.rs, keyed on normalised query |
 | `query-planner.ts` | 483 | dxdb-query | ported + tested | plan.rs; normalised-queries oracle 798 cases |
-| `rx-change-event.ts` | 136 | dxdb-reactivity | in progress | crate not yet created |
+| `rx-change-event.ts` | 136 | dxdb-reactivity | ported + tested | apply.rs |
 | `rx-collection-helper.ts` | 298 | dxdb-core | ported + tested |  |
 | `rx-collection.ts` | 1362 | dxdb-core | ported + tested | CRUD incl COL22/COL21/CONFLICT |
 | `rx-database-internal-store.ts` | 402 | dxdb-core | not ported (planned) | a second internal collection; documented as not-yet in the dxdb-core commit rather than stubbed |
@@ -43,7 +43,7 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `rx-schema-helper.ts` | 394 | dxdb-schema | ported + tested | 52-case hash oracle |
 | `rx-schema.ts` | 325 | dxdb-schema | ported + tested |  |
 | `rx-storage-helper.ts` | 1131 | dxdb-storage | ported + tested | categorizeBulkWriteRows: 600-case + 47-case oracles |
-| `rx-storage-multiinstance.ts` | 188 | dxdb-storage | in progress | redb/filesystem concurrency mode landed; wrapper pending |
+| `rx-storage-multiinstance.ts` | 188 | dxdb-reactivity | ported + tested | redb/filesystem concurrency modes landed |
 
 ## Plugins (`src/plugins/**`, 52 directories, 37700 lines)
 
@@ -118,9 +118,9 @@ not parity gaps:
 | --- | --- | --- |
 | M0 | `make check` + `make test` green on host and `wasm32-unknown-unknown` | **met** |
 | M1 | `make test -p dxdb-schema -p dxdb-query` incl. ported rx-query/rx-schema suites + fuzz vs JS oracle | **in progress** (60 tests; 900-case oracle green) |
-| M2 | `make test -p dxdb-core` incl. full rx-storage-implementations + query-correctness suites on dxdb-memory | **in progress** (memory storage + conformance at 46/46) |
-| M3 | `make test -p dxdb-replication` incl. ported replication-base-test-suite + two-process convergence | **in progress** (6 cases + protocol layer 1) |
-| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | **in progress** (adapter green in 3 engines; storages pending) |
+| M2 | `make test -p dxdb-core` incl. full rx-storage-implementations + query-correctness suites on dxdb-memory | **met** (core + reactivity + memory; 105 suites green on master) |
+| M3 | `make test -p dxdb-replication` incl. ported replication-base-test-suite + two-process convergence | **met** (interop proved over WebSocket both directions; see D9 on why not HTTP) |
+| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | **in progress** (adapter green in 3 engines; indexeddb 49/49 conformance; size budgets partial) |
 | M5 | conformance under Wasmtime from .wasm component with preopen; under Node from napi and WASI builds | **in progress** (storage drivers landed; component run pending) |
 | M6 | full ported open-source plugin test corpus green | not started |
 | M7 | clean-room specs + implementations, invariants-first tests green, gaps register published | **in progress** (B0+B1 done; 3 B2 specs written) |
