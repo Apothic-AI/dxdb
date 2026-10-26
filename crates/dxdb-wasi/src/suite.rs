@@ -160,7 +160,7 @@ pub const CASE_IDS: &[&str] = &[
     "schema_versions_are_isolated",
     "delete_tombstone_is_stored",
     "many_rows_persist",
-    "rollback_leaves_no_rows",
+    "row_count_is_exact_after_bulk_writes",
     "reopen_after_many_writes",
     "empty_collection_reads_empty",
 ];
@@ -203,7 +203,7 @@ fn run_case(id: &str, dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
         "schema_versions_are_isolated" => schema_versions_are_isolated(dir),
         "delete_tombstone_is_stored" => delete_tombstone_is_stored(dir),
         "many_rows_persist" => many_rows_persist(dir),
-        "rollback_leaves_no_rows" => rollback_leaves_no_rows(dir),
+        "row_count_is_exact_after_bulk_writes" => row_count_is_exact_after_bulk_writes(dir),
         "reopen_after_many_writes" => reopen_after_many_writes(dir),
         "empty_collection_reads_empty" => empty_collection_reads_empty(dir),
         other => Err(format!("unknown case id {other:?}").into()),
@@ -360,23 +360,31 @@ fn many_rows_persist(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn rollback_leaves_no_rows(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    // redb's own transaction, exercised directly: a transaction that is dropped
-    // without committing must leave nothing behind. This is the property that
-    // makes `bulk_write`'s failure path safe.
+fn row_count_is_exact_after_bulk_writes(dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    // Renamed from `rollback_leaves_no_rows`, because the original opened a second
+    // handle mid-case and that is not possible on WASI: redb there has only a
+    // whole-file lock, so a second `open` on the same directory fails with
+    // DatabaseAlreadyOpen. Testing concurrent handles is therefore a
+    // *target-dependent* property, and a suite case that passes on native and
+    // cannot run on WASI is worse than no case at all -- it makes the per-target
+    // numbers incomparable.
+    //
+    // What this checks instead is the property that matters on every target: a
+    // sequence of writes leaves an exact count, with nothing half-written and
+    // nothing double-counted.
     let store = open(dir)?;
     store.put_document("humans", 0, "keep", 1, false, &doc("keep", "1-a", 1))?;
     let before = store.documents("humans", 0)?.len();
-    {
-        // A second handle so the aborted work is visibly separate.
-        let other = open(dir)?;
-        other.put_document("humans", 0, "temp", 2, false, &doc("temp", "1-a", 2))?;
-    }
-    // Both writes are committed by their own calls; the point of the case is that
-    // the count is exact and nothing is half-written.
+    store.put_document("humans", 0, "temp", 2, false, &doc("temp", "1-a", 2))?;
     let after = store.documents("humans", 0)?.len();
     if after != before + 1 {
         return Err(format!("expected {} rows, got {after}", before + 1).into());
+    }
+    // And overwriting an existing id must not grow the count.
+    store.put_document("humans", 0, "temp", 3, false, &doc("temp", "2-b", 3))?;
+    let again = store.documents("humans", 0)?.len();
+    if again != after {
+        return Err(format!("overwrite changed the row count: {after} -> {again}").into());
     }
     Ok(())
 }

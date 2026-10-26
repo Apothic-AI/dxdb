@@ -120,10 +120,15 @@ impl Capabilities {
     /// yet. Reporting it honestly now is cheaper than discovering it in a suite
     /// run. See [`layout`] claim 3.
     pub const fn current() -> Self {
-        let native = cfg!(any(not(target_arch = "wasm32"), target_os = "wasi"));
+        // Persistence and multi-process are now different answers on WASI, which is
+        // exactly why they are separate fields: WASI has a real filesystem through
+        // the preopens (persistent), but redb there can only take a whole-file lock,
+        // so a second process cannot open the same directory (not multi-process).
+        let persistent = cfg!(any(not(target_arch = "wasm32"), target_os = "wasi"));
+        let multi_process = cfg!(not(target_arch = "wasm32"));
         Self {
-            persistent: native,
-            multi_process: native,
+            persistent,
+            multi_process,
             multi_instance_events: false,
         }
     }
@@ -154,18 +159,55 @@ impl FilesystemStorage {
         base_path.join("dxdb.redb")
     }
 
+    /// The redb concurrency mode this target can actually use.
+    ///
+    /// `MultiWriter` needs byte-range file locks, which redb implements only for
+    /// linux/apple/windows. WASI gets whole-file locking only, so it runs
+    /// `ExclusiveWriter`. A function rather than a `cfg!` inside `open` so the
+    /// choice is testable, and so the reason has one place to live.
+    pub const fn concurrency_mode() -> redb::ConcurrencyMode {
+        // The single condition that matters: multi-writer needs byte-range locks,
+        // and redb implements those only on non-wasm targets. Everything else,
+        // including WASI, gets `ExclusiveWriter` and a whole-file lock.
+        if cfg!(not(target_arch = "wasm32")) {
+            redb::ConcurrencyMode::MultiWriter
+        } else {
+            redb::ConcurrencyMode::ExclusiveWriter
+        }
+    }
+
     /// Opens (creating if absent) the database file under `base_path`.
     ///
-    /// Uses `ConcurrencyMode::MultiWriter` deliberately: the default
-    /// `ExclusiveWriter` locks the file to a single process, which cannot satisfy
-    /// `multiInstance: true`. The measurement behind that claim is in [`layout`].
+    /// The concurrency mode is **target-dependent**, because redb's capabilities
+    /// are. `MultiWriter` is what `multiInstance: true` needs on a host, and it is
+    /// unavailable on WASI:
+    ///
+    /// | Target | Mode | Why |
+    /// | --- | --- | --- |
+    /// | native | `MultiWriter` | several processes may write; verified cross-process |
+    /// | `wasm32-wasip1`/`wasip2` | `ExclusiveWriter` | redb cannot enter multi-writer mode here |
+    ///
+    /// The WASI restriction is measured, not assumed. Under `MultiWriter` on
+    /// `wasm32-wasip1` every open fails with "The storage backend does not support
+    /// this operation": redb's multi-writer open takes *byte-range* file locks
+    /// (`RangeLock` is implemented only for linux/apple/windows; elsewhere it is
+    /// `impl RangeLock for File {}`) and its fallback to a whole-file lock runs only
+    /// for `ExclusiveWriter`. A whole-file lock is what WASI actually offers, so
+    /// `ExclusiveWriter` is both the working mode and the honest one: one process at
+    /// a time, which is the truth for a single WASI instance holding a preopened
+    /// directory.
+    ///
+    /// The cost: `multiInstance: true` across two WASI instances sharing a directory
+    /// is unsupported, and the second open fails loudly with `DatabaseAlreadyOpen`
+    /// rather than corrupting the file. [`Capabilities::multi_process`] reports this
+    /// per target so a caller does not have to read this comment to find out.
     pub fn open(base_path: &Path) -> Result<Self, StorageError> {
         let path = Self::db_file(base_path);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| StorageError::redb("create_dir_all", e))?;
         }
         let db = Builder::new()
-            .set_concurrency_mode(redb::ConcurrencyMode::MultiWriter)
+            .set_concurrency_mode(Self::concurrency_mode())
             .create(&path)
             .map_err(|e| StorageError::redb("open", e))?;
         // Materialise every table once, so a reader never has to create one.
@@ -471,8 +513,20 @@ mod tests {
     fn two_handles_on_one_file_both_write_and_both_see_the_result() {
         // MultiWriter, the same shape as the two-process probe but in-process:
         // two open handles on one file, each seeing the other's commit. This is
-        // the property `multiInstance: true` needs; the default `ExclusiveWriter`
-        // would refuse the second `open` outright.
+        // the property `multiInstance: true` needs.
+        //
+        // Native only, and the skip is the point: on WASI redb has only a
+        // whole-file lock, so the second `open` fails with DatabaseAlreadyOpen by
+        // design. Asserting the native property here and *recording* the WASI
+        // limitation is better than a test that fails on one target and gets
+        // deleted. The cross-target contract is `Capabilities::multi_process`.
+        if cfg!(target_arch = "wasm32") {
+            assert!(
+                !Capabilities::current().multi_process,
+                "wasm targets must not claim multi-process"
+            );
+            return;
+        }
         let dir = tempfile::tempdir().expect("tempdir");
         let a = FilesystemStorage::open(dir.path()).expect("open a");
         let b = FilesystemStorage::open(dir.path()).expect("open b");
@@ -486,6 +540,25 @@ mod tests {
         for (name, store) in [("a", &a), ("b", &b)] {
             let rows = store.documents("humans", 0).expect("scan");
             assert_eq!(rows.len(), 2, "handle {name} must see both writers' rows");
+        }
+    }
+
+    #[test]
+    fn the_concurrency_mode_matches_what_the_target_supports() {
+        // The regression test for the WASI open failure: MultiWriter needs
+        // byte-range locks, which redb does not implement for wasm targets, so
+        // asking for it there fails at `create` with "The storage backend does not
+        // support this operation".
+        if cfg!(target_arch = "wasm32") {
+            assert_eq!(
+                FilesystemStorage::concurrency_mode(),
+                redb::ConcurrencyMode::ExclusiveWriter
+            );
+        } else {
+            assert_eq!(
+                FilesystemStorage::concurrency_mode(),
+                redb::ConcurrencyMode::MultiWriter
+            );
         }
     }
 
