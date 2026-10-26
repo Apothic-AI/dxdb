@@ -36,16 +36,34 @@ const FAMILY = 'schema-hashes';
  * step in the pipeline above. Each is a real schema shape from upstream's docs.
  */
 const SYNTHETIC = {
+  /**
+   * The SAME schema as `synthetic:no-index-at-all`, with keys inserted in a different
+   * order, and nothing else changed.
+   *
+   * It previously carried an extra `title` plus a second `properties.age` entry, which
+   * made it a different schema, so `key-order-does-not-change-hash` was false as
+   * recorded. A permutation has to be a permutation: same key set, same values, only
+   * insertion order differs. `normalizeRxJsonSchema` deep-sorts keys, so the hash must
+   * be identical to `no-index-at-all`'s.
+   */
   'synthetic:key-order-swapped': {
+    required: ['id'],
+    properties: { id: { maxLength: 100, type: 'string' } },
+    primaryKey: 'id',
+    type: 'object',
+    version: 0,
+  },
+  /**
+   * The negative counterpart for `maxLength`: one digit lower, everything else the
+   * same. Emitted as a case so `max-length-change-changes-hash` can resolve both of its
+   * endpoints, which it could not before.
+   */
+  'synthetic:max-length-changed': {
     version: 0,
     type: 'object',
     primaryKey: 'id',
-    properties: {
-      age: { maximum: 150, minimum: 0, type: 'integer', multipleOf: 1 },
-      id: { maxLength: 100, type: 'string' },
-    },
+    properties: { id: { type: 'string', maxLength: 99 } },
     required: ['id'],
-    title: 'key order test',
   },
   'synthetic:explicit-default-index': {
     version: 0,
@@ -199,73 +217,122 @@ export async function run({ check, repo }) {
    */
   const relations = [];
 
-  const hashOf = async (literal) => {
-    const rx = rxSchema.createRxSchema(JSON.parse(JSON.stringify(literal)), utilsHash.defaultHashSha256);
-    return rx.hash;
-  };
-  const plain = {
-    version: 0,
-    type: 'object',
-    primaryKey: 'id',
-    properties: { id: { type: 'string', maxLength: 100 } },
-    required: ['id'],
-  };
-  const plainHash = await hashOf(plain);
-  const reordered = {
-    required: ['id'],
-    primaryKey: 'id',
-    properties: { id: { maxLength: 100, type: 'string' } },
-    type: 'object',
-    version: 0,
-  };
-  relations.push({
-    why: 'key-order-does-not-change-hash',
-    a: 'plain',
-    b: 'reordered',
-    equal: plainHash === (await hashOf(reordered)),
-    hash: plainHash,
-  });
+  /**
+   * Relations are derived from cases, not from separate inline literals.
+   *
+   * The previous version built its own `plain` / `reordered` schemas, hashed them, and
+   * recorded the result as a relation naming endpoints that were never emitted as
+   * cases. That produced a block which could not be checked against the file it lived
+   * in, and it had silently accumulated two defects:
+   *
+   *   - every endpoint name (`plain`, `reordered`, ...) resolved to nothing in
+   *     `cases[]`, so a consumer reading `relation.a` found no such case;
+   *   - `key-order-swapped` was not a permutation at all. It added a `title` and a
+   *     second property, so `key-order-does-not-change-hash` was asserting equality
+   *     between two genuinely different schemas, recording `equal: true` alongside a
+   *     hash that belonged to only one of them.
+   *
+   * Resolving both by name from `hashesByName` means a relation can only exist if both
+   * of its endpoints were actually emitted, and the assertion at the end of this
+   * function fails the generator if anything disagrees.
+   */
+  const hashesByName = new Map(cases.filter((c) => c.hash).map((c) => [c.name, c.hash]));
 
-  const explicitIndex = { ...plain, indexes: [['_deleted', 'id']] };
-  relations.push({
-    why: 'explicit-default-index-equals-implicit-default',
-    a: 'plain',
-    b: 'explicitIndex',
-    equal: plainHash === (await hashOf(explicitIndex)),
-    hash: plainHash,
-  });
-
-  const redundantRequired = { ...plain, required: ['id', 'id'] };
-  relations.push({
-    why: 'redundant-required-does-not-change-hash',
-    a: 'plain',
-    b: 'redundantRequired',
-    equal: plainHash === (await hashOf(redundantRequired)),
-    hash: plainHash,
-  });
-
-  // The counterpart: a semantic change MUST change the hash, otherwise the
-  // identity is too coarse and two different schemas share a storage.
-  const differentMaxLength = {
-    ...plain,
-    properties: { id: { type: 'string', maxLength: 99 } },
+  /** Record a relation between two emitted cases, computing `equal` from their hashes. */
+  const relate = (why, a, b) => {
+    const hashA = hashesByName.get(a);
+    const hashB = hashesByName.get(b);
+    if (hashA === undefined || hashB === undefined) {
+      throw new Error(
+        `relation ${why} names a case that was not emitted as a case: ` +
+          `${hashA === undefined ? a : b} (have: ${[...hashesByName.keys()].join(', ')})`
+      );
+    }
+    relations.push({
+      why,
+      a,
+      b,
+      equal: hashA === hashB,
+      // The hash of each endpoint, so a reader never has to guess which side a single
+      // `hash` field referred to.
+      hashA,
+      hashB,
+    });
   };
-  relations.push({
-    why: 'max-length-change-changes-hash',
-    a: 'plain',
-    b: 'differentMaxLength',
-    equal: plainHash === (await hashOf(differentMaxLength)),
-    hash: await hashOf(differentMaxLength),
-  });
 
-  const versionBump = { ...plain, version: 1 };
-  relations.push({
-    why: 'version-change-changes-hash',
-    a: 'plain',
-    b: 'versionBump',
-    equal: plainHash === (await hashOf(versionBump)),
-    hash: await hashOf(versionBump),
-  });
+  // Order-insensitivity: the same schema with its keys inserted in a different order.
+  relate(
+    'key-order-does-not-change-hash',
+    'synthetic:no-index-at-all',
+    'synthetic:key-order-swapped'
+  );
+  // An explicitly declared default index must not change the identity.
+  relate(
+    'explicit-default-index-equals-implicit-default',
+    'synthetic:no-index-at-all',
+    'synthetic:explicit-default-index'
+  );
+  // `required` is de-duplicated, so a repeated entry must not change it either.
+  relate(
+    'redundant-required-does-not-change-hash',
+    'synthetic:no-index-at-all',
+    'synthetic:redundant-required'
+  );
+  // The negative counterparts: a semantic change MUST change the identity, otherwise
+  // two different schemas share a storage and the hash is too coarse to be useful.
+  relate(
+    'max-length-change-changes-hash',
+    'synthetic:no-index-at-all',
+    'synthetic:max-length-changed'
+  );
+  relate(
+    'version-change-changes-hash',
+    'synthetic:no-index-at-all',
+    'synthetic:version-3'
+  );
+  relate(
+    'key-compression-change-changes-hash',
+    'synthetic:no-index-at-all',
+    'synthetic:key-compression-on'
+  );
+
+  /**
+   * Self-check. A relation block that cannot be checked against the cases it lives
+   * with is worse than no relation block, because it looks like evidence. This fails
+   * the generator rather than emitting a file whose relations do not resolve.
+   */
+  for (const relation of relations) {
+    if (typeof relation.a !== 'string' || typeof relation.b !== 'string') {
+      throw new Error(`relation ${relation.why} has a non-string endpoint`);
+    }
+    if (!hashesByName.has(relation.a)) {
+      throw new Error(`relation ${relation.why}: endpoint a=${relation.a} is not a declared case`);
+    }
+    if (!hashesByName.has(relation.b)) {
+      throw new Error(`relation ${relation.why}: endpoint b=${relation.b} is not a declared case`);
+    }
+    const expectedEqual = hashesByName.get(relation.a) === hashesByName.get(relation.b);
+    if (relation.equal !== expectedEqual) {
+      throw new Error(
+        `relation ${relation.why} claims equal=${relation.equal} but the recorded ` +
+          `hashes differ: ${relation.a}=${hashesByName.get(relation.a)} vs ` +
+          `${relation.b}=${hashesByName.get(relation.b)}`
+      );
+    }
+    if (relation.hashA !== hashesByName.get(relation.a) || relation.hashB !== hashesByName.get(relation.b)) {
+      throw new Error(`relation ${relation.why} recorded a hash that is not its case's hash`);
+    }
+  }
+  // The positive relations must be genuinely positive, and the negative ones genuinely
+  // negative; otherwise a whole class of property silently stops being tested.
+  const positives = relations.filter((r) => r.why.includes('does-not-change') || r.why.includes('equals-implicit'));
+  const negatives = relations.filter((r) => r.why.includes('changes-hash'));
+  if (positives.length === 0 || positives.some((r) => !r.equal)) {
+    throw new Error('a "does not change the hash" relation is not actually equal');
+  }
+  if (negatives.length === 0 || negatives.some((r) => r.equal)) {
+    throw new Error('a "changes the hash" relation is actually equal');
+  }
 
   // Non-string inputs reach the hasher too (replication hashes a joined string,
   // not a schema). Recorded so a port cannot assume UTF-8-only ASCII.
