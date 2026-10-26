@@ -113,10 +113,16 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should replicate an inserted attachment",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "needs a payload store: RxStorageInstance::get_attachment_data(doc, att, digest) \
-             on the endpoint, plus a put_attachment that writes the payload and the \
-             {length, digest, type} stub. Digit side exists in dxdb-attachments \
-             (AttachmentCreator::digest, SHA-256). Blocked on dxdb-memory, not on the protocol.",
+            "THREE BLOCKERS, two of which already exist. (a) DONE: the digest, as \
+             Sha256HashFunction::hash. (b) DONE: a payload store that verifies the digest, as \
+             MemoryStorage::get_attachment_data; dxdb-memory is still a stub but the fixture \
+             proves the shape works. (c) MISSING: the protocol does not yet call \
+             fillWriteDataForAttachmentsChange at the three sites upstream does \
+             (upstream.ts:414, index.ts:208 and :242), so it never puts a payload on the wire. \
+             (d) MISSING and not in this crate: putAttachment/getAttachment are collection-layer \
+             (dxdb-core is empty), and the case body calls them directly. Unblocks when (c) is \
+             ported here AND dxdb-core has the document attachment API. This case also needs \
+             the PULL direction, which is not ported yet.",
         ),
         rust_test: "attachment_inserted",
     },
@@ -126,9 +132,10 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should replicate an updated attachment",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "same payload store as attachment_inserted, plus replace-under-existing-id: \
-             the storage must accept a second write of the same attachment id with a new \
-             digest and swap the payload. Blocked on dxdb-memory.",
+            "same four blockers as attachment_inserted, plus one storage-side property the \
+             fixture already implements: re-writing an existing attachment id with a new \
+             digest replaces the payload rather than 510-ing. Nothing extra is needed from \
+             other lanes for this one beyond what that case lists.",
         ),
         rust_test: "attachment_updated",
     },
@@ -138,9 +145,9 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should replicate a deleted attachment",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "same payload store as attachment_inserted, plus stub removal: deleting an \
-             attachment must remove the `_attachments` key and leave the document with an \
-             empty object. Blocked on dxdb-memory.",
+            "same four blockers as attachment_inserted, plus stub removal: deleting the last \
+             attachment leaves `_attachments` as an empty object. No extra dependency beyond \
+             that case; the assertion is on the document shape.",
         ),
         rust_test: "attachment_deleted",
     },
@@ -150,9 +157,12 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should keep the master attachment state on conflict",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "needs BOTH the upstream conflict path (this lane, layer 3) and a payload store \
-             addressed by digest, so the fork can fetch the blob for the winning digest. \
-             The conflict half is the blocker: the payload store alone would not run it.",
+            "the conflict half is DONE (the upstream pushes, resolves, and records \
+             isResolvedConflict, tested in upstream_push.rs). What remains is item (c) from \
+             attachment_inserted: the payload must ride the wire via a ported \
+             fillWriteDataForAttachmentsChange, so that after the master's stub wins the fork \
+             can fetch the payload for the winning digest. Also needs (d), the collection-layer \
+             putAttachment the body calls.",
         ),
         rust_test: "attachment_master_state_on_conflict",
     },
@@ -162,9 +172,11 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should not replicate attachment data when attachments are disabled",
         opt_in: true,
         backing: Backing::PortedDeferred(
-            "needs a payload store plus a replication configured WITHOUT attachment \
-             transfer, so the test can assert the document arrives while the payload does \
-             not. Blocked on dxdb-memory and on the pull loop that carries stubs.",
+            "needs a replication configured WITHOUT attachment transfer: hasAttachments false \
+             forces `_attachments: {}` on the write (convert.rs doc_state_to_write_doc already \
+             does this). So the protocol side is nearly ready; what is missing is (c)/(d) above \
+             plus the pull direction. The assertion is two-sided by design -- the document must \
+             arrive, the payload must not -- which needs both directions.",
         ),
         rust_test: "attachment_disabled_binary_not_replicated",
     },

@@ -5,10 +5,25 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "dxdb WASI host binding: a wasm32-wasip2 component exporting a WIT world, plus the conformance CLI"
+description = "dxdb WASI host binding: the conformance suite as a wasip1/wasip2 CLI, plus the WIT world for a component host"
 
-# Dependencies arrive with the port plan (§8 of docs/lanes/m5-port-plan.md):
-# `wit-bindgen` 0.63.0 for the component export, then the dxdb-* crates.
-# Deliberately empty today so `make check` and `make wasm` are green on a
-# workspace that does not yet publish the storage traits this crate implements.
 [dependencies]
+# The storage under test. `dxdb-filesystem` is the one storage that is real on
+# this target today: redb over the WASI preopens. `dxdb-sqlite` also builds for
+# wasip1/wasip2 (see its Cargo.toml) but is not wired into the suite yet.
+dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
+dxdb-storage = { path = "../dxdb-storage" }
+dxdb-json = { path = "../dxdb-json" }
+serde_json.workspace = true
+
+[lib]
+# `cdylib` for the wasip2 component build, `rlib` for the CLI and for tests.
+crate-type = ["rlib", "cdylib"]
+
+# The suite's own tests need a scratch directory.
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "dxdb-conformance"
+path = "src/main.rs"

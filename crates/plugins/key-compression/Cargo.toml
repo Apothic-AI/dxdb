@@ -1,0 +1,19 @@
+[package]
+name = "dxdb-plugin-key-compression"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: short field keys on write, expanded on read (RxDB src/plugins/key-compression)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-jsstr = { path = "../../dxdb-jsstr" }
+dxdb-schema = { path = "../../dxdb-schema" }
+dxdb-storage = { path = "../../dxdb-storage" }
+
+[dev-dependencies]
+serde_json.workspace = true
+dxdb-json = { path = "../../dxdb-json" }

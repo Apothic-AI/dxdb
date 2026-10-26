@@ -263,7 +263,7 @@ pub fn was_written_by_replication(
 /// re-exports are a consumer's business). `None` for a non-finite value, because JSON has
 /// no way to spell `NaN` or infinity and silently substituting `null` would corrupt a
 /// stored `lwt`.
-pub(crate) fn json_number(value: f64) -> Option<Value> {
+pub fn json_number(value: f64) -> Option<Value> {
     // `Value::from(f64)` yields `Null` for a non-finite input, which is right for a
     // caller that just wants a value but wrong for `_meta.lwt`: a null timestamp would
     // sort before everything and break the `(_meta.lwt, primary)` order the change feed
