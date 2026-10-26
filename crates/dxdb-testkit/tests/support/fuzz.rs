@@ -275,7 +275,7 @@ pub async fn run_sequence<S: RxStorage>(
         }
 
         // Invariants that must hold after *every* operation, not just at the end.
-        check_invariants(storage, &instance, &primary, &model, &mut revisions, seed, index, &log)
+        check_invariants(storage, &instance, &primary, &model, &mut revisions, seed, index, log)
             .await?;
     }
 
@@ -312,7 +312,7 @@ pub async fn run_sequence<S: RxStorage>(
 /// Applies one operation, updating the model, and asserts the *predicted* outcome.
 async fn apply<S: RxStorage>(
     _storage: &S,
-    instance: &Box<DynRxStorageInstance<'static>>,
+    instance: &DynRxStorageInstance<'static>,
     primary: &str,
     op: &Op,
     model: &mut Model,
@@ -576,7 +576,7 @@ async fn apply<S: RxStorage>(
                 let mut seen: BTreeSet<String> = BTreeSet::new();
                 let mut kept_rows = Vec::new();
                 let mut kept_outcomes = Vec::new();
-                for (row, outcome) in write_rows.into_iter().zip(outcomes.into_iter()) {
+                for (row, outcome) in write_rows.into_iter().zip(outcomes) {
                     let id = row
                         .document
                         .id("key")
@@ -669,7 +669,7 @@ async fn apply<S: RxStorage>(
 /// harness, because every failure it reports has to be disproved first.
 #[allow(clippy::too_many_arguments)]
 async fn write_document(
-    instance: &Box<DynRxStorageInstance<'static>>,
+    instance: &DynRxStorageInstance<'static>,
     primary: &str,
     id: &str,
     value: i64,
@@ -814,7 +814,7 @@ fn assert_conflict(errors: &[WriteError], id: &str, what: &str) -> Result<(), St
 }
 
 async fn fetch(
-    instance: &Box<DynRxStorageInstance<'static>>,
+    instance: &DynRxStorageInstance<'static>,
     id: &str,
 ) -> Result<Option<DocumentData>, String> {
     let docs = instance
@@ -826,7 +826,7 @@ async fn fetch(
 
 /// Every document in the collection, live and deleted, via `query`.
 async fn all_documents(
-    instance: &Box<DynRxStorageInstance<'static>>,
+    instance: &DynRxStorageInstance<'static>,
     primary: &str,
 ) -> Result<Vec<DocumentData>, String> {
     let prepared = dxdb_testkit::harness::build_prepared_query_for_schema(
@@ -857,7 +857,7 @@ fn id_of(doc: &DocumentData, primary: &str) -> Result<String, String> {
 #[allow(clippy::too_many_arguments)]
 async fn check_invariants<S: RxStorage>(
     _storage: &S,
-    instance: &Box<DynRxStorageInstance<'static>>,
+    instance: &DynRxStorageInstance<'static>,
     primary: &str,
     model: &Model,
     revisions: &mut BTreeMap<String, String>,
