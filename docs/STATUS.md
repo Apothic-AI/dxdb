@@ -70,18 +70,18 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `reactivity-angular` | 32 | — | not ported (JS-ecosystem binding) | Angular change detection; framework-specific by definition |
 | `reactivity-preact-signals` | 90 | — | not ported (JS-ecosystem binding) | Preact signals; framework-specific |
 | `reactivity-vue` | 43 | — | not ported (JS-ecosystem binding) | Vue reactivity; framework-specific |
-| `replication` | 1022 | dxdb-replication | ported + tested | 88 tests incl. HTTP convergence |
-| `replication-appwrite` | 338 | — | not ported (transport adapter) | protocol is ported (dxdb-replication); an Appwrite adapter is a transport crate sequenced after M3's protocol stabilised |
-| `replication-couchdb` | 475 | — | not ported (transport adapter) | protocol ported; CouchDB's checkpoint semantics need a dedicated adapter + conformance run |
-| `replication-firestore` | 538 | — | not ported (transport adapter) | protocol ported; needs the Firestore sync protocol, a separate specification |
-| `replication-google-drive` | 2421 | — | not ported (transport adapter) | protocol ported; Drive-as-transport is M6 tail |
-| `replication-graphql` | 901 | — | not ported (transport adapter) | protocol ported; GraphQL adapter is M6 tail |
-| `replication-microsoft-onedrive` | 2053 | — | not ported (transport adapter) | protocol ported; OneDrive-as-transport is M6 tail |
-| `replication-mongodb` | 578 | — | not ported (transport adapter) | protocol ported; Mongo change-stream adapter is M6 tail |
-| `replication-nats` | 347 | — | not ported (transport adapter) | protocol ported; NATS adapter is M6 tail |
-| `replication-supabase` | 435 | — | not ported (transport adapter) | protocol ported; Supabase realtime adapter is M6 tail |
-| `replication-webrtc` | 2314 | — | not ported (transport adapter) | protocol ported; WebRTC signalling is a transport with its own peer negotiation |
-| `replication-websocket` | 638 | — | not ported (transport adapter) | protocol ported; WebSocket transport is the next adapter in sequence |
+| `replication` | 1022 | dxdb-replication | ported + tested | 138 tests: protocol, state machine, push/pull, conformance, vectors, two-process, WebSocket convergence |
+| `replication-appwrite` | 338 | — | not ported (transport adapter) | protocol is ported; adapter sequenced 2 of 10 in `docs/lanes/m3-port-plan.md` §15 (CRUD + one subscription; no new protocol semantics) |
+| `replication-couchdb` | 475 | dxdb-replication | ported + tested | `src/adapters/couchdb.rs` + 8 tests; `{sequence}` checkpoint, `_rev` tree kept behind the boundary |
+| `replication-firestore` | 538 | — | not ported (transport adapter) | protocol ported; sequenced 4 of 10 in §15 — two queries per pull, and the checkpoint timestamp is deliberately an ISO **string** |
+| `replication-google-drive` | 2421 | — | not ported (transport adapter) | protocol ported; sequenced 6 of 10 in §15. Largest surface, and its live mode depends on `replication-webrtc`'s simple-peer handler |
+| `replication-graphql` | 901 | dxdb-replication | ported + tested | `src/adapters/graphql.rs` + 10 tests; caller-defined checkpoint (D7), errors-in-a-200, default dataPath |
+| `replication-microsoft-onedrive` | 2053 | — | not ported (transport adapter) | protocol ported; sequenced 7 of 10 in §15 — immediately **after** Drive, since the two share the signalling half |
+| `replication-mongodb` | 578 | — | not ported (transport adapter) | protocol ported; sequenced 5 of 10 in §15 — the hard one: `iterate` mode flips mid-replication, and the resume token is not the batch's last |
+| `replication-nats` | 347 | — | not ported (transport adapter) | protocol ported; sequenced 3 of 10 in §15 — the first adapter where the **server** decides conflicts (`wrong last sequence`) |
+| `replication-supabase` | 435 | — | not ported (transport adapter) | protocol ported; sequenced 1 of 10 in §15 — PostgREST keyset pagination + `postgres_changes` channel |
+| `replication-webrtc` | 2314 | — | not ported (transport adapter) | protocol ported; sequenced last of 10 in §15, but its `connection-handler-simple-peer` module is a **prerequisite** of Drive/OneDrive live mode |
+| `replication-websocket` | 638 | dxdb-replication | ported + tested | `src/adapters/websocket.rs` + `tests/websocket_adapter.rs` (2) + `tests/websocket_convergence.rs` (3, two instances over a real RFC 6455 socket) |
 | `state` | 577 | — | not ported (planned) | RxState is a small observable store; M6 tail |
 | `storage-denokv` | 696 | — | not ported (storage adapter) | kv adapter over Deno's API; Rust has no Deno equivalent, and filesystem/sqlite cover the same ground |
 | `storage-dexie` | 1041 | — | not ported (storage adapter) | Dexie is IndexedDB + a JS wrapper; dxdb-indexeddb targets the same store and the Dexie migration test is the interop path (audit item 4) |

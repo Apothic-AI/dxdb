@@ -80,8 +80,8 @@ impl Unavailable {
     pub fn reason(self) -> &'static str {
         match self {
             Unavailable::StorageMissing => {
-                "does not implement RxStorage; this crate is a driver/layout layer, \
-                 not a storage implementation"
+                "does not implement RxStorage; this crate is a driver layer (a SqliteDriver \
+                 trait plus a rusqlite driver), not a storage implementation"
             }
             Unavailable::BackendNeeded => {
                 "implements RxStorage but needs a host capability this test binary does \
@@ -299,18 +299,86 @@ fn localstorage_row() -> StorageRow {
     )
 }
 
-fn sqlite_row() -> StorageRow {
+#[cfg(feature = "matrix-indexeddb")]
+fn indexeddb_row() -> StorageRow {
+    // `MemoryBacking` is the `BackingStore` implementation `dxdb-indexeddb` exposes for
+    // exactly this: an in-memory stand-in for a browser's IndexedDB, so the storage logic is
+    // measurable without a browser. Using the real `WebBacking` would make this row depend on
+    // the host, which is a property of the machine rather than of the storage.
+    let storage =
+        dxdb_indexeddb::IndexedDbStorage::new(Rc::new(dxdb_indexeddb::MemoryBacking::default()));
+    StorageRow {
+        storage: "indexeddb",
+        krate: "crates/storages/dxdb-indexeddb",
+        unavailable: None,
+        outcomes: run_against(&storage),
+    }
+}
+
+#[cfg(not(feature = "matrix-indexeddb"))]
+fn indexeddb_row() -> StorageRow {
     unavailable_row(
-        "sqlite",
-        "crates/storages/dxdb-sqlite",
-        Unavailable::StorageMissing,
+        "indexeddb",
+        "crates/storages/dxdb-indexeddb",
+        Unavailable::BackendNeeded,
     )
 }
 
+#[cfg(feature = "matrix-filesystem")]
+fn filesystem_row() -> StorageRow {
+    // A temp directory per row, removed after the run. `redb` needs a real file, so this row
+    // is the one that touches disk; it is off by default for that reason.
+    let base = std::env::temp_dir().join(format!("dxdb-matrix-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let storage = dxdb_filesystem::FilesystemRxStorage::new(&base);
+    let outcomes = run_against(&storage);
+    let _ = std::fs::remove_dir_all(&base);
+    StorageRow {
+        storage: "filesystem",
+        krate: "crates/storages/dxdb-filesystem",
+        unavailable: None,
+        outcomes,
+    }
+}
+
+#[cfg(not(feature = "matrix-filesystem"))]
 fn filesystem_row() -> StorageRow {
     unavailable_row(
         "filesystem",
         "crates/storages/dxdb-filesystem",
+        Unavailable::BackendNeeded,
+    )
+}
+
+#[cfg(feature = "matrix-opfs")]
+fn opfs_row() -> StorageRow {
+    // `MemoryFiles` is the `FileStore` implementation `dxdb-opfs` exposes for exactly this:
+    // an in-memory stand-in for the Origin Private File System, so the storage logic is
+    // measurable without a browser. The real store needs `navigator.storage`, which does not
+    // exist in a native test binary — using it would make this row a statement about the
+    // host rather than about the storage.
+    let storage = dxdb_opfs::OpfsStorage::new(Rc::new(dxdb_opfs::MemoryFiles::default()));
+    StorageRow {
+        storage: "opfs",
+        krate: "crates/storages/dxdb-opfs",
+        unavailable: None,
+        outcomes: run_against(&storage),
+    }
+}
+
+#[cfg(not(feature = "matrix-opfs"))]
+fn opfs_row() -> StorageRow {
+    unavailable_row(
+        "opfs",
+        "crates/storages/dxdb-opfs",
+        Unavailable::BackendNeeded,
+    )
+}
+
+fn sqlite_row() -> StorageRow {
+    unavailable_row(
+        "sqlite",
+        "crates/storages/dxdb-sqlite",
         Unavailable::StorageMissing,
     )
 }
@@ -334,8 +402,10 @@ fn matrix() -> Vec<StorageRow> {
         scaffold_row(),
         memory_row(),
         localstorage_row(),
-        sqlite_row(),
+        indexeddb_row(),
         filesystem_row(),
+        opfs_row(),
+        sqlite_row(),
     ]
 }
 
@@ -489,18 +559,93 @@ fn the_control_scaffold_passes_every_case() {
 #[test]
 fn every_storage_crate_is_accounted_for() {
     let rows = matrix();
-    let known: Vec<&str> = rows.iter().map(|row| row.storage).collect();
-    for expected in ["memory", "localstorage", "sqlite", "filesystem"] {
-        assert!(
-            known.contains(&expected),
-            "the matrix has no row for `{expected}`. Add one, even if the answer is \
-             `Unavailable::StorageMissing` — an absent row reads as a passing one."
-        );
+    let row_names: Vec<&str> = rows.iter().map(|row| row.storage).collect();
+
+    // Read `crates/storages/` from the filesystem rather than from a list written here.
+    //
+    // The previous version of this test iterated a hardcoded array of five names. That is
+    // the same class of defect as a check that reports "pending" forever: it cannot detect
+    // the thing it is named after. It would not have caught a new storage crate appearing
+    // without a row, and in fact it did not — `dxdb-opfs` existed and passed conformance
+    // while the matrix had no row for it, and this test was green throughout.
+    //
+    // Reading the directory makes "add a storage, add a row" a build failure instead of an
+    // omission nobody notices.
+    let storages_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("crates/")
+        .join("storages");
+    let mut crates: Vec<String> = std::fs::read_dir(&storages_dir)
+        .unwrap_or_else(|err| {
+            panic!(
+                "cannot read {}: {err}. This test's whole purpose is to enumerate the \
+                 storages directory, so failing to read it must fail rather than pass \
+                 vacuously.",
+                storages_dir.display()
+            )
+        })
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().to_string();
+            // A crate, not a stray directory.
+            entry.path().join("Cargo.toml").exists().then_some(name)
+        })
+        .collect();
+    crates.sort();
+
+    assert!(
+        !crates.is_empty(),
+        "found no storage crates under {}; the path or the layout changed, and this test \
+         would otherwise pass while checking nothing",
+        storages_dir.display()
+    );
+
+    // A row's name is the storage's short name; the crate directory is `dxdb-<name>`.
+    let mut missing = Vec::new();
+    for krate in &crates {
+        let short = krate.strip_prefix("dxdb-").unwrap_or(krate);
+        if !row_names.contains(&short) {
+            missing.push(krate.clone());
+        }
     }
     assert!(
-        known.contains(&"reference-scaffold"),
-        "the matrix must include the control scaffold, or a storage bug and a testkit \
-         bug are indistinguishable"
+        missing.is_empty(),
+        "storage crate(s) present but with no matrix row: {missing:?}.\n  \
+         Every crate under crates/storages/ must have a row, even if the answer is \
+         `Unavailable::StorageMissing` or `Unavailable::BackendNeeded` — an absent row reads \
+         as a passing one, and a reader concludes the storage is unverified.",
+    );
+
+    // And the reverse: a row naming a crate that does not exist is a stale row, which is
+    // how a row outlives the crate it describes.
+    let mut stale = Vec::new();
+    for row in &rows {
+        // The control scaffold is not a storage crate and is deliberately exempt.
+        if row.krate.contains("dxdb-testkit") {
+            continue;
+        }
+        let short = row.storage;
+        let expected_crate = format!("dxdb-{short}");
+        if !crates.contains(&expected_crate) {
+            stale.push(format!("`{}` -> {expected_crate}", row.storage));
+        }
+    }
+    assert!(
+        stale.is_empty(),
+        "matrix row(s) name a crate that is not under crates/storages/: {stale:?}"
+    );
+
+    assert!(
+        row_names.contains(&"reference-scaffold"),
+        "the matrix must include the control scaffold, or a storage bug and a testkit bug \
+         are indistinguishable"
+    );
+
+    println!(
+        "  storages directory: {} crate(s) [{}], all with a matrix row",
+        crates.len(),
+        crates.join(", ")
     );
 }
 

@@ -33,8 +33,10 @@
 //! | --- | --- | --- |
 //! | [`websocket`] | `plugins/replication-websocket/` (638) | `{id, collection, method, params}` frames |
 //! | [`couchdb`] | `plugins/replication-couchdb/` (475) | HTTP `_changes` / `_all_docs` / `_bulk_docs` |
+//! | [`graphql`] | `plugins/replication-graphql/` (900, of which 255 is the adapter) | GraphQL `{query, variables}` POST |
 
 pub mod couchdb;
+pub mod graphql;
 pub mod websocket;
 
 /// A transport failure an adapter can report.
