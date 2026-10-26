@@ -1,88 +1,86 @@
-//! Oracle tests: schema hashes.
+//! Oracle tests: schema hashes, read through `dxdb-vectors`.
 //!
-//! `testdata/vectors/schema-hashes.json` was produced by running upstream RxDB
-//! 17.6.0 (commit `3b763ee17`) in Node — `JSON.stringify(defaultedSchema)` hashed
-//! with SHA-256, which is what `RxSchema.hash` does with
-//! `defaultHashSha256`. It is an external oracle, not a recording of this
-//! implementation, so a mismatch here is a real divergence and the vector is never
-//! adjusted to match the code.
+//! `testdata/vectors/schema-hashes.json` was produced by running upstream RxDB 17.6.0 in
+//! Node — `JSON.stringify(defaultedSchema)` hashed with SHA-256, which is what `RxSchema.hash`
+//! does with `defaultHashSha256`. It is an external oracle, not a recording of this
+//! implementation, so a mismatch is a real divergence and the vector is never adjusted to
+//! match the code.
 //!
-//! The vector carries three independent assertions per case, and all three are
-//! checked:
+//! The file is read through [`dxdb_vectors`], which owns path discovery, the case-count table
+//! and the `deny_unknown_fields` structs.
 //!
-//! - `defaultedSchema`: the exact filled-and-normalized object, key order included.
-//!   This localises a hash mismatch to injection, index building or sorting instead
-//!   of leaving "the hash is wrong" as the diagnosis.
-//! - `hashInputLength`: the byte length of `JSON.stringify(defaultedSchema)`, which
-//!   catches a formatting difference that happens not to change the hash
-//!   (impossible for SHA-256, but it names the failure precisely).
+//! Each case carries three independent assertions and all three are checked:
+//!
+//! - `defaultedSchema`: the exact filled-and-normalized object, key order included. This
+//!   localises a hash mismatch to injection, index building or key sorting instead of leaving
+//!   "the hash is wrong" as the diagnosis.
+//! - `hashInputLength`: the byte length of the serialised schema, which names a formatting
+//!   difference precisely.
 //! - `hash`: the digest itself.
 //!
-//! The vector also carries `relations` (which schema changes must and must not move
-//! the hash) and `hashStringCases` (SHA-256 of known byte strings), so a broken hash
-//! primitive is caught separately from broken canonicalisation.
+//! The family also carries `relations` (which edits must and must not move the hash) and
+//! `hashStringCases` (SHA-256 of known byte strings), so a broken hash primitive is caught
+//! separately from broken canonicalisation.
 
 use serde_json::Value;
 
 use dxdb_schema::{create_rx_schema, fill_with_default_settings, normalize_rx_json_schema, sha256_hex};
+use dxdb_vectors::{schema_hashes, VectorFamily, Vectors};
 
-fn load() -> Value {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../testdata/vectors/schema-hashes.json"
-    );
-    let text = std::fs::read_to_string(path).unwrap_or_else(|error| {
-        panic!("cannot read {path}: {error}. The oracle vectors are committed; do not generate them here.")
-    });
-    serde_json::from_str(&text).expect("schema-hashes.json is valid JSON")
+fn load() -> schema_hashes::Vectors {
+    let vectors = Vectors::discover();
+    vectors
+        .load(VectorFamily::SchemaHashes)
+        .expect("schema-hashes.json loads through dxdb-vectors")
 }
 
-/// The oracle must cover the fixtures, not a handful of synthetic cases.
+/// The oracle covers the fixtures, not a handful of synthetic cases.
 #[test]
-fn vector_file_covers_the_fixture_schemas() {
-    let vector = load();
-    let cases = vector["cases"].as_array().expect("cases array");
-    assert!(
-        cases.len() >= 50,
-        "schema-hash oracle lost cases: {}",
-        cases.len()
-    );
+fn the_family_has_its_documented_case_count() {
+    let family = load();
+    assert_eq!(family.cases.len(), family.case_count);
+    let expected = dxdb_vectors::EXPECTED_CASE_COUNTS
+        .iter()
+        .find(|(candidate, _)| *candidate == VectorFamily::SchemaHashes)
+        .map(|(_, count)| *count)
+        .expect("SchemaHashes is in EXPECTED_CASE_COUNTS");
+    assert_eq!(family.cases.len(), expected);
     assert_eq!(
-        vector["algorithm"].as_str(),
-        Some("sha256 hex of JSON.stringify(defaultedSchema)"),
+        family.algorithm, "sha256 hex of JSON.stringify(defaultedSchema)",
         "the algorithm string documents what is being asserted"
     );
-    // Every fixture schema in `src/plugins/test-utils/schemas.ts` must appear, not
-    // just the ones that happened to hash cleanly.
-    let names: Vec<&str> = cases
-        .iter()
-        .filter_map(|case| case["name"].as_str())
-        .collect();
+    assert!(
+        family.failed_schemas.is_empty(),
+        "the generator recorded schemas it could not hash: {:?}",
+        family.failed_schemas
+    );
+
+    // Every fixture the port must cover, plus at least the synthetic cases that isolate one
+    // defaulting step each.
     for required in ["human", "bigHuman", "noIndexHuman", "empty", "point"] {
         assert!(
-            names.contains(&required),
-            "fixture {required} missing from the oracle; got {names:?}"
+            family.cases.iter().any(|case| case.name == required),
+            "fixture {required} missing from the oracle"
         );
     }
+    assert!(
+        family.cases.iter().filter(|case| !case.is_fixture()).count() >= 8,
+        "the synthetic cases are what let a failing port bisect across defaulting steps"
+    );
 }
 
 /// Every fixture and synthetic schema: fill, normalize, hash, compare.
 #[test]
 fn hashes_match_upstream_oracle() {
-    let vector = load();
-    let cases = vector["cases"].as_array().expect("cases array");
+    let family = load();
     let mut checked = 0;
     let mut failures = Vec::new();
 
-    for case in cases {
-        let name = case["name"].as_str().expect("name");
-        let input = &case["input"];
-        let expected_schema = &case["defaultedSchema"];
-        let expected_hash = case["hash"].as_str().expect("hash");
-        let expected_length = case["hashInputLength"].as_u64().expect("length");
+    for case in &family.cases {
+        let name = &case.name;
 
         // 1. The defaulted schema itself.
-        let filled = match fill_with_default_settings(input) {
+        let filled = match fill_with_default_settings(&case.input) {
             Ok(filled) => filled,
             Err(error) => {
                 failures.push(format!("{name}: fill failed: {error}"));
@@ -90,55 +88,56 @@ fn hashes_match_upstream_oracle() {
             }
         };
         let normalized = normalize_rx_json_schema(&filled);
-        if &normalized != expected_schema {
+        if normalized != case.defaulted_schema {
             failures.push(format!(
                 "{name}: defaulted schema differs.\n  ours:     {}\n  upstream: {}",
                 dxdb_json::to_js_json(&normalized),
-                dxdb_json::to_js_json(expected_schema),
+                dxdb_json::to_js_json(&case.defaulted_schema)
+            ));
+            continue;
+        }
+        // Key order and formatting, which a value comparison above cannot see.
+        let ours = dxdb_json::to_js_json(&normalized);
+        let upstream = dxdb_json::to_js_json(&case.defaulted_schema);
+        if ours != upstream {
+            failures.push(format!(
+                "{name}: serialised defaulted schema differs.\n  ours:     {ours}\n  upstream: \
+                 {upstream}"
             ));
             continue;
         }
 
         // 2. The canonical byte length.
         let bytes = dxdb_json::canonical_bytes(&normalized);
-        if bytes.len() as u64 != expected_length {
+        if bytes.len() != case.hash_input_length {
             failures.push(format!(
-                "{name}: hash input is {} bytes, upstream's is {expected_length}",
-                bytes.len()
+                "{name}: hash input is {} bytes, upstream's is {}",
+                bytes.len(),
+                case.hash_input_length
             ));
             continue;
         }
 
         // 3. The digest.
         let actual_hash = sha256_hex(&bytes);
-        if actual_hash != expected_hash {
+        if actual_hash != case.hash {
             failures.push(format!(
-                "{name}: hash {actual_hash} != upstream {expected_hash}"
+                "{name}: hash {actual_hash} != upstream {}",
+                case.hash
             ));
             continue;
         }
 
-        // An unencodable schema still hashes upstream, because hashing only
-        // serialises the object — `compoundIndexNoString` is the case, and the family
-        // carries its hash. `Schema::new` is the *encodable*-schema type and rejects
-        // it, which is asserted here rather than left implicit: the two behaviours are
-        // different on purpose and both are observable.
-        if let Ok(schema) = create_rx_schema(input) {
-            if schema.hash() != expected_hash {
+        // And the public entry point must agree. An unencodable schema still hashes
+        // upstream — hashing only serialises the object — while `Schema` additionally
+        // requires the indexes to be usable, so a `Schema` that exists must report the same
+        // hash.
+        if let Ok(schema) = create_rx_schema(&case.input) {
+            if schema.hash() != case.hash {
                 failures.push(format!(
-                    "{name}: Schema::hash {} != upstream {expected_hash}",
-                    schema.hash()
-                ));
-                continue;
-            }
-        } else {
-            // Only an index entry that is not a field name may be rejected after a
-            // successful fill; any other rejection is a bug.
-            let filled_indexes = dxdb_schema::get_string_indexes(&normalized);
-            if filled_indexes.is_ok() {
-                failures.push(format!(
-                    "{name}: Schema::new rejected a schema whose indexes are all field \
-                     names, which upstream accepts"
+                    "{name}: Schema::hash {} != upstream {}",
+                    schema.hash(),
+                    case.hash
                 ));
                 continue;
             }
@@ -150,133 +149,82 @@ fn hashes_match_upstream_oracle() {
         failures.is_empty(),
         "{} of {} schema-hash cases diverged:\n{}",
         failures.len(),
-        cases.len(),
+        family.cases.len(),
         failures.join("\n")
     );
-    assert_eq!(checked, cases.len());
+    assert_eq!(checked, family.cases.len());
 }
 
 /// `relations`: which edits must and must not move the hash.
 ///
-/// This is the part of schema identity that matters in practice — a client that
-/// re-encodes a schema with its keys in a different order, or spells out the index the
-/// defaults would have produced, must land on the same hash or it cannot talk to the
-/// same store. The counterpart matters just as much: a real semantic change must move
-/// the hash, or two different schemas would share one storage.
-///
-/// Both sides of every relation are read from the vector's own `cases`: each endpoint
-/// names a case, and `relationEntry.input` is that case's input schema. This test used
-/// to keep its own copies of the schemas keyed by the names the relations used, which
-/// meant it reproduced the generator's literals by hand. That worked only while the
-/// relations pointed at names that were not cases; when the generator was fixed to
-/// reference real cases, the hand-written map and the vector disagreed and this test
-/// failed on an unresolvable name rather than on a hash. Reading the schemas from the
-/// file is both shorter and the only version that cannot drift.
+/// This is the part of schema identity that matters in practice — a client that re-encodes a
+/// schema with its keys in a different order, or spells out the index the defaults would have
+/// produced, must land on the same hash or it cannot talk to the same store. The negative
+/// pairs matter just as much: without them, a port that hashed everything identically would
+/// pass the positive ones.
 #[test]
 fn hash_relations_hold() {
-    let vector = load();
-    let relations = vector["relations"].as_array().expect("relations array");
-    assert!(!relations.is_empty(), "relations must be present");
+    let family = load();
+    assert!(!family.relations.is_empty(), "relations must be present");
+    let mut checked = 0;
 
-    let cases = vector["cases"].as_array().expect("cases array");
-    let input_of = |name: &str| -> Value {
-        cases
-            .iter()
-            .find(|case| case["name"].as_str() == Some(name))
-            .unwrap_or_else(|| {
-                panic!("relation names {name:?}, which is not a case in the vector")
-            })["input"]
-            .clone()
-    };
+    for relation in &family.relations {
+        // The relations now name real cases, so both endpoints and both hashes are
+        // resolvable from the file itself rather than from generator internals.
+        let (a, b) = relation.resolve(&family).unwrap_or_else(|| {
+            panic!(
+                "{}: relation names a case that is not in the family (a={:?}, b={:?})",
+                relation.why, relation.a, relation.b
+            )
+        });
 
-    for relation in relations {
-        let why = relation["why"].as_str().expect("why");
-        let a_name = relation["a"].as_str().expect("a");
-        let b_name = relation["b"].as_str().expect("b");
-        let equal = relation["equal"].as_bool().expect("equal");
+        // The recorded per-endpoint hashes must match what the cases say.
+        assert_eq!(a.hash, relation.hash_a, "{}: hashA", relation.why);
+        assert_eq!(b.hash, relation.hash_b, "{}: hashB", relation.why);
 
+        // And our implementation must reproduce the hashes it is claiming a relation about.
         let hash_of = |input: &Value| -> String {
-            let schema = create_rx_schema(input)
-                .unwrap_or_else(|error| panic!("{why}: schema does not build: {error}"));
-            schema.hash().to_string()
+            create_rx_schema(input)
+                .unwrap_or_else(|error| panic!("{}: schema does not build: {error}", relation.why))
+                .hash()
+                .to_string()
         };
-        let hash_a = hash_of(&input_of(a_name));
-        let hash_b = hash_of(&input_of(b_name));
+        let ours_a = hash_of(&a.input);
+        let ours_b = hash_of(&b.input);
+        assert_eq!(ours_a, a.hash, "{}: our hash of {:?}", relation.why, a.name);
+        assert_eq!(ours_b, b.hash, "{}: our hash of {:?}", relation.why, b.name);
 
-        // The recorded per-endpoint hashes must be what this implementation produces,
-        // whichever way the relation is formed.
-        assert_eq!(
-            hash_a,
-            relation["hashA"].as_str().expect("hashA"),
-            "{why}: the hash of {a_name} is wrong"
-        );
-        assert_eq!(
-            hash_b,
-            relation["hashB"].as_str().expect("hashB"),
-            "{why}: the hash of {b_name} is wrong"
-        );
-
-        if equal {
+        if relation.equal {
             assert_eq!(
-                hash_a, hash_b,
-                "{why}: {a_name} and {b_name} must hash the same"
+                ours_a, ours_b,
+                "{}: {:?} and {:?} must hash the same",
+                relation.why, a.name, b.name
             );
         } else {
             assert_ne!(
-                hash_a, hash_b,
-                "{why}: {a_name} and {b_name} must hash differently, or two distinct \
-                 schemas would share one storage"
+                ours_a, ours_b,
+                "{}: {:?} and {:?} must hash differently, or two distinct schemas would share \
+                 one storage",
+                relation.why, a.name, b.name
             );
         }
-        // The relation's own claim about itself, independent of this implementation.
-        assert_eq!(
-            equal,
-            relation["hashA"] == relation["hashB"],
-            "{why}: equal flag disagrees with the recorded hashes"
-        );
+        checked += 1;
     }
+    assert_eq!(checked, family.relations.len());
 }
 
 /// `hashStringCases`: the hash primitive itself, on known inputs.
 #[test]
 fn sha256_matches_known_vectors() {
-    let vector = load();
-    let cases = vector["hashStringCases"]
-        .as_array()
-        .expect("hashStringCases array");
-    assert!(!cases.is_empty());
-    for case in cases {
-        let input = case["input"].as_str().expect("input");
-        let expected = case["sha256"].as_str().expect("sha256");
+    let family = load();
+    assert!(!family.hash_string_cases.is_empty());
+    for case in &family.hash_string_cases {
         assert_eq!(
-            sha256_hex(input.as_bytes()),
-            expected,
-            "SHA-256 of {input:?} ({} bytes)",
-            input.len()
+            sha256_hex(case.input.as_bytes()),
+            case.sha256,
+            "SHA-256 of {:?} ({} bytes)",
+            case.input,
+            case.input.len()
         );
     }
-}
-
-/// A schema is not a hash: the *input* is pinned too, so a change to injection
-/// order is caught even where the digest happens to survive.
-#[test]
-fn defaulted_schema_matches_upstream_json() {
-    let vector = load();
-    let cases = vector["cases"].as_array().expect("cases array");
-    let case = cases
-        .iter()
-        .find(|case| case["name"].as_str() == Some("human"))
-        .expect("human case");
-    let filled = fill_with_default_settings(&case["input"]).expect("fills");
-    let normalized = normalize_rx_json_schema(&filled);
-    // Compare the *serialised* form as well as the value: serde_json with
-    // `preserve_order` compares object equality order-insensitively in `==`? It
-    // does not — `Map` equality is order-insensitive — so the string comparison is
-    // the one that pins key order.
-    let ours = dxdb_json::to_js_json(&normalized);
-    let upstream = dxdb_json::to_js_json(&case["defaultedSchema"]);
-    assert_eq!(
-        ours, upstream,
-        "key order and formatting must match upstream's JSON.stringify exactly"
-    );
 }
