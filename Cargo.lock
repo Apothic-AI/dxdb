@@ -506,6 +506,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-local-documents"
+version = "0.0.0"
+dependencies = [
+ "dxdb-schema",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-migration-schema"
 version = "0.0.0"
 dependencies = [
