@@ -175,14 +175,18 @@ fn run_storage(entry: &UnderTest, seeds: &[u64]) -> (Vec<RunOutcome>, Vec<String
 ///
 /// `dxdb-localstorage` is here for one reason, reported to its owner: `run_query` returns
 /// nothing for any selector, so a document written successfully is invisible to `query()`.
-/// The conformance matrix finds the same bug through the tombstone selectors; the fuzzer
-/// finds it through every selector. Two independent instruments agreeing is the strongest
-/// evidence this lane can produce, and it is why the row stays visible rather than skipped.
-const KNOWN_INVARIANT_VIOLATIONS: &[(&str, &str)] = &[(
-    "localstorage",
-    "run_query returns no documents for any selector (same bug the conformance matrix \
-     reports as impl-query-03 and impl-count-01); referenced by its owner",
-)];
+/// Storages known to violate an invariant, with the reason and a pointer to the owner.
+///
+/// Empty, and that is the result rather than an assumption: `localstorage` was the one entry
+/// (its `run_query` returned no documents for any selector, which the conformance matrix also
+/// saw as impl-query-03 and impl-count-01). Its owner fixed it, the fuzz harness confirmed the
+/// fix by no longer failing on it, and the entry was removed.
+///
+/// The entry was *removed because a test said to*, not because someone remembered to look: the
+/// harness fails when a listed storage starts passing, so a fixed bug cannot leave a stale
+/// excuse behind. That is the property worth keeping -- a baseline that only ever grows is a
+/// place for real bugs to hide.
+const KNOWN_INVARIANT_VIOLATIONS: &[(&str, &str)] = &[];
 
 #[test]
 fn every_storage_satisfies_the_invariants() {
