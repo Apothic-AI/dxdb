@@ -80,8 +80,8 @@ impl Unavailable {
     pub fn reason(self) -> &'static str {
         match self {
             Unavailable::StorageMissing => {
-                "does not implement RxStorage; this crate is a driver/layout layer, \
-                 not a storage implementation"
+                "does not implement RxStorage; this crate is a driver layer (a SqliteDriver \
+                 trait plus a rusqlite driver), not a storage implementation"
             }
             Unavailable::BackendNeeded => {
                 "implements RxStorage but needs a host capability this test binary does \
@@ -299,18 +299,62 @@ fn localstorage_row() -> StorageRow {
     )
 }
 
-fn sqlite_row() -> StorageRow {
+#[cfg(feature = "matrix-indexeddb")]
+fn indexeddb_row() -> StorageRow {
+    // `MemoryBacking` is the `BackingStore` implementation `dxdb-indexeddb` exposes for
+    // exactly this: an in-memory stand-in for a browser's IndexedDB, so the storage logic is
+    // measurable without a browser. Using the real `WebBacking` would make this row depend on
+    // the host, which is a property of the machine rather than of the storage.
+    let storage = dxdb_indexeddb::IndexedDbStorage::new(Rc::new(
+        dxdb_indexeddb::MemoryBacking::default(),
+    ));
+    StorageRow {
+        storage: "indexeddb",
+        krate: "crates/storages/dxdb-indexeddb",
+        unavailable: None,
+        outcomes: run_against(&storage),
+    }
+}
+
+#[cfg(not(feature = "matrix-indexeddb"))]
+fn indexeddb_row() -> StorageRow {
     unavailable_row(
-        "sqlite",
-        "crates/storages/dxdb-sqlite",
-        Unavailable::StorageMissing,
+        "indexeddb",
+        "crates/storages/dxdb-indexeddb",
+        Unavailable::BackendNeeded,
     )
 }
 
+#[cfg(feature = "matrix-filesystem")]
+fn filesystem_row() -> StorageRow {
+    // A temp directory per row, removed after the run. `redb` needs a real file, so this row
+    // is the one that touches disk; it is off by default for that reason.
+    let base = std::env::temp_dir().join(format!("dxdb-matrix-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let storage = dxdb_filesystem::FilesystemRxStorage::new(&base);
+    let outcomes = run_against(&storage);
+    let _ = std::fs::remove_dir_all(&base);
+    StorageRow {
+        storage: "filesystem",
+        krate: "crates/storages/dxdb-filesystem",
+        unavailable: None,
+        outcomes,
+    }
+}
+
+#[cfg(not(feature = "matrix-filesystem"))]
 fn filesystem_row() -> StorageRow {
     unavailable_row(
         "filesystem",
         "crates/storages/dxdb-filesystem",
+        Unavailable::BackendNeeded,
+    )
+}
+
+fn sqlite_row() -> StorageRow {
+    unavailable_row(
+        "sqlite",
+        "crates/storages/dxdb-sqlite",
         Unavailable::StorageMissing,
     )
 }
@@ -334,8 +378,9 @@ fn matrix() -> Vec<StorageRow> {
         scaffold_row(),
         memory_row(),
         localstorage_row(),
-        sqlite_row(),
+        indexeddb_row(),
         filesystem_row(),
+        sqlite_row(),
     ]
 }
 
@@ -490,7 +535,7 @@ fn the_control_scaffold_passes_every_case() {
 fn every_storage_crate_is_accounted_for() {
     let rows = matrix();
     let known: Vec<&str> = rows.iter().map(|row| row.storage).collect();
-    for expected in ["memory", "localstorage", "sqlite", "filesystem"] {
+    for expected in ["memory", "localstorage", "indexeddb", "filesystem", "sqlite"] {
         assert!(
             known.contains(&expected),
             "the matrix has no row for `{expected}`. Add one, even if the answer is \
