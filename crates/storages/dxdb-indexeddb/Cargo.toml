@@ -53,3 +53,4 @@ web-sys = { version = "0.3.106", features = [
 [dev-dependencies]
 futures = { workspace = true }
 dxdb-testkit = { path = "../../dxdb-testkit" }
+dxdb-json = { path = "../../dxdb-json" }
