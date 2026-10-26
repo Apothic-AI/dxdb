@@ -34,8 +34,8 @@
 //! | [`websocket`] | `plugins/replication-websocket/` (638) | `{id, collection, method, params}` frames |
 //! | [`couchdb`] | `plugins/replication-couchdb/` (475) | HTTP `_changes` / `_all_docs` / `_bulk_docs` |
 
+pub mod couchdb;
 pub mod websocket;
-
 
 /// A transport failure an adapter can report.
 ///
