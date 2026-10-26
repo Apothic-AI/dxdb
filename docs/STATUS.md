@@ -24,8 +24,8 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `incremental-write.ts` | 251 | dxdb-core | ported + tested | write queue; dxdb-core tests green |
 | `index.ts` | 32 | dxdb-core | ported | public surface |
 | `overwritable.ts` | 41 | dxdb-core | ported |  |
-| `plugin-helpers.ts` | 326 | dxdb-core | in progress | plugin registration pending M6 plugin model |
-| `plugin.ts` | 116 | dxdb-core | in progress | registry lands with the plugin model |
+| `plugin-helpers.ts` | 326 | dxdb-core | ported + tested | PluginHandle + ordered Hooks registry, 24 upstream hook names; 3 plugins migrated |
+| `plugin.ts` | 116 | dxdb-core | ported + tested | PluginHandle + ordered Hooks registry, 24 upstream hook names; 3 plugins migrated |
 | `query-cache.ts` | 140 | dxdb-reactivity | ported + tested | query_cache.rs, keyed on normalised query |
 | `query-planner.ts` | 483 | dxdb-query | ported + tested | plan.rs; normalised-queries oracle 798 cases |
 | `rx-change-event.ts` | 136 | dxdb-reactivity | ported + tested | apply.rs |
