@@ -1,0 +1,55 @@
+[package]
+name = "dxdb-indexeddb"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb IndexedDB storage: custom index strings, batched getAll reads"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# Compiles the conformance runner (the ported testkit suite, driven from a
+# browser). Off by default so a bundled app does not carry the suite.
+conformance = ["dep:dxdb-testkit"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json.workspace = true
+thiserror.workspace = true
+futures = { workspace = true }
+futures-channel = "0.3.34"
+
+dxdb-storage = { path = "../../dxdb-storage" }
+dxdb-query = { path = "../../dxdb-query" }
+dxdb-json = { path = "../../dxdb-json" }
+
+dxdb-testkit = { path = "../../dxdb-testkit", optional = true }
+
+# Browser only. `web-sys` is why this storage exists at all: IndexedDB gives
+# `getAll` over a key range, which is the batched read the brief requires.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.129"
+wasm-bindgen-futures = "0.4.79"
+js-sys = "0.3.106"
+web-sys = { version = "0.3.106", features = [
+  "IdbDatabase",
+  "IdbFactory",
+  "IdbObjectStore",
+  "IdbOpenDbRequest",
+  "IdbRequest",
+  "IdbTransaction",
+  "IdbTransactionMode",
+  "IdbKeyRange",
+  "DomException",
+  "Window",
+] }
+
+# The tests run the ported testkit suite, so the feature is on for them without
+# making it part of a bundled app.
+[dev-dependencies]
+futures = { workspace = true }
+dxdb-testkit = { path = "../../dxdb-testkit" }
