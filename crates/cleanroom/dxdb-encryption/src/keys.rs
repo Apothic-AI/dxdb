@@ -25,8 +25,8 @@ use std::sync::Arc;
 use zeroize::Zeroizing;
 
 use crate::config::Password;
-use crate::envelope::EnvelopeError;
 use crate::entropy::EntropySource;
+use crate::envelope::EnvelopeError;
 use crate::keywrap::{unwrap_key, wrap_key};
 
 /// Argon2id: memory in 1 KiB blocks — RFC 9106 §4 SECOND RECOMMENDED `m = 2^16`.
@@ -113,18 +113,10 @@ impl KdfParams {
         password: &[u8],
         salt: &[u8; SALT_LEN],
     ) -> Result<Key, KeyError> {
-        let params = argon2::Params::new(
-            self.m_cost_kib,
-            self.t_cost,
-            self.p_cost,
-            Some(KEY_LEN),
-        )
-        .map_err(|_| KeyError::Parameters)?;
-        let argon = argon2::Argon2::new(
-            argon2::Algorithm::Argon2id,
-            argon2::Version::V0x13,
-            params,
-        );
+        let params = argon2::Params::new(self.m_cost_kib, self.t_cost, self.p_cost, Some(KEY_LEN))
+            .map_err(|_| KeyError::Parameters)?;
+        let argon =
+            argon2::Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params);
         let mut out = Zeroizing::new([0u8; KEY_LEN]);
         argon
             .hash_password_into(password, salt, out.as_mut())
@@ -201,8 +193,8 @@ impl KeyRing {
             // and that wrapped key then serves as the next link's KEK too, so the
             // chain is kek1 -> data2 -> data3 -> ...
             let kek = kes[index].clone();
-            let next = unwrap_key(&kek, wrapped, generation)
-                .ok_or(EnvelopeError::AuthenticationFailed)?;
+            let next =
+                unwrap_key(&kek, wrapped, generation).ok_or(EnvelopeError::AuthenticationFailed)?;
             kes.push(next.clone());
             data_keys.push(next.clone());
             data_key = next;
@@ -236,9 +228,7 @@ impl KeyRing {
         if generation == 0 || generation > self.current {
             return None;
         }
-        self.data_keys
-            .get(usize::from(generation) - 1)
-            .cloned()
+        self.data_keys.get(usize::from(generation) - 1).cloned()
     }
 
     /// The current generation's data key.
@@ -454,7 +444,7 @@ fn self_root_data_key(master_key: &Key) -> Key {
 
 #[cfg(test)]
 mod tests {
-    use super::{self_root_data_key, KeyError, KeyRing, KdfParams};
+    use super::{self_root_data_key, KdfParams, KeyError, KeyRing};
     use zeroize::Zeroizing;
 
     fn master() -> Zeroizing<[u8; 32]> {

@@ -11,7 +11,7 @@ mod fake;
 use common::{config_for, harness_with, stored_string};
 use dxdb_encryption::{
     b64, check_password_strength, schema_hash, EncryptedPaths, EncryptionConfig, Envelope,
-    EnvelopeError, OVERHEAD, PasswordError,
+    EnvelopeError, PasswordError, OVERHEAD,
 };
 use dxdb_storage::{DocumentWriteData, RxStorageInstance};
 
@@ -42,10 +42,9 @@ fn acceptance_01_02_declared_fields_encrypt_undeclared_fields_do_not() {
         Some(&serde_json::json!("the public field"))
     );
 
-    let read = futures::executor::block_on(
-        instance.find_documents_by_id(vec!["doc-1".into()], false),
-    )
-    .expect("read");
+    let read =
+        futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
+            .expect("read");
     assert_eq!(
         dxdb_storage::get_object_path(read[0].as_value(), "note"),
         Some(&serde_json::json!("the secret"))
@@ -62,9 +61,7 @@ fn acceptance_03_nested_encrypted_paths_are_a_schema_error() {
     assert!(format!("{error}").contains("a.b"));
     // And in a release build: the error is produced by the same unconditional path,
     // so a `debug_assertions`-gated check would fail this assertion in release CI.
-    assert!(
-        EncryptedPaths::from_schema(&serde_json::json!({"encrypted": ["a", "a.b"]})).is_err()
-    );
+    assert!(EncryptedPaths::from_schema(&serde_json::json!({"encrypted": ["a", "a.b"]})).is_err());
 }
 
 /// Acceptance 4 and 5 are INV-8 and the password-required path; the invariant test
@@ -172,17 +169,22 @@ fn acceptance_14_15_rotation_preserves_plaintext_and_resumes() {
             ),
         );
     }
-    let before: Vec<_> = (0..5)
-        .map(|index| {
-            dxdb_json::to_js_json(
-                dxdb_storage::get_object_path(
-                    h.stored(&format!("doc-{index}")).as_value(),
-                    "note",
+    // Capture the plaintext through the *wrapper*, before rotating. Reading the
+    // stored form would capture ciphertext, which is what a first version of this
+    // test did and which made the assertion compare ciphertext to plaintext.
+    let before: Vec<_> = {
+        let documents = futures::executor::block_on(instance.query(fake::all_documents_query()))
+            .expect("query before rotation");
+        documents
+            .iter()
+            .map(|document| {
+                dxdb_json::to_js_json(
+                    dxdb_storage::get_object_path(document.as_value(), "note").expect("present"),
                 )
-                .expect("present"),
-            )
-        })
-        .collect();
+            })
+            .collect()
+    };
+    assert_eq!(before.len(), 5);
 
     // A batch size of 2 against 5 documents means three passes.
     let keys = dxdb_encryption::Keys::unlock(
@@ -209,7 +211,10 @@ fn acceptance_14_15_rotation_preserves_plaintext_and_resumes() {
         2,
     ))
     .expect("rotation");
-    assert_eq!(progress.rewritten, 5, "a small batch size still covers every document");
+    assert_eq!(
+        progress.rewritten, 5,
+        "a small batch size still covers every document"
+    );
 
     // Every stored field is at generation 2 and decrypts to its original value.
     let material = dxdb_encryption::KeyMaterial {
@@ -243,10 +248,13 @@ fn acceptance_14_15_rotation_preserves_plaintext_and_resumes() {
             )
         })
         .collect();
-    assert_eq!(after, before, "plaintext is unchanged by a multi-pass rotation");
+    assert_eq!(
+        after, before,
+        "plaintext is unchanged by a multi-pass rotation"
+    );
     for index in 0..5 {
-        let bytes = b64::decode(&stored_string(&h.stored(&format!("doc-{index}")), "note"))
-            .expect("b64");
+        let bytes =
+            b64::decode(&stored_string(&h.stored(&format!("doc-{index}")), "note")).expect("b64");
         assert_eq!(
             Envelope::parse(&bytes).expect("envelope").generation,
             2,
@@ -271,7 +279,8 @@ fn acceptance_18_19_unknown_version_and_suite_are_rejected() {
         bytes[6] = 1;
         match Envelope::parse(&bytes) {
             Err(EnvelopeError::Unsupported {
-                version: v, suite: s,
+                version: v,
+                suite: s,
             }) => {
                 assert_eq!((v, s), (version, suite), "the bytes are reported");
             }
@@ -284,7 +293,10 @@ fn acceptance_18_19_unknown_version_and_suite_are_rejected() {
 /// exact length.
 #[test]
 fn acceptance_23_envelope_overhead_is_exact() {
-    assert_eq!(OVERHEAD, 47, "4 magic + 1 version + 1 suite + 1 gen + 24 nonce + 16 tag");
+    assert_eq!(
+        OVERHEAD, 47,
+        "4 magic + 1 version + 1 suite + 1 gen + 24 nonce + 16 tag"
+    );
     // For a body length that is a multiple of 3, base64 is 4/3 of the input with no
     // padding, so the stored string is exactly ceil(47/3)*4 characters longer than
     // the body's own unpadded encoding... which is only clean when 47 + body is
@@ -312,9 +324,9 @@ fn acceptance_24_password_strength_floor() {
             dxdb_encryption::WeaknessReason::TooShort
         ))
     );
-    assert!(check_password_strength(&dxdb_encryption::Password::new(
-        "a blue cartridge lantern"
-    ))
-    .is_ok());
+    assert!(
+        check_password_strength(&dxdb_encryption::Password::new("a blue cartridge lantern"))
+            .is_ok()
+    );
     assert!(check_password_strength(&dxdb_encryption::Password::new("Xk7#pQ2vL9mZ")).is_ok());
 }

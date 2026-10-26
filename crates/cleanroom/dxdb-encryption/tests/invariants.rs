@@ -13,6 +13,7 @@ use dxdb_encryption::{
     b64, schema_hash, Aad, EncryptionConfig, Envelope, EnvelopeError, KeyMaterial, OVERHEAD,
 };
 use dxdb_storage::{DocumentData, DocumentWriteData, RxStorageInstance};
+use fake::{query_selecting, query_sorted_by};
 
 // ---------------------------------------------------------------------------
 // INV-1 — round-trip fidelity
@@ -22,7 +23,10 @@ use dxdb_storage::{DocumentData, DocumentWriteData, RxStorageInstance};
 /// formatting, and non-ASCII text.
 #[test]
 fn inv_01_round_trip_is_byte_identical() {
-    let h = harness_with(fake::schema(&["note", "payload"], false), "a long passphrase");
+    let h = harness_with(
+        fake::schema(&["note", "payload"], false),
+        "a long passphrase",
+    );
     let instance = h.instance();
 
     // The values that break a naive implementation: key order (PLAN.md 3.1), a float
@@ -41,10 +45,14 @@ fn inv_01_round_trip_is_byte_identical() {
     });
     h.write(
         &instance,
-        fake::document("doc-1", "1-abc", serde_json::json!({
-            "note": payload.clone(),
-            "payload": "second field"
-        })),
+        fake::document(
+            "doc-1",
+            "1-abc",
+            serde_json::json!({
+                "note": payload.clone(),
+                "payload": "second field"
+            }),
+        ),
     );
 
     // Stored form is ciphertext: neither plaintext value appears.
@@ -57,8 +65,9 @@ fn inv_01_round_trip_is_byte_identical() {
     assert_ne!(stored_text, dxdb_json::to_js_json(&payload));
 
     // Read form is byte-identical to what was written, in key order.
-    let read = futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
-        .expect("read");
+    let read =
+        futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
+            .expect("read");
     let note = dxdb_storage::get_object_path(read[0].as_value(), "note").expect("note");
     assert_eq!(
         dxdb_json::to_js_json(note),
@@ -85,7 +94,11 @@ fn inv_02_no_ciphertext_reaches_the_caller() {
     let instance = h.instance();
     h.write(
         &instance,
-        fake::document("doc-1", "1-abc", serde_json::json!({"note": "secret value"})),
+        fake::document(
+            "doc-1",
+            "1-abc",
+            serde_json::json!({"note": "secret value"}),
+        ),
     );
     // A tombstone that still carries its last ciphertext.
     let previous = h.stored("doc-1");
@@ -153,7 +166,11 @@ fn inv_03_cross_document_transplant_is_rejected() {
     for id in ["doc-a", "doc-b"] {
         h.write(
             &instance,
-            fake::document(id, "1-same", serde_json::json!({"note": format!("{id}'s own value")})),
+            fake::document(
+                id,
+                "1-same",
+                serde_json::json!({"note": format!("{id}'s own value")}),
+            ),
         );
     }
     let a_ciphertext = stored_string(&h.stored("doc-a"), "note");
@@ -176,11 +193,15 @@ fn inv_03_cross_document_transplant_is_rejected() {
         "transplant".to_string(),
     ))
     .expect("transplant write");
-    assert!(response.is_ok(), "the storage accepts it; only the AAD can reject it");
+    assert!(
+        response.is_ok(),
+        "the storage accepts it; only the AAD can reject it"
+    );
 
     // Reading through the wrapper must fail authentication, not hand back A's value.
-    let error = futures::executor::block_on(instance.find_documents_by_id(vec!["doc-b".into()], false))
-        .expect_err("a transplanted ciphertext must not open");
+    let error =
+        futures::executor::block_on(instance.find_documents_by_id(vec!["doc-b".into()], false))
+            .expect_err("a transplanted ciphertext must not open");
     let message = format!("{error}");
     assert!(
         message.contains("authentication failed"),
@@ -208,22 +229,23 @@ fn inv_04_cross_collection_transplant_is_rejected() {
     let instance_a = h.instance();
     h.write(
         &instance_a,
-        fake::document("doc-1", "1-abc", serde_json::json!({"note": "collection a value"})),
+        fake::document(
+            "doc-1",
+            "1-abc",
+            serde_json::json!({"note": "collection a value"}),
+        ),
     );
     let a_ciphertext = stored_string(&h.stored("doc-1"), "note");
 
     // The same document id, in collection b, holding collection a's ciphertext. This
     // is exactly what an attacker with storage access does after copying a value
     // between two collections of the same database.
-    let foreign = fake::document(
-        "doc-1",
-        "1-abc",
-        serde_json::json!({"note": a_ciphertext}),
-    );
+    let foreign = fake::document("doc-1", "1-abc", serde_json::json!({"note": a_ciphertext}));
     let direct = h.inner.clone();
-    let direct_a = futures::executor::block_on(
-        dxdb_storage::RxStorage::create_storage_instance(&direct, h.params()),
-    )
+    let direct_a = futures::executor::block_on(dxdb_storage::RxStorage::create_storage_instance(
+        &direct,
+        h.params(),
+    ))
     .expect("direct instance");
     // Update rather than insert: collection a's document already occupies `doc-1` in
     // this storage, and an insert would be a per-row conflict rather than the
@@ -254,16 +276,14 @@ fn inv_04_cross_collection_transplant_is_rejected() {
         std::sync::Arc::new(keys_b),
         EncryptionConfig::from_schema(&schema_b).expect("config b"),
     );
-    let instance_b = futures::executor::block_on(
-        dxdb_storage::RxStorage::create_storage_instance(&storage_b, params_b),
-    )
+    let instance_b = futures::executor::block_on(dxdb_storage::RxStorage::create_storage_instance(
+        &storage_b, params_b,
+    ))
     .expect("instance b");
 
-    let error = futures::executor::block_on(instance_b.find_documents_by_id(
-        vec!["doc-1".into()],
-        false,
-    ))
-    .expect_err("collection b must not open collection a's ciphertext");
+    let error =
+        futures::executor::block_on(instance_b.find_documents_by_id(vec!["doc-1".into()], false))
+            .expect_err("collection b must not open collection a's ciphertext");
     assert!(
         format!("{error}").contains("authentication failed"),
         "expected an authentication failure, got: {error}"
@@ -274,7 +294,10 @@ fn inv_04_cross_collection_transplant_is_rejected() {
 /// document fails authentication.
 #[test]
 fn inv_05_cross_field_transplant_is_rejected() {
-    let h = harness_with(fake::schema(&["note", "secret"], false), "a long passphrase");
+    let h = harness_with(
+        fake::schema(&["note", "secret"], false),
+        "a long passphrase",
+    );
     let instance = h.instance();
     h.write(
         &instance,
@@ -304,8 +327,9 @@ fn inv_05_cross_field_transplant_is_rejected() {
     .expect("write");
     assert!(response.is_ok());
 
-    let error = futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
-        .expect_err("a field-transplanted ciphertext must not open");
+    let error =
+        futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
+            .expect_err("a field-transplanted ciphertext must not open");
     assert!(
         format!("{error}").contains("authentication failed"),
         "expected an authentication failure, got: {error}"
@@ -359,8 +383,9 @@ fn inv_06_revision_rollback_is_rejected() {
     .expect("write");
     assert!(write.is_ok());
 
-    let error = futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
-        .expect_err("a rolled-back ciphertext must not open at a newer revision");
+    let error =
+        futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
+            .expect_err("a rolled-back ciphertext must not open at a newer revision");
     assert!(
         format!("{error}").contains("authentication failed"),
         "expected an authentication failure, got: {error}"
@@ -390,10 +415,8 @@ fn inv_07_rotation_preserves_plaintext_exactly() {
     }
     // The plaintext as the caller sees it, before rotation.
     let before: Vec<String> = {
-        let documents = futures::executor::block_on(
-            instance.query(fake::all_documents_query()),
-        )
-        .expect("query");
+        let documents = futures::executor::block_on(instance.query(fake::all_documents_query()))
+            .expect("query");
         documents
             .iter()
             .map(|document| {
@@ -471,9 +494,10 @@ fn encryption_instance_with(
         std::sync::Arc::new(dxdb_encryption::FixedEntropy::new()),
     )
     .expect("unlock");
-    let instance = futures::executor::block_on(
-        dxdb_storage::RxStorage::create_storage_instance(&h.inner, h.params()),
-    )
+    let instance = futures::executor::block_on(dxdb_storage::RxStorage::create_storage_instance(
+        &h.inner,
+        h.params(),
+    ))
     .expect("inner instance");
     dxdb_encryption::EncryptionInstance::new(
         instance,
@@ -527,7 +551,11 @@ fn inv_09_every_header_bit_flip_is_rejected() {
     let instance = h.instance();
     h.write(
         &instance,
-        fake::document("doc-1", "1-abc", serde_json::json!({"note": "the plaintext"})),
+        fake::document(
+            "doc-1",
+            "1-abc",
+            serde_json::json!({"note": "the plaintext"}),
+        ),
     );
     let ciphertext = b64::decode(&stored_string(&h.stored("doc-1"), "note")).expect("base64");
 
@@ -558,7 +586,10 @@ fn inv_09_every_header_bit_flip_is_rejected() {
     // Truncation at each length shorter than the whole envelope.
     for len in OVERHEAD..ciphertext.len() {
         let result = dxdb_encryption::envelope::open(&key, &aad, &ciphertext[..len]);
-        assert!(result.is_err(), "truncation to {len} bytes must be rejected");
+        assert!(
+            result.is_err(),
+            "truncation to {len} bytes must be rejected"
+        );
     }
 
     // One appended byte.
@@ -621,11 +652,9 @@ fn inv_10_encryption_is_nondeterministic_but_stable_on_decrypt() {
         ))
         .expect("install");
         assert!(write.is_ok());
-        let read = futures::executor::block_on(instance.find_documents_by_id(
-            vec!["doc-1".into()],
-            false,
-        ))
-        .expect("read");
+        let read =
+            futures::executor::block_on(instance.find_documents_by_id(vec!["doc-1".into()], false))
+                .expect("read");
         assert_eq!(
             dxdb_storage::get_object_path(read[0].as_value(), "note"),
             Some(&serde_json::json!("same value"))
@@ -699,24 +728,24 @@ fn inv_11_errors_never_carry_secrets() {
     }
 
     // An encrypted path in a query.
-    if let Err(error) =
-        futures::executor::block_on(instance.query(common::query_selecting("note")))
-    {
+    if let Err(error) = futures::executor::block_on(instance.query(query_selecting("note"))) {
         errors.push(format!("{error}"));
     }
 
     assert!(!errors.is_empty(), "the test must have provoked errors");
 
     // The salt and the derived keys must not be substring-searchable either.
-    let salt_hex: String = h.material.salt.iter().map(|byte| format!("{byte:02x}")).collect();
+    let salt_hex: String = h
+        .material
+        .salt
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
     let key_bytes = h.keys.current_data_key();
     let key_hex: String = key_bytes.iter().map(|byte| format!("{byte:02x}")).collect();
     for error in &errors {
         for secret in [PASSWORD, PLAINTEXT, &salt_hex, &key_hex] {
-            assert!(
-                !error.contains(secret),
-                "an error leaked a secret: {error}"
-            );
+            assert!(!error.contains(secret), "an error leaked a secret: {error}");
         }
     }
 }
@@ -737,20 +766,26 @@ fn inv_12_encrypted_paths_are_rejected_in_queries() {
     );
     let queries_before = h.inner.query_count();
 
-    let selector = futures::executor::block_on(instance.query(common::query_selecting("note")))
+    let selector = futures::executor::block_on(instance.query(query_selecting("note")))
         .expect_err("a selector on an encrypted path must be rejected");
     assert!(
         format!("{selector}").contains("encrypted path in query"),
         "got: {selector}"
     );
 
-    let sort = futures::executor::block_on(instance.query(common::query_sorted_by("note")))
+    let sort = futures::executor::block_on(instance.query(query_sorted_by("note")))
         .expect_err("a sort on an encrypted path must be rejected");
-    assert!(format!("{sort}").contains("encrypted path in query"), "got: {sort}");
+    assert!(
+        format!("{sort}").contains("encrypted path in query"),
+        "got: {sort}"
+    );
 
-    let counted = futures::executor::block_on(instance.count(common::query_selecting("note")))
+    let counted = futures::executor::block_on(instance.count(query_selecting("note")))
         .expect_err("a count on an encrypted path must be rejected");
-    assert!(format!("{counted}").contains("encrypted path in query"), "got: {counted}");
+    assert!(
+        format!("{counted}").contains("encrypted path in query"),
+        "got: {counted}"
+    );
 
     assert_eq!(
         h.inner.query_count(),
@@ -810,10 +845,7 @@ fn inv_13_unknown_versions_are_rejected_not_guessed() {
 #[test]
 fn inv_14_attachment_encryption_follows_the_schema_flag() {
     for encrypted in [false, true] {
-        let h = harness_with(
-            fake::schema(&["note"], encrypted),
-            "a long passphrase",
-        );
+        let h = harness_with(fake::schema(&["note"], encrypted), "a long passphrase");
         let instance = h.instance();
         let payload = b"the attachment bytes".to_vec();
         let mut payloads = std::collections::BTreeMap::new();
@@ -826,8 +858,9 @@ fn inv_14_attachment_encryption_follows_the_schema_flag() {
         let row = dxdb_storage::BulkWriteRow::insert(DocumentWriteData::with_payloads(
             document, payloads,
         ));
-        let response = futures::executor::block_on(instance.bulk_write(vec![row], "ctx".to_string()))
-            .expect("write");
+        let response =
+            futures::executor::block_on(instance.bulk_write(vec![row], "ctx".to_string()))
+                .expect("write");
         assert!(response.is_ok());
 
         // The fake stores payloads separately; read them back through the wrapper path

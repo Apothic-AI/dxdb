@@ -10,12 +10,12 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
-use dxdb_storage::{
-    ChangeEvent, ChangeStream, Checkpoint, CountMode, CountResult, DocumentData,
-    DocumentWriteData, DynRxStorageInstance, EventBulk, InstanceCreationParams, Operation,
-    PreparedQuery, RxStorage, RxStorageInstance, StorageError, StorageSchema, WriteError,
-};
 use dxdb_storage::{BulkWriteResponse, BulkWriteRow};
+use dxdb_storage::{
+    ChangeEvent, ChangeStream, Checkpoint, CountMode, CountResult, DocumentData, DocumentWriteData,
+    DynRxStorageInstance, EventBulk, InstanceCreationParams, Operation, PreparedQuery, RxStorage,
+    RxStorageInstance, StorageError, StorageSchema, WriteError,
+};
 
 /// What the fake stores, and what it observed.
 #[derive(Debug, Default)]
@@ -156,9 +156,7 @@ impl RxStorageInstance for FakeInstance {
                 continue;
             }
             state.writes.push(id.clone());
-            state
-                .documents
-                .insert(id, row.document.document().clone());
+            state.documents.insert(id, row.document.document().clone());
         }
         Ok(BulkWriteResponse::with_errors(errors))
     }
@@ -191,7 +189,13 @@ impl RxStorageInstance for FakeInstance {
             .collect();
         documents.sort_by_key(|document| sort_key(document, &prepared.query.sort));
         if let Some(limit) = prepared.query.limit {
-            documents.truncate(prepared.query.skip.saturating_add(limit).min(documents.len()));
+            documents.truncate(
+                prepared
+                    .query
+                    .skip
+                    .saturating_add(limit)
+                    .min(documents.len()),
+            );
         }
         Ok(documents.into_iter().skip(prepared.query.skip).collect())
     }
@@ -237,7 +241,9 @@ impl RxStorageInstance for FakeInstance {
                         .to_string(),
                 )
             };
-            key(left).partial_cmp(&key(right)).unwrap_or(std::cmp::Ordering::Equal)
+            key(left)
+                .partial_cmp(&key(right))
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         if let Some(checkpoint) = checkpoint.as_ref() {
             documents.retain(|document| {

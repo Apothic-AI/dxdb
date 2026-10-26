@@ -16,21 +16,21 @@
 
 use std::sync::Arc;
 
-use dxdb_storage::{ChangeEvent, ChangeStream, EventBulk};
-use dxdb_storage::{DocumentData, DocumentWriteData};
 use dxdb_storage::PreparedQuery;
 use dxdb_storage::StorageSchema;
+use dxdb_storage::{BulkWriteResponse, BulkWriteRow};
+use dxdb_storage::{ChangeEvent, ChangeStream, EventBulk};
 use dxdb_storage::{
     ChangedDocuments, CountResult, DynRxStorageInstance, InstanceCreationParams, RxStorage,
     RxStorageInstance, StorageError,
 };
-use dxdb_storage::{BulkWriteResponse, BulkWriteRow};
+use dxdb_storage::{DocumentData, DocumentWriteData};
 use futures::StreamExt as _;
 
 use crate::codec::{attachment_field_path, FieldCodec};
 use crate::config::EncryptedPaths;
 use crate::entropy::EntropySource;
-use crate::keys::{KeyMaterial, Keys, KdfParams, SALT_LEN};
+use crate::keys::{KdfParams, KeyMaterial, Keys, SALT_LEN};
 use crate::EncryptionError;
 
 /// The settings one collection is wrapped with.
@@ -468,9 +468,9 @@ pub async fn rotate(
     let (next_ring, wrapped) = {
         let current = instance.keys.ring().clone();
         let new_key = std::mem::replace(&mut new_data_key, zeroize::Zeroizing::new([0u8; 32]));
-        current.rotate(new_key).ok_or_else(|| {
-            StorageError::Unsupported("key generation overflowed 255".to_string())
-        })?
+        current
+            .rotate(new_key)
+            .ok_or_else(|| StorageError::Unsupported("key generation overflowed 255".to_string()))?
     };
     let new_generation = next_ring.current;
 
@@ -522,7 +522,10 @@ pub async fn rotate(
             });
         }
         rewritten += rows.len();
-        let response = instance.inner.bulk_write(rows, "dxdb-rotation".to_string()).await?;
+        let response = instance
+            .inner
+            .bulk_write(rows, "dxdb-rotation".to_string())
+            .await?;
         if !response.is_ok() {
             // A conflict during rotation means someone wrote concurrently. Stopping
             // is correct: the next rotation pass picks the document up at its new

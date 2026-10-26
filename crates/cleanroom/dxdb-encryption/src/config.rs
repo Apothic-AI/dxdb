@@ -155,12 +155,7 @@ pub fn set_path(root: &mut serde_json::Map<String, Value>, path: &str, value: Va
     };
     // Build the new value bottom-up so a failure cannot leave a half-written path.
     // The returned option is the new *subtree*, and the caller installs it.
-    fn write(
-        container: &mut Value,
-        segments: &[&str],
-        last: &str,
-        value: Value,
-    ) -> Option<()> {
+    fn write(container: &mut Value, segments: &[&str], last: &str, value: Value) -> Option<()> {
         if segments.is_empty() {
             match container {
                 Value::Object(map) => {
@@ -420,13 +415,16 @@ mod tests {
         EncryptedPaths, Password, PasswordError, WeaknessReason,
     };
     use serde_json::json;
-        // Arc-15 in `specs/encryption.md`: declared fields encrypt, undeclared do not,
+    // Arc-15 in `specs/encryption.md`: declared fields encrypt, undeclared do not,
     // and the nesting rule is enforced in every build.
     #[test]
     fn nested_encrypted_paths_are_rejected() {
         let schema = json!({ "encrypted": ["assignee", "assignee.email"] });
         let error = EncryptedPaths::from_schema(&schema).expect_err("must be rejected");
-        assert!(matches!(error, super::PathError::NestedUnderEncrypted { .. }));
+        assert!(matches!(
+            error,
+            super::PathError::NestedUnderEncrypted { .. }
+        ));
     }
 
     #[test]
@@ -540,4 +538,3 @@ mod tests {
         assert_ne!(verifier_a, *a);
     }
 }
-

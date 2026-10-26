@@ -112,9 +112,7 @@ impl<'a> Envelope<'a> {
     /// than told decryption failed), and a body too short to hold a tag.
     pub fn parse(bytes: &'a [u8]) -> Result<Self, EnvelopeError> {
         if bytes.len() < OVERHEAD {
-            return Err(EnvelopeError::TooShort {
-                len: bytes.len(),
-            });
+            return Err(EnvelopeError::TooShort { len: bytes.len() });
         }
         if bytes[0..4] != MAGIC {
             return Err(EnvelopeError::NotAnEnvelope);
@@ -122,10 +120,7 @@ impl<'a> Envelope<'a> {
         let version = bytes[4];
         let suite = bytes[5];
         if version != VERSION || suite != SUITE {
-            return Err(EnvelopeError::Unsupported {
-                version,
-                suite,
-            });
+            return Err(EnvelopeError::Unsupported { version, suite });
         }
         let generation = bytes[6];
         if generation == 0 {
@@ -211,11 +206,7 @@ pub fn seal(
 /// Decrypts `bytes`, authenticating `aad`.
 ///
 /// Returns `Zeroizing` so the plaintext is wiped when the caller drops it.
-pub fn open(
-    key: &[u8; 32],
-    aad: &Aad,
-    bytes: &[u8],
-) -> Result<Zeroizing<Vec<u8>>, EnvelopeError> {
+pub fn open(key: &[u8; 32], aad: &Aad, bytes: &[u8]) -> Result<Zeroizing<Vec<u8>>, EnvelopeError> {
     let envelope = Envelope::parse(bytes)?;
     if envelope.generation != aad.generation {
         // The generation is authenticated as AAD as well, so a mismatch here would
@@ -260,7 +251,7 @@ pub fn schema_hash(schema: &serde_json::Value) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    use super::{schema_hash, seal, open, Aad, Envelope, EnvelopeError, NONCE_LEN, OVERHEAD};
+    use super::{open, schema_hash, seal, Aad, Envelope, EnvelopeError, NONCE_LEN, OVERHEAD};
 
     fn aad() -> Aad {
         Aad {

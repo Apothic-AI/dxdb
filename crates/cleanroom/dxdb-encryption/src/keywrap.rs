@@ -88,7 +88,10 @@ mod tests {
     #[test]
     fn wrapped_key_round_trips_at_its_own_generation() {
         let wrapped = wrap_key(&[7u8; 32], &[9u8; 32], 2);
-        assert_eq!(unwrap_key(&[7u8; 32], &wrapped, 2).map(|k| *k), Some([9u8; 32]));
+        assert_eq!(
+            unwrap_key(&[7u8; 32], &wrapped, 2).map(|k| *k),
+            Some([9u8; 32])
+        );
     }
 
     #[test]

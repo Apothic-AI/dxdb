@@ -4,15 +4,14 @@
 use std::sync::Arc;
 
 use dxdb_encryption::{
-    schema_hash, EncryptedPaths, EncryptionConfig, EncryptionStorage,
-    EntropySource, FixedEntropy, KeyMaterial, KdfParams, Keys, Password,
+    schema_hash, EncryptedPaths, EncryptionConfig, EncryptionStorage, EntropySource, FixedEntropy,
+    KdfParams, KeyMaterial, Keys, Password,
 };
 use dxdb_storage::{
     DocumentData, DynRxStorageInstance, InstanceCreationParams, RxStorage, RxStorageInstance,
     StorageSchema,
 };
 
-pub use crate::fake::{query_selecting, query_sorted_by};
 use crate::fake::FakeStorage;
 
 /// Cheap Argon2id parameters for tests.
@@ -118,9 +117,10 @@ impl Harness {
 
     /// Writes one document through the wrapper.
     pub fn write(&self, instance: &DynRxStorageInstance<'_>, document: DocumentData) {
-        let response =
-            futures::executor::block_on(instance.bulk_write(vec![insert(document)], "ctx".to_string()))
-                .expect("write");
+        let response = futures::executor::block_on(
+            instance.bulk_write(vec![insert(document)], "ctx".to_string()),
+        )
+        .expect("write");
         assert!(response.is_ok(), "write failed: {response:?}");
     }
 

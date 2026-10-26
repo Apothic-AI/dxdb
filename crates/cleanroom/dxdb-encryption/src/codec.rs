@@ -113,9 +113,7 @@ impl FieldCodec {
                 continue;
             };
             let Value::String(stored) = raw else {
-                return Err(EncryptionError::Envelope(
-                    EnvelopeError::NotAnEnvelope,
-                ));
+                return Err(EncryptionError::Envelope(EnvelopeError::NotAnEnvelope));
             };
             let value = self.open_sealed(keys, &document_id, path, revision.as_deref(), stored)?;
             if !set_path(document.as_object_mut(), path, value) {
@@ -149,8 +147,7 @@ impl FieldCodec {
         let plaintext = open(&data_key, &aad, &bytes).map_err(EncryptionError::Envelope)?;
         let text = std::str::from_utf8(&plaintext)
             .map_err(|_| EncryptionError::Envelope(EnvelopeError::NotAnEnvelope))?;
-        dxdb_json::parse(text)
-            .map_err(|_| EncryptionError::Envelope(EnvelopeError::NotAnEnvelope))
+        dxdb_json::parse(text).map_err(|_| EncryptionError::Envelope(EnvelopeError::NotAnEnvelope))
     }
 
     /// Seals arbitrary bytes under a field path, for attachments.
@@ -210,7 +207,7 @@ mod tests {
     use super::{attachment_field_path, FieldCodec};
     use crate::config::EncryptedPaths;
     use crate::entropy::FixedEntropy;
-    use crate::keys::{KeyMaterial, KeyRing, Keys, KdfParams};
+    use crate::keys::{KdfParams, KeyMaterial, KeyRing, Keys};
     use dxdb_storage::DocumentData;
     use serde_json::json;
     use std::sync::Arc;
@@ -234,12 +231,7 @@ mod tests {
             .derive_master_key(b"pw", &material.salt)
             .expect("derive");
         let ring = KeyRing::new(&master);
-        Keys::from_parts(
-            ring,
-            material,
-            [7u8; 32],
-            Arc::new(FixedEntropy::new()),
-        )
+        Keys::from_parts(ring, material, [7u8; 32], Arc::new(FixedEntropy::new()))
     }
 
     fn codec(paths: &[&str]) -> FieldCodec {
@@ -295,7 +287,9 @@ mod tests {
         }))
         .expect("valid");
         b.set("note", sealed);
-        let error = codec.open_document(&mut b, &key_ring).expect_err("must be rejected");
+        let error = codec
+            .open_document(&mut b, &key_ring)
+            .expect_err("must be rejected");
         assert!(matches!(
             error,
             crate::EncryptionError::Envelope(crate::envelope::EnvelopeError::AuthenticationFailed)
@@ -314,7 +308,9 @@ mod tests {
         let note_ciphertext = doc.get("note").cloned().expect("present");
         // Move the note ciphertext into the secret field.
         doc.set("secret", note_ciphertext);
-        let error = codec.open_document(&mut doc, &key_ring).expect_err("must be rejected");
+        let error = codec
+            .open_document(&mut doc, &key_ring)
+            .expect_err("must be rejected");
         assert!(matches!(
             error,
             crate::EncryptionError::Envelope(crate::envelope::EnvelopeError::AuthenticationFailed)
@@ -339,7 +335,9 @@ mod tests {
 
         // Replay revision 1's ciphertext into revision 2's document.
         v2.set("note", old_ciphertext);
-        let error = codec.open_document(&mut v2, &key_ring).expect_err("must be rejected");
+        let error = codec
+            .open_document(&mut v2, &key_ring)
+            .expect_err("must be rejected");
         assert!(matches!(
             error,
             crate::EncryptionError::Envelope(crate::envelope::EnvelopeError::AuthenticationFailed)

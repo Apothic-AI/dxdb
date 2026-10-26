@@ -74,13 +74,13 @@ pub use config::{
     check_password_strength, EncryptedPaths, Password, PasswordError, PathError, WeaknessReason,
     MIN_PASSWORD_LEN,
 };
-pub use entropy::{EntropySource, FixedEntropy};
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 pub use entropy::OsEntropy;
+pub use entropy::{EntropySource, FixedEntropy};
 pub use envelope::{
     schema_hash, Aad, Envelope, EnvelopeError, MAGIC, NONCE_LEN, OVERHEAD, SUITE, VERSION,
 };
-pub use keys::{Key, KeyError, KeyMaterial, KeyRing, Keys, KdfParams};
+pub use keys::{KdfParams, Key, KeyError, KeyMaterial, KeyRing, Keys};
 pub use wrapper::{
     create_key_material, inert_config, rotate, EncryptionConfig, EncryptionInstance,
     EncryptionStorage, RotationProgress,
