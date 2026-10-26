@@ -653,17 +653,37 @@ fn matches_element(item: &Value, operand: &Value) -> bool {
 
 /// `$eq` semantics: structural JSON equality, with a numeric comparison so `1` and `1.0`
 /// are equal, as they are in JavaScript.
+///
+/// **Arrays match by membership.** Mango's implicit equality on an array field means
+/// "some element equals the value", so `{skills: 'a'}` matches `{skills: ['a','b']}`.
+/// This is not a convenience: upstream's "$in for array fields named skills" group asserts
+/// it (`rx-storage-query-correctness.test.ts:923`), and a matcher that only compared whole
+/// arrays would report both of those documents as non-matching while looking correct.
 fn value_matches_eq(value: Option<&Value>, expected: &Value) -> bool {
     match (value, expected) {
         (None, Value::Null) => true,
         (None, _) => false,
         (Some(actual), expected) => {
-            if let (Some(a), Some(b)) = (actual.as_f64(), expected.as_f64()) {
-                return a == b;
+            // A whole-array equality is still possible (both sides arrays).
+            if scalar_equals(actual, expected) {
+                return true;
             }
-            actual == expected
+            // Otherwise, if the field is an array, any element that equals the expected
+            // value makes the condition true.
+            if let Some(items) = actual.as_array() {
+                return items.iter().any(|item| scalar_equals(item, expected));
+            }
+            false
         }
     }
+}
+
+/// Equality between one value and one expected value, with JS numeric widening.
+fn scalar_equals(actual: &Value, expected: &Value) -> bool {
+    if let (Some(a), Some(b)) = (actual.as_f64(), expected.as_f64()) {
+        return a == b;
+    }
+    actual == expected
 }
 
 /// Ordering for `$gt`/`$gte`/`$lt`/`$lte`, matching JavaScript's `<` on the same types.
@@ -694,9 +714,21 @@ fn dxdb_storage_string_compare(a: &str, b: &str) -> std::cmp::Ordering {
 }
 
 /// `$regex` with `$options` (`i` only; the fixtures use no other flag).
+///
+/// A small matcher, not a regex engine, and it **panics** on a construct it does not
+/// support rather than returning "no match". That behaviour is deliberate: a matcher that
+/// silently answered `false` for a pattern it could not evaluate would turn every such
+/// case into a false pass, which is worse than refusing.
+///
+/// Supported, because the fixtures use them (`rx-storage-query-correctness.test.ts`):
+/// `^` and `$` anchors, literal characters, and single-character classes `[...]` with
+/// ranges (`a-z`) and negation (`[^...]`). The three patterns upstream uses are
+/// `^bar[13]$`, `^bar4$` and `^ops$`.
+///
+/// Backtracking constructs (`+`, `*`, `?`, `|`, groups, escapes) panic: the fixture set has
+/// none, and implementing them would be writing a regex engine in a test scaffold, which is
+/// not what a conformance suite wants to depend on.
 fn regex_matches(value: Option<&Value>, pattern: &str, options: &str) -> bool {
-    // A deliberately tiny regex engine: the fixtures use anchors, character classes and
-    // literals only. Anything else panics so a fixture that needs more is visible.
     let Some(text) = value.and_then(Value::as_str) else {
         return false;
     };
@@ -707,6 +739,7 @@ fn regex_matches(value: Option<&Value>, pattern: &str, options: &str) -> bool {
         (pattern.to_string(), text.to_string())
     };
 
+    // Parse into: optional start anchor, a sequence of atoms, optional end anchor.
     let anchored_start = pattern.starts_with('^');
     let anchored_end = pattern.ends_with('$');
     let core = pattern
@@ -714,16 +747,102 @@ fn regex_matches(value: Option<&Value>, pattern: &str, options: &str) -> bool {
         .trim_end_matches('$')
         .to_string();
 
-    if core.contains('[') || core.contains('+') || core.contains('*') || core.contains('\\') {
-        panic!("this scaffold's $regex supports literals and anchors only, got {pattern:?}");
-    }
+    let atoms = parse_atoms(&core, pattern);
 
-    match (anchored_start, anchored_end) {
-        (true, true) => text == core,
-        (true, false) => text.starts_with(&core),
-        (false, true) => text.ends_with(&core),
-        (false, false) => text.contains(&core),
+    // Try every start offset the anchors permit; a match is a full run of atoms.
+    let haystack: Vec<char> = text.chars().collect();
+    let first_start = if anchored_start { 0 } else { 0 };
+    let last_start = if anchored_start {
+        0
+    } else {
+        haystack.len()
+    };
+    if first_start > haystack.len() {
+        return false;
     }
+    for start in first_start..=last_start {
+        if match_at(&atoms, &haystack, start, anchored_end) {
+            return true;
+        }
+    }
+    false
+}
+
+/// One pattern atom: a literal character or a character class.
+enum Atom {
+    Literal(char),
+    Class { negated: bool, ranges: Vec<(char, char)> },
+}
+
+/// Parses the supported subset, panicking on anything else.
+fn parse_atoms(core: &str, whole_pattern: &str) -> Vec<Atom> {
+    let mut atoms = Vec::new();
+    let mut chars = core.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '[' => {
+                let mut negated = false;
+                if chars.peek() == Some(&'^') {
+                    chars.next();
+                    negated = true;
+                }
+                let mut ranges = Vec::new();
+                while let Some(inner) = chars.next() {
+                    if inner == ']' {
+                        break;
+                    }
+                    if chars.peek() == Some(&'-') {
+                        chars.next();
+                        let end = chars.next().unwrap_or_else(|| {
+                            panic!("unterminated range in $regex {whole_pattern:?}")
+                        });
+                        ranges.push((inner, end));
+                    } else {
+                        ranges.push((inner, inner));
+                    }
+                }
+                atoms.push(Atom::Class { negated, ranges });
+            }
+            // Constructs this scaffold does not implement. Refusing is the point.
+            '+' | '*' | '?' | '|' | '(' | ')' | '\\' | '{' | '}' => {
+                panic!(
+                    "this scaffold's $regex does not implement {c:?}; it supports literals, \
+                     anchors and character classes only (got {whole_pattern:?}). Implement it \
+                     rather than letting the case pass with a wrong answer."
+                );
+            }
+            '.' => panic!("this scaffold's $regex does not implement '.' (got {whole_pattern:?})"),
+            other => atoms.push(Atom::Literal(other)),
+        }
+    }
+    atoms
+}
+
+/// Matches `atoms` against `haystack` starting at `start`.
+fn match_at(atoms: &[Atom], haystack: &[char], start: usize, anchored_end: bool) -> bool {
+    let mut index = start;
+    for atom in atoms {
+        let Some(&ch) = haystack.get(index) else {
+            return false;
+        };
+        let hit = match atom {
+            Atom::Literal(expected) => ch == *expected,
+            Atom::Class { negated, ranges } => {
+                let inside = ranges.iter().any(|(lo, hi)| *lo <= ch && ch <= *hi);
+                if *negated {
+                    !inside
+                } else {
+                    inside
+                }
+            }
+        };
+        if !hit {
+            return false;
+        }
+        index += 1;
+    }
+    // `$` means the match must consume the rest of the string.
+    !anchored_end || index == haystack.len()
 }
 
 /// Sorts documents by the query's sort, appended primary key included.

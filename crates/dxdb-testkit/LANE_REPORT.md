@@ -189,6 +189,18 @@ Three checks keep the suite from being decorative:
 All 42 unexercised-or-partial cases, by reason. Nothing here is skipped silently;
 each has a row in the declaration table carrying the same reason.
 
+### Summary
+
+| reason | cases | what it is |
+| --- | ---: | --- |
+| `Exercised` (fully) | 48 | every assertion upstream makes in the case runs |
+| `PartiallyExercised` | 25 | the storage half runs; the oracle half needs `dxdb-query` |
+| `NeedsQueryCrate` | 8 | `.prepareQuery()` / `.getSortComparator()` / `.getQueryMatcher()` |
+| `NeedsMultiInstance` | 6 | needs two instances sharing one collection |
+| `NeedsKeyCompressionWrapper` | 2 | needs the key-compression wrapper to exist |
+| `NeedsEncryptionWrapper` | 1 | needs the encryption wrapper to exist |
+| **total** | **90** | |
+
 ### `NeedsQueryCrate` — 8 cases (the `Static` blocks)
 
 `.prepareQuery()` ×2 (`:1180`, `:1197`), `.getSortComparator()` ×3 (`:1216`,
@@ -225,6 +237,50 @@ Assertions 1 and 2 of each group need `dxdb-query`; see §4.
 
 ---
 
+## 7a. What the reference scaffold cannot evaluate
+
+This is the honest answer to "where does the suite look complete and is not". The
+scaffold in `tests/support/reference_storage.rs` is what the gates run against while
+`dxdb-memory` is a stub, so anywhere it is weaker than a real storage is a place the
+suite is measuring the scaffold rather than the contract.
+
+**Operators.** The correctness fixtures use exactly 15 operators:
+`$and $elemMatch $eq $gt $gte $in $lt $lte $ne $nin $options $or $regex $size $type`.
+The scaffold implements all 15, and `fixture_operators_are_in_the_documented_set`
+asserts that the fixture set is a subset of both PLAN.md 4.3's list and the
+scaffold's supported list — so a new fixture using an unimplemented operator fails
+loudly instead of quietly matching nothing.
+
+**`$regex`.** Three patterns are used: `^bar[13]$`, `^bar4$`, `^ops$`. The scaffold
+originally refused character classes, which made `$elemMatch/$size` fail — and that
+was the *right* failure, because a matcher that silently answered "no match" for a
+pattern it could not evaluate would turn the case into a false pass. Character
+classes and ranges are now implemented for this reason. Backtracking constructs
+(`+ * ? |` groups, escapes, `.`) still panic rather than guess; none are used, and
+adding a regex engine to a test scaffold is not a dependency a conformance suite
+should want.
+
+**Array-field equality.** `$eq`/`$in` against an array field match by *membership*
+(`{skills: 'a'}` matches `{skills: ['a','b']}`), which upstream's
+"$in for array fields named skills" group asserts. The scaffold originally compared
+whole arrays and reported both documents as non-matching; that was a scaffold bug,
+now fixed, and it is the reason that group failed before.
+
+**What the scaffold still does not do**, and which therefore means these behaviours
+are proven by *no* case today:
+
+| not implemented | consequence |
+| --- | --- |
+| indexes | `count()` always reports `Slow`; no case asserts `Fast`, so the `CountMode` contract is untested |
+| multi-instance | 6 cases declared as blocked rather than faked |
+| encryption / key compression | 3 cases declared as blocked |
+| attachment payload digests | the scaffold verifies a digest but does not compute one; `sha256_hex` in the crate is NIST-vector-tested instead |
+| `SortDirection::Desc` via index | the scaffold always re-sorts, so a storage that claims `sort_satisfied_by_index` on a descending sort is not caught |
+| unknown-index rejection | the scaffold never returns `StorageError::UnknownIndex`, so that error path is untested |
+
+Those six rows are the gaps. None of them are hidden by a passing test; the third
+column is what a reader should treat as "not yet measured by this lane".
+
 ## 8. Bugs this lane found in its own work
 
 Recorded because each was a place where the testkit would have demanded behaviour
@@ -259,7 +315,15 @@ upstream does not have, and a storage author would have chased a phantom.
    silently misses the newest documents. The testkit pins this as documented behaviour
    with a test, so it is caught if it changes rather than rediscovered.
 
-6. **The change-feed index must not be `_deleted`-prefixed.** My first fixture test
+6. **A hardcoded fixture constant was wrong, not the extraction.** A meta-test
+   asserted that 5 correctness queries carry a `skip` or a `limit`; the extraction
+   found 3. The extraction was right: upstream has exactly three (`:873` with
+   `limit: 50`, and the two in "issue: wrong results using skip and limit"). The
+   guess had been written before the extraction existed. The constant is now 3, and
+   the verification command is recorded next to it so the next person checks rather
+   than re-guesses.
+
+7. **The change-feed index must not be `_deleted`-prefixed.** My first fixture test
    asserted every filled index starts with `_deleted`; the change-feed index is the
    one deliberate exception, because a `_deleted` prefix would exclude exactly the
    tombstones it exists to find.

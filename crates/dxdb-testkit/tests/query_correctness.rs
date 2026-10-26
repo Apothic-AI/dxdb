@@ -347,11 +347,22 @@ fn count_is_asserted_only_without_skip_or_limit() {
         dxdb_testkit::fixtures::query_count(correctness::groups()),
         "every query must fall in exactly one of the two buckets"
     );
-    // The number upstream's fixtures happen to produce, pinned so a change is visible.
+    // The number upstream's fixtures actually produce, pinned so a change is visible.
+    //
+    // Three, not five: `rx-storage-query-correctness.test.ts` has exactly three query
+    // objects carrying a `limit` or a `skip` — `:873` (`limit: 50` in "$in combined with
+    // range operator and desc sort") and the two at `:2030`/`:2060` in "issue: wrong
+    // results using skip and limit". An earlier version of this test asserted five, which
+    // was a guess written before the extraction existed; the extraction was right and the
+    // constant was wrong. Verified against upstream with:
+    //
+    //   grep -nE '^\s+(limit|skip): [0-9]' test/unit/rx-storage-query-correctness.test.ts
+    //
+    // which finds those three and nothing else. If this assertion ever fails, check that
+    // grep before changing the number: the constant is the thing most likely to be wrong.
     assert_eq!(
-        with_limit, 5,
-        "five queries carry a skip or a limit upstream; if this changed, the fixture \
-         extraction or upstream changed"
+        with_limit, 3,
+        "upstream's correctness fixtures contain three queries carrying a skip or a limit"
     );
 }
 
@@ -454,6 +465,42 @@ fn named_schemas_resolve() {
             group.title
         );
     }
+}
+
+/// The scaffold's documented gaps must stay gaps until the report says otherwise.
+///
+/// LANE_REPORT.md §7a lists six things the reference scaffold does not do, each of which
+/// means some behaviour is proven by no case today. The one that is directly observable is
+/// asserted here: no index, so `count()` always reports `Slow`. If that ever changes, the
+/// report is stale and the assertions built on the scaffold may now be measuring something
+/// different.
+///
+/// The other five are absence of behaviour rather than a wrong value, so there is nothing
+/// to assert; they are listed in the report instead of pretended-covered here.
+#[test]
+fn scaffold_reports_slow_count_as_the_report_states() {
+    use dxdb_storage::CountMode;
+    use support::reference_storage::ReferenceStorage;
+
+    futures::executor::block_on(async {
+        let spec = dxdb_testkit::harness::InstanceSpec::new(
+            dxdb_testkit::harness::fill_with_default_settings(dxdb_testkit::schemas::human()),
+        );
+        let harness = dxdb_testkit::harness::Harness::open(&ReferenceStorage::new(), &spec)
+            .await
+            .expect("open");
+        let prepared = dxdb_testkit::harness::build_prepared_query(
+            &serde_json::json!({ "selector": {}, "sort": [{ "passportId": "asc" }] }),
+            "passportId",
+        );
+        let count = harness.count(prepared).await;
+        assert_eq!(
+            count.mode,
+            CountMode::Slow,
+            "LANE_REPORT.md §7a states the scaffold has no index and therefore always counts \
+             Slow. If that changed, update the report before relying on any count assertion."
+        );
+    });
 }
 
 /// Runs the group with the given upstream index, panicking with its title if absent.
