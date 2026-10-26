@@ -1207,3 +1207,116 @@ gitignored (47 MB). The upstream checkout and the bundle are cached under
 interop:
 	@cd crates/dxdb-replication/tests/interop && node run.mjs
 ```
+
+---
+
+## 15. Adapter sequencing for M6 — the ten that remain
+
+Section 14 established that upstream ships eleven replication transports and no generic HTTP
+client, so "port replication" is the protocol (done) plus eleven adapters (three done). This
+section exists so M6 can be sequenced on evidence rather than on size, because size is the
+worst available proxy: the two biggest directories are largely *provider plumbing* shared with
+each other, and one of the smallest carries the only genuinely new protocol semantics.
+
+Everything below was read out of upstream at the pin (`3b763ee17d62`), not inferred.
+
+### 15.1 The table
+
+Line counts are `find <dir> -name '*.ts' | xargs wc -l`. "Checkpoint" is the adapter's
+`…CheckpointType` as declared upstream, transcribed rather than paraphrased.
+
+| # | adapter | lines | checkpoint shape | transport & protocol | auth | what actually blocks it |
+| --- | --- | --- | --- | --- | --- | --- |
+| — | `replication-websocket` | 638 | none of its own — the protocol's `{id, lwt}` | `{id, collection, method, params}` frames over RFC 6455 | none | **done** (`src/adapters/websocket.rs`) |
+| — | `replication-couchdb` | 475 | `{ sequence: number }` (`couchdb-types.ts:8-10`) | CouchDB `_changes` / `_all_docs` / `_bulk_docs` over HTTP | HTTP Basic (`couchdb-helper.ts:90-96`) | **done** (`src/adapters/couchdb.rs`) |
+| — | `replication-graphql` | 900 | **caller-defined** — `CheckpointType`, never inspected | `POST {query, variables}`; failures arrive as `errors` inside a 200 | caller's headers | **done** (`src/adapters/graphql.rs`) |
+| 1 | `replication-supabase` | 435 | `{ id: string, modified: string }` (`types.ts:44-47`) | PostgREST `.or()` keyset pagination + `postgres_changes` realtime channel | Supabase client (JWT) | nothing structural. Needs the PostgREST `.or()` filter built as **text** with the nested `and()` tie-breaker (`index.ts:126-130`), and channel-uniqueness handling (`index.ts:262-271`). |
+| 2 | `replication-appwrite` | 338 | `{ updatedAt: string, id: string }` (`appwrite-types.ts:10-13`) | Appwrite `databases.listDocuments` / `getDocument` / `createDocument` / `updateDocument` + `client.subscribe` | Appwrite `Client` (session/API key) | nothing structural. Four CRUD verbs and one realtime subscription. Smallest of the ten. |
+| 3 | `replication-nats` | 347 | `{ sequence: number }` (`nats-types.ts:13-15`) | NATS JetStream: `getConsumer({opt_start_seq, deliver_policy: LastPerSubject})`, `consumer.fetch()` | NATS connection | a JetStream client. Conflict detection is done by the **server** — a push that loses is rejected with `"wrong last sequence"` (`index.ts:191`), so the adapter maps that string onto a conflict instead of comparing revisions. |
+| 4 | `replication-firestore` | 538 | `{ id: string, serverTimestamp: string }` (`firestore-types.ts:18-30`) | two queries per pull: `where(ts, '>', last)` **plus** `where(ts, '==', last) && where(docId(), '>', last.id)` (`index.ts:137-144`) | Firebase app | the timestamp conversion, and it is the reason the checkpoint is a **string**: Firestore's native value is `{seconds, nanoseconds}`, which cannot be queried against, so it is stored as `'2022-11-30T11:18:25.141Z'` (`firestore-types.ts:20-29`). Plus the equal-timestamp tie-breaker, which is a second round trip. |
+| 5 | `replication-mongodb` | 578 | `{ iterate: 'changestream' \| 'docs-by-id', changestreamResumeToken, docId? }` (`mongodb-types.ts:17-30`) | change streams (`resumeAfter`, `fullDocument: 'required'`) **and** an `_id`-ordered document scan | Mongo client | **the hardest checkpoint**, and the one that justifies D7 hardest. MongoDB cannot stream from the beginning of time, so a first sync scans documents by `_id` and only later switches to the change stream — the checkpoint therefore carries a *mode* and flips it mid-replication (`mongodb-checkpoint.ts:142-168`). A checkpoint type that could not hold a mode would lose this. Also: the resume token is **not** the batch's last token (`mongodb-checkpoint.ts:48-52`), a trap worth an explicit test. |
+| 6 | `replication-google-drive` | 2421 | `{ modifiedTime: string, docIdsWithSameModifiedTime: string[] }` (`google-drive-types.ts:8-18`) | Drive as a document store: folder/etag/multipart helpers, plus a **WebRTC peer channel used only for signalling** (`signaling.ts`) | OAuth bearer, caller-supplied `authToken` | four things, each real: (a) `modifiedTime` is not unique and Drive has no `>` comparison on names or ids, so the checkpoint carries a **list** of ids sharing the last timestamp and the adapter *over-fetches then de-duplicates* (stated in the type's own comment); (b) conflict detection is etag-conditional (`fillFileIfEtagMatches`, `deleteIfEtagMatches`); (c) live mode needs peer-to-peer signalling to learn that another client wrote, using Drive itself to exchange the signalling data; (d) file serialisation. **Largest surface of the ten.** |
+| 7 | `replication-microsoft-onedrive` | 2053 | `{ lastModifiedDateTime: string }` (`microsoft-onedrive-types.ts:79-84`) | Graph API item CRUD + a transaction primitive, plus the same WebRTC signalling | OAuth bearer, caller-supplied `authToken` | almost exactly Drive's set (b)(c)(d) above, and it shares the signalling code with it — so this should be sequenced **immediately after** Drive, never before, or its signalling half is written twice. Its checkpoint is *simpler* than Drive's because `lastModifiedDateTime` is assumed unique; that assumption is the risk, not the code. |
+| 8 | `replication-webrtc` | 2314 | none — the protocol's own | peer messages, one transport per connection handler | none | a peer-connection lifecycle, which is not a request/response call at all. Shipped handlers are `simple-peer` (643) and `nostr` (613); `p2pcf` (77) and `webtorrent` (137) are present but **commented out of the index exports** (`index.ts:409-410`), so they are not part of the contract. Sequence **last**, and note that Drive and OneDrive already depend on its `simple-peer` handler, so that one module must be built before them regardless of where the adapter itself lands. |
+
+### 15.2 The ordering, and why it is that order
+
+1. **supabase**, then **appwrite** — both are ordinary CRUD plus one subscription, neither has
+   provider semantics the protocol has to learn, and both have a two-field
+   `{timestamp, id}` checkpoint. They are the cheapest way to confirm the adapter seam a
+   fourth and fifth time. Supabase first only because its `.or()` filter needs the
+   timestamp-plus-id tie-breaker written as a *string* passed through a client method, which
+   is a slightly nastier detail worth meeting early.
+2. **nats** — the first adapter where a *third party* decides conflicts rather than the adapter
+   comparing document revisions. Cheap in lines, disproportionate in what it proves: that
+   `master_write` can honour a verdict it did not compute.
+3. **firestore** — same two-field checkpoint family as (1), but the pull is two queries and the
+   timestamp is deliberately a string. This is where "checkpoint is opaque" stops being free.
+4. **mongodb** — the partial/stateful checkpoint with a mode that flips mid-replication. Do this
+   after firestore, because it is the same lesson (a checkpoint is not a position) taken
+   further, and doing it first would make firestore look like a regression.
+5. **drive**, then **onedrive** — the file-based pair. Second-order dependency: they need the
+   `simple-peer` connection handler from `replication-webrtc` for live mode, so **that module
+   is a prerequisite of these two, not of the last step**. Everything else about them (etag
+   conflicts, folder layout, remote file JSON) is volume rather than novelty, which is why they
+   go after the protocol-semantics adapters rather than before: doing Drive first would mean
+   writing 2,421 lines before discovering whether the seam survives an opaque checkpoint.
+6. **webrtc**, last — but see the dependency note above.
+
+**One dependency that inverts the tail:** Drive and OneDrive live mode imports
+`../replication-webrtc/connection-handler-simple-peer` (`signaling.ts:9`). So the tail is not
+a straight sequence; it is `simple-peer handler → {drive, onedrive} → webrtc adapter`. Worth
+stating in M6's plan explicitly, because the natural reading of "webrtc is last" would strand
+Drive's live mode.
+
+### 15.3 Two things that are not the adapter's job, for every row above
+
+Stated once here so it does not get re-litigated per adapter:
+
+- **Reconnection, backoff, heartbeats, and auth refresh are above the adapter.** An adapter
+  performs one call and reports failure via `TransportError`; the decision to try again is the
+  caller's. Upstream mostly agrees, and the exception is worth stating precisely rather than
+  glossing. The retry *loop* is always above the handler — it is `awaitRetry`
+  (`replication/replication-helper.ts:70`), and it is used **inside** two handlers, CouchDB
+  (`couchdb/index.ts:315`) and NATS (`nats/index.ts:209`). But read what it does: it is
+  `collection.promiseWait(retryTime)`, short-circuited by a browser `online` event. It never
+  re-issues a request; it is the *pause between* attempts, and the attempt itself is made by
+  the loop above. So the exception is a wait, not a retry — and a wait needs a clock plus a
+  browser online-state, which are exactly the binding facilities D3 keeps out of this layer.
+  This is why our CouchDB adapter says so in its own docs
+  (`crates/dxdb-replication/src/adapters/couchdb.rs:50-52`) instead of quietly omitting it.
+- **The HTTP or socket server is not `dxdb-replication`.** It is the transport crate (B5). An
+  adapter is a *client* of a provider; every one of the eleven is. This is also why section
+  14.1's finding matters: there is no generic HTTP replication endpoint upstream, so no adapter
+  here should grow one.
+
+### 15.4 A protocol-layer gap that the file transports will hit
+
+`serializeDocAttachments` / `deserializeDocAttachments` are **not** in
+`replication-google-drive/` or `replication-microsoft-onedrive/` — both import them from
+`replication-protocol/helper.ts:103` and `:150`. They are protocol-level: they turn a
+document's `Blob` attachments into a base64 `_attachments_data` field and back, and they exist
+because a JSON file cannot hold bytes.
+
+Consequence for this lane: the file-based pair will need that pair of functions **in
+`dxdb-replication`**, beside the existing `fill_write_data_for_attachments_change`, not inside a
+transport crate. This port already has the Rust-shaped equivalent of the *write* half
+(`WriteToMasterRow::attachment_payloads`, and the WebSocket/CouchDB adapters re-emit payloads as
+`_attachments[id].data`), but **not** the base64 `_attachments_data` serialisation, and not
+`stripAllAttachmentDataForComparison`. Building them when Drive lands is a ~1-evening task and
+should be scoped as such in M6 rather than discovered as a transport surprise.
+
+### 15.5 What would falsify this ordering
+
+The order above is a hypothesis about effort, so it should be checkable. These would each break
+it, and are the things to watch for in the first two M6 adapters:
+
+- If **supabase** or **appwrite** forces a change to `ReplicationHandler` or to
+  `WriteToMasterRow`, the seam is in the wrong place and the rest of the order is moot — stop
+  and treat it as a design finding (§13.2 is where checkpoints already produced one).
+- If **nats** cannot express "the server said conflict" without a fourth trait method, then
+  server-side conflict detection is a seam problem, not an adapter detail.
+- If **mongodb**'s mode-flipping checkpoint cannot round-trip through `Checkpoint`, D7 is
+  incomplete rather than merely exercised.
+- If **drive** turns out to need less than a week, the two big directories were plumbing after
+  all and **onedrive** can be started in parallel rather than sequentially.
