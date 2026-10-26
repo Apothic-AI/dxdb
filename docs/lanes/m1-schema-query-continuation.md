@@ -49,6 +49,7 @@ Integration tests in `crates/dxdb-query/tests/`:
 | `index_boundaries.rs` | 7 | 15 schemas × 189 boundary values + clamp/monotonicity |
 | `operator_interactions.rs` | 7 | 72 compound selectors × 23 docs = 1,656 assertions |
 | `sort_ties.rs` | 8 | **UNVERIFIED — written, not yet seen green; see §2a** |
+| `regex_flags.rs` | 9 | **UNVERIFIED — written, not yet seen green; see §2b** |
 
 `schema-hashes_vectors.rs` (5 tests) in `crates/dxdb-schema/tests/`. Unit modules:
 `dxdb-schema/src/tests.rs` (39), `dxdb-query/src/custom_index/tests.rs` (19),
@@ -59,6 +60,8 @@ Integration tests in `crates/dxdb-query/tests/`:
 ## 2. In progress right now
 
 ### 2a. `crates/dxdb-query/tests/sort_ties.rs` — written, fix applied, UNVERIFIED
+
+Committed in `38165bd` (with `regex_flags.rs`), still never seen green.
 
 Sort ties and stability (the leader's item 1). Supporting files, both uncommitted:
 `tests/support/sort-ties.mjs` (generator) and `tests/support/sort-ties.json` (17 cases,
@@ -97,50 +100,75 @@ Two other test-side errors were already fixed and are worth not re-introducing:
   an *ascending* sort too, because `fillWithDefaultSettings` puts `_deleted` first on every
   index, so a sort not leading with `_deleted` never matches. Asserting `== !has_desc` is wrong.
 
-### 2b. Not started: `$options` / `$regex` flag parity (the leader's item 2)
+### 2b. `$options` / `$regex` flag parity — CODE WRITTEN, UNVERIFIED
 
-`crates/dxdb-query/src/matcher.rs`, `RegexFlags::parse` (~line 171). Probed against upstream
-mingo 7.2.5 today; **the leader's brief is wrong on one point and the real behaviour is**:
+Committed in `38165bd`. `RegexFlags::parse` in `crates/dxdb-query/src/matcher.rs` now
+implements JavaScript's real flag grammar, measured against upstream mingo 7.2.5 (probe output
+reproduced below; do not re-derive it):
 
 | `$options` | upstream |
 | --- | --- |
-| `""` `i` `m` `s` `u` `v` `g` `y` `d` | accepted |
-| `ims`, `ui` (combined) | accepted |
-| **`x`** | **THROWS** `Invalid flags supplied to RegExp constructor 'x'` — there is no `x` flag in ECMAScript. Do not add one. |
-| `ii` (duplicate) | THROWS |
-| `z` (unknown) | THROWS |
+| `""` `d` `g` `i` `m` `s` `u` `v` `y` | accepted |
+| combinations: `gimsuy` `dv` `du` `ims` | accepted |
+| repeated flag: `ii` `uu` `vv` `gg` `dd` `mm` `ss` `yy` | **THROW** |
+| `u` + `v`: `uv` `vu` | **THROW** (mutually exclusive) |
+| `x` `X` `I` `z` `imsuygdv` | **THROW** |
 
-Flag effects confirmed: `s` makes `.` match `\n`; `m` anchors per line; `i` folds case;
-`u` enables `\p{Letter}`.
+**Three corrections to the brief I was given**, all verified against upstream:
+1. **There is no `x` flag in ECMAScript.** `new RegExp('a','x')` throws. It is PCRE/Python
+   that have `x`. The brief listed `x` among flags to support; adding it would make dxdb accept
+   a query RxDB rejects. It stays an error, and the error message now says "there is no `x`".
+2. **`d` IS accepted upstream** and was previously rejected by us. Now parsed.
+3. **Repeated flags are errors upstream**, not idempotent. A set-check, not "the same flag
+   twice".
 
-Current implementation gaps, in order of importance:
-1. **`d` is missing** — upstream accepts it, we throw. Add `has_indices` (or accept-and-ignore,
-   since `d` only affects capture-group indices which Mango never reads; **document which**).
-2. **Duplicate flags are not detected** — `ii` is accepted by us and throws upstream. Need a
-   seen-flag set in `parse`.
-3. `x` must stay rejected (we already reject it — do **not** "add `x`" on the leader's say-so
-   without telling them it is not a JS flag).
+Implementation notes:
+- `d` is **parse-only**. It adds capture-group indices to a match object Mango never reads, so
+  it never reaches `regress` (whose `Flags` has no indices field). Documented at the field.
+- Duplicate detection uses `std::mem::replace` per flag rather than a `seen` array, so it
+  cannot overflow on a long options string — a matcher panic is a denial of service.
+- `as_str()` emits in `RegExp.prototype.flags` order `dgimsuvy`.
 
-Then: a generated corpus `tests/support/regex-flags.mjs` + `tests/regex_flags.rs` asserting
-per-flag behaviour against upstream, and that each invalid string is an *error* (not a silent
-no-match). Do not put it in `crates/dxdb-query/src/matcher.rs` unit tests — the expectations
-must come from upstream, so it is a corpus.
+New: `crates/dxdb-query/tests/regex_flags.rs` (9 tests) and
+`tests/support/regex-flags.mjs` → `.json` (53 cases: **38 compared, 15 refusals**, 16
+documents, 9 groups). The 15 refusals are exactly `x X I z ii uu vv gg dd mm ss yy uv vu
+imsuygdv`, each asserted to be an **error** rather than a silent no-match, because a silently
+dropped `i` returns the wrong documents and looks like missing data.
+
+**Verified without a compiler** (the build box was in a maintenance window): every claim above
+came from probing upstream in Node, and the two Rust syntax assumptions (`[char; N]: Pattern`
+for `str::replace`, and `expect_err` needing `Debug` on the Ok type) were checked by compiling
+a scratch file with the local `rustc` in `/tmp` — no workspace `target/`, no remote build.
+Everything else in these two test files is **unverified**; expect to fix compile errors on
+first run, particularly around the corpus JSON field names.
 
 ---
 
 ## 3. Exact next task
 
-1. Fix `one_and_one_point_zero_are_tied` (§2a) — debug in isolation, do not weaken.
-2. `make check && make clippy && make test && make wasm`, then commit
-   `sort.rs` + `sort_ties.rs` + `support/sort-ties.{mjs,json}` in one commit. Gate first.
-3. Add the three `RegexFlags::parse` fixes (§2b), with the `d` decision documented in the doc
-   comment.
-4. Write `tests/support/regex-flags.mjs` (clone the structure of
-   `tests/support/operator-interactions.mjs`: import `xtask/vectors/{harness,vendor}.mjs`,
-   install determinism *before* `loadOracle`, emit to `tests/support/`, support `--check`) and
-   `tests/regex_flags.rs`. Cover: each accepted flag's observable effect, combined flags,
-   duplicate → error, unknown → error, `x` → error.
-5. Gates, commit, push `lane/m1-schema-query`, report.
+1. **Run the gates and read the results.** `make check && make clippy && make test && make wasm`
+   on `38165bd`. Two suites are unverified: `sort_ties` (8 tests) and `regex_flags` (9 tests).
+   Fix compile errors first, then real failures. Do not weaken an assertion to get green —
+   resolve which side is wrong by probing upstream (`/tmp/rxdb-oracle2`, see §4 traps).
+   Specifically expect trouble in:
+   - `regex_flags.rs`: corpus JSON field names (`pattern`, `options`, `matchingIds`,
+     `comparisonCount`, `rejectionCount`) must match what `regex-flags.mjs` emits.
+   - `sort_ties.rs::one_and_one_point_zero_are_tied`: if it still fails after the `js_equal`
+     fix, the residual is in the **normalised** comparator path (the `n`-only path is fixed).
+     Assert `with_pk.compare(&int_document, &float_document)` directly.
+2. Commit when green, then push `lane/m1-schema-query` and report to the leader with the
+   `regex-flags` case counts (38 compared / 15 refusals) and the `sort_ties` result.
+3. Tell the leader the `x`-flag correction in §2b — their brief assumed `x` was a JS flag and
+   it is not. Do not silently diverge from a leader instruction.
+4. Then, if asked for more depth, the untested areas I would pick next, in order:
+   - **`$elemMatch` with a nested *selector* payload** (not just an operator payload): the
+     corpus covers `{$elemMatch: {$gt: 0}}` but only lightly
+     `{$elemMatch: {field: 'x'}}`-style criteria, which takes a different branch in
+     `compile_elem_match`.
+   - **Dotted paths 3+ segments deep** through arrays of objects — `resolve_path_from`
+     duplicates `resolve_path`, and only the latter is exercised directly.
+   - **`total_documents`-scale top-k**: `top_k.rs` is ported but only tested through
+     `ported_rx_query_helper.rs`; no differential against upstream ordering under a limit.
 
 ---
 
@@ -263,8 +291,10 @@ Two lessons:
    `bound_present: bool` or tri-state from lane C. Reported earlier; still open.
 3. **D8 requirement 1 is unenforced.** Exactly-one-definition is not tested. Worth a CI check
    owned by `xtask` rather than a crate. `dxdb-storage` still defines its own `INDEX_MIN`.
-4. **`$options: 'x'` does not exist in ECMAScript and throws upstream.** The item-2 brief lists
-   `x` among flags to support; I will not add it without a decision, since accepting it would
-   make us accept a query RxDB rejects.
+4. **`$options: 'x'` — decided, and it contradicts the brief.** There is no ECMAScript `x`
+   flag and `new RegExp('a','x')` throws, so `x` remains an **error** in `RegexFlags::parse`
+   with a message saying "there is no `x`". The item-2 brief listed `x` among flags to support;
+   I did not follow that, because doing so would make dxdb accept a query RxDB rejects. Please
+   confirm you agree — flagging rather than silently diverging.
 5. **`$options: 'd'`** is accepted upstream and rejected by us. Accept-and-ignore is probably
    right (Mango never reads capture indices), but say so if you want a different call.
