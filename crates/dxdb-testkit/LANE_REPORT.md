@@ -162,7 +162,8 @@ Run from the worktree root on the merged result.
 
 Test counts: 37 tests in `tests/declaration.rs` (the testkit's own honesty checks),
 50 in `tests/storage_implementations.rs` (48 ported cases + 2 anti-vacuity checks),
-28 in `tests/query_correctness.rs` (25 groups + 3 meta-checks).
+31 in `tests/query_correctness.rs` (25 groups + 6 meta-checks). 118 in this crate,
+0 failures, on a workspace run of 0 failures.
 
 ### The gates are not vacuous
 
