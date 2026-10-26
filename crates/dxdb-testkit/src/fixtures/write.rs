@@ -33,10 +33,7 @@ pub fn write_data_with(
     overrides: Map<String, Value>,
 ) -> Value {
     document.insert(FIELD_DELETED.to_string(), Value::Bool(false));
-    document.insert(
-        FIELD_ATTACHMENTS.to_string(),
-        Value::Object(Map::new()),
-    );
+    document.insert(FIELD_ATTACHMENTS.to_string(), Value::Object(Map::new()));
     let mut meta = Map::new();
     meta.insert(
         META_FIELD_LWT.to_string(),

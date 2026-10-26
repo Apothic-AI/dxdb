@@ -29,8 +29,7 @@ use dxdb_query::{PlanKey, QueryPlan, INDEX_MAX_STR, INDEX_MIN};
 #[test]
 fn index_min_is_min_safe_integer_and_exactly_representable() {
     assert_eq!(
-        INDEX_MIN,
-        -9_007_199_254_740_991,
+        INDEX_MIN, -9_007_199_254_740_991,
         "INDEX_MIN must be Number.MIN_SAFE_INTEGER"
     );
     let as_float = INDEX_MIN as f64;
@@ -90,11 +89,7 @@ fn index_max_is_one_utf16_code_unit() {
 fn plan_survives_json_round_trip_with_bounds_intact() {
     let plan = QueryPlan {
         index: vec!["_deleted".to_string(), "age".to_string(), "id".to_string()],
-        start_keys: vec![
-            PlanKey::IndexMin,
-            PlanKey::Number(20.0),
-            PlanKey::IndexMin,
-        ],
+        start_keys: vec![PlanKey::IndexMin, PlanKey::Number(20.0), PlanKey::IndexMin],
         end_keys: vec![PlanKey::IndexMax, PlanKey::Number(40.5), PlanKey::IndexMax],
         inclusive_start: false,
         inclusive_end: true,

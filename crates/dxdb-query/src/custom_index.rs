@@ -172,7 +172,11 @@ pub fn get_number_index_string(parsed_lengths: &ParsedLengths, field_value: Opti
 
     let integer_part = value.floor() - parsed_lengths.rounded_minimum;
     let non_decimals_value_as_string = dxdb_jsnum::to_js_string(integer_part);
-    let mut out = pad_start(&non_decimals_value_as_string, parsed_lengths.non_decimals, '0');
+    let mut out = pad_start(
+        &non_decimals_value_as_string,
+        parsed_lengths.non_decimals,
+        '0',
+    );
 
     if parsed_lengths.decimals > 0 {
         let multiplier = parsed_lengths.multiplier;
@@ -287,12 +291,13 @@ impl IndexMetaField {
 pub fn index_meta(schema: &Value, index: &[String]) -> Result<Vec<IndexMetaField>, QueryError> {
     let mut fields = Vec::with_capacity(index.len());
     for field_name in index {
-        let schema_part = dxdb_schema::schema_part_by_object_path(schema, field_name).ok_or_else(|| {
-            QueryError::new(
-                QueryErrorCode::Ci1,
-                format!("index field `{field_name}` is not in the schema"),
-            )
-        })?;
+        let schema_part =
+            dxdb_schema::schema_part_by_object_path(schema, field_name).ok_or_else(|| {
+                QueryError::new(
+                    QueryErrorCode::Ci1,
+                    format!("index field `{field_name}` is not in the schema"),
+                )
+            })?;
         let field_type = schema_part
             .get("type")
             .and_then(Value::as_str)
@@ -503,9 +508,7 @@ pub fn get_start_index_string_from_lower_bound(
                 };
                 let width = parsed.non_decimals + parsed.decimals;
                 match bound {
-                    BoundValue::Null | BoundValue::IndexMin => {
-                        out.push_str(&"0".repeat(width))
-                    }
+                    BoundValue::Null | BoundValue::IndexMin => out.push_str(&"0".repeat(width)),
                     BoundValue::IndexMax => {
                         out.push_str(&get_number_index_string(&parsed, Some(parsed.maximum)))
                     }
@@ -514,15 +517,11 @@ pub fn get_start_index_string_from_lower_bound(
                     // schema minimum* (`src/custom-index.ts:287`). It is therefore
                     // the minimum's encoding, not all zeros — the two differ when
                     // `minimum` is negative, and the oracle records both.
-                    BoundValue::Missing => {
-                        out.push_str(&get_number_index_string(&parsed, None))
-                    }
+                    BoundValue::Missing => out.push_str(&get_number_index_string(&parsed, None)),
                     BoundValue::Number(n) => {
                         out.push_str(&get_number_index_string(&parsed, Some(n)))
                     }
-                    BoundValue::Bool(_) | BoundValue::String(_) => {
-                        out.push_str(&"0".repeat(width))
-                    }
+                    BoundValue::Bool(_) | BoundValue::String(_) => out.push_str(&"0".repeat(width)),
                 }
             }
         }
@@ -606,7 +605,6 @@ pub fn change_indexable_string_by_one_quantum(input: &str, direction: i8) -> Str
     }
     chars.into_iter().collect()
 }
-
 
 #[cfg(test)]
 mod tests;

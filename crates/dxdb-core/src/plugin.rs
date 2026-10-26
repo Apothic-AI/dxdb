@@ -116,7 +116,6 @@ pub struct Overwritables {
 // The defaults are upstream's production defaults (`src/overwritable.ts:16-40`): no
 // extra checks, no freezing, terse messages. Derived, because all three are `false`.
 
-
 /// Something a plugin wants registered, collected during [`Plugin::install`].
 ///
 /// A builder rather than four separate arguments because a plugin typically registers

@@ -64,8 +64,6 @@ pub use database::{CollectionDefinition, Database};
 pub use document::{Document, PatchOperation};
 pub use error::{CoreError, CoreResult};
 pub use hooks::{HookId, HookName, HookOutcome, HookPayload, Hooks, Order, PayloadKind};
-pub use plugin::{
-    Overwritables, Plugin, PluginError, PluginHandle, PluginSet, Registrations,
-};
+pub use plugin::{Overwritables, Plugin, PluginError, PluginHandle, PluginSet, Registrations};
 pub use queue::WriteQueue;
 pub use write::{assign_revisions, fill_object_data_before_insert, PreparedRow};

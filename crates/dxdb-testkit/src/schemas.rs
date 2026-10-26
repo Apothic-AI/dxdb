@@ -183,7 +183,10 @@ pub fn simple_array_hero() -> Value {
 /// upstream has them. A storage that ignores `sharding` is fine; a storage that
 /// chokes on an unknown schema key is not, which is why it is kept.
 pub fn average_schema() -> Value {
-    let title = format!("averageSchema_{}", crate::util::random_string(5, crate::util::COUCH_NAME_CHARS));
+    let title = format!(
+        "averageSchema_{}",
+        crate::util::random_string(5, crate::util::COUCH_NAME_CHARS)
+    );
     json!({
         "title": title,
         "version": 0,
@@ -451,9 +454,21 @@ pub fn query_correctness_complex_index_schema() -> Value {
 pub fn all_fixtures() -> Vec<(&'static str, &'static str, Value)> {
     vec![
         ("human", "src/plugins/test-utils/schemas.ts:36", human()),
-        ("human_minimal", "src/plugins/test-utils/schemas.ts:1045", human_minimal()),
-        ("nested_human", "src/plugins/test-utils/schemas.ts:280", nested_human()),
-        ("hero_array", "src/plugins/test-utils/schemas.ts:641", hero_array()),
+        (
+            "human_minimal",
+            "src/plugins/test-utils/schemas.ts:1045",
+            human_minimal(),
+        ),
+        (
+            "nested_human",
+            "src/plugins/test-utils/schemas.ts:280",
+            nested_human(),
+        ),
+        (
+            "hero_array",
+            "src/plugins/test-utils/schemas.ts:641",
+            hero_array(),
+        ),
         (
             "simple_array_hero",
             "src/plugins/test-utils/schemas.ts:675",

@@ -182,7 +182,9 @@ mod tests {
             "then": { "required": ["name"] }
         });
         let validator = SchemaValidator::new(&schema).expect("schema compiles");
-        assert!(validator.errors(&json!({"kind": "person", "name": "a"})).is_empty());
+        assert!(validator
+            .errors(&json!({"kind": "person", "name": "a"}))
+            .is_empty());
         assert!(!validator.errors(&json!({"kind": "person"})).is_empty());
         assert!(!validator.errors(&json!({"kind": "robot"})).is_empty());
     }

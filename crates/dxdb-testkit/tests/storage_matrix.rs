@@ -42,9 +42,9 @@ mod support;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use dxdb_storage::RxStorage;
 use dxdb_testkit::decl::{exercised_cases, Kind, PortStatus};
 use dxdb_testkit::suite;
-use dxdb_storage::RxStorage;
 use support::reference_storage::ReferenceStorage;
 
 // ---------------------------------------------------------------------------
@@ -237,11 +237,7 @@ fn failure_reason(storage: &str, upstream_line: u32) -> Option<String> {
 }
 
 /// A row for a storage that cannot run.
-fn unavailable_row(
-    storage: &'static str,
-    krate: &'static str,
-    why: Unavailable,
-) -> StorageRow {
+fn unavailable_row(storage: &'static str, krate: &'static str, why: Unavailable) -> StorageRow {
     StorageRow {
         storage,
         krate,
@@ -363,10 +359,13 @@ pub fn render_markdown(rows: &[StorageRow]) -> String {
         let status = match row.unavailable {
             None if counts.failed == 0 => "passing".to_string(),
             None => format!("{} failing", counts.failed),
-            Some(why) => format!("not runnable: {}", match why {
-                Unavailable::StorageMissing => "does not implement RxStorage",
-                Unavailable::BackendNeeded => "needs a host backend",
-            }),
+            Some(why) => format!(
+                "not runnable: {}",
+                match why {
+                    Unavailable::StorageMissing => "does not implement RxStorage",
+                    Unavailable::BackendNeeded => "needs a host backend",
+                }
+            ),
         };
         out.push_str(&format!(
             "| `{}` | `{}` | {} | {} | {} | {} | {} | {} | {} |\n",
@@ -452,7 +451,10 @@ fn print_the_matrix() {
     if let Some(path) = std::env::var_os("DXDB_MATRIX_OUT") {
         let body = format!("{markdown}{failures}");
         std::fs::write(&path, body).unwrap_or_else(|err| {
-            panic!("DXDB_MATRIX_OUT={} is not writable: {err}", path.to_string_lossy())
+            panic!(
+                "DXDB_MATRIX_OUT={} is not writable: {err}",
+                path.to_string_lossy()
+            )
         });
     }
 }
@@ -527,8 +529,8 @@ fn unavailable_storages_account_for_every_declared_case() {
 #[test]
 fn unavailable_storages_state_a_reason() {
     for row in matrix() {
-        if row.unavailable.is_some() {
-            let reason = row.unavailable.expect("checked").reason();
+        if let Some(unavailable) = &row.unavailable {
+            let reason = unavailable.reason();
             assert!(
                 reason.len() > 20,
                 "`{}` is unavailable without a usable reason: {reason:?}",
@@ -547,7 +549,10 @@ fn matrix_cases_match_the_declaration_table() {
         .filter(|case| case.upstream_file.ends_with("implementations.test.ts"))
         .map(|case| case.upstream_line)
         .collect();
-    let from_matrix: Vec<u32> = matrix_cases().iter().map(|case| case.upstream_line).collect();
+    let from_matrix: Vec<u32> = matrix_cases()
+        .iter()
+        .map(|case| case.upstream_line)
+        .collect();
     assert_eq!(
         from_table, from_matrix,
         "the matrix runs a different case set than the declaration table calls Exercised"

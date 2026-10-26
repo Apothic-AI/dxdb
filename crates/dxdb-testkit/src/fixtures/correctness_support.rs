@@ -77,13 +77,10 @@ impl SchemaSource {
                 indexes,
             } => {
                 let mut schema = base();
-                let object = schema.as_object_mut().unwrap_or_else(|| {
-                    panic!("withIndexes base {base_name} is not a JSON object")
-                });
-                object.insert(
-                    "indexes".to_string(),
-                    Value::Array(indexes.to_vec()),
-                );
+                let object = schema
+                    .as_object_mut()
+                    .unwrap_or_else(|| panic!("withIndexes base {base_name} is not a JSON object"));
+                object.insert("indexes".to_string(), Value::Array(indexes.to_vec()));
 
                 // `indexFields = indexes.flat()`
                 let mut index_fields: Vec<String> = Vec::new();
@@ -110,7 +107,9 @@ impl SchemaSource {
                     panic!("withIndexes base {base_name}: `required` is not an array")
                 });
                 for field in index_fields {
-                    let already = list.iter().any(|item| item.as_str() == Some(field.as_str()));
+                    let already = list
+                        .iter()
+                        .any(|item| item.as_str() == Some(field.as_str()));
                     if !already {
                         list.push(Value::String(field));
                     }
@@ -178,10 +177,7 @@ impl Query {
 
     /// `skip`, defaulting to 0 like `normalizeMangoQuery` does.
     pub fn skip(&self) -> usize {
-        self.query
-            .get("skip")
-            .and_then(Value::as_u64)
-            .unwrap_or(0) as usize
+        self.query.get("skip").and_then(Value::as_u64).unwrap_or(0) as usize
     }
 
     /// `limit`, or `None` when upstream wrote none.

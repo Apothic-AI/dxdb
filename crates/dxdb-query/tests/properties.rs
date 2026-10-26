@@ -87,18 +87,17 @@ fn arb_document() -> impl Strategy<Value = Value> {
 
 /// A comparison operator and its operand.
 fn arb_comparison() -> impl Strategy<Value = (&'static str, Value)> {
-    ("\\$eq|\\$ne|\\$gt|\\$gte|\\$lt|\\$lte", arb_scalar())
-        .prop_map(|(operator, operand)| {
-            let operator: &'static str = match operator.as_str() {
-                "$eq" => "$eq",
-                "$ne" => "$ne",
-                "$gt" => "$gt",
-                "$gte" => "$gte",
-                "$lt" => "$lt",
-                _ => "$lte",
-            };
-            (operator, operand)
-        })
+    ("\\$eq|\\$ne|\\$gt|\\$gte|\\$lt|\\$lte", arb_scalar()).prop_map(|(operator, operand)| {
+        let operator: &'static str = match operator.as_str() {
+            "$eq" => "$eq",
+            "$ne" => "$ne",
+            "$gt" => "$gt",
+            "$gte" => "$gte",
+            "$lt" => "$lt",
+            _ => "$lte",
+        };
+        (operator, operand)
+    })
 }
 
 /// A selector over the generated document shape.

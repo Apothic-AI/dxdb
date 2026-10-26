@@ -104,9 +104,13 @@ struct LiveQuery<'a> {
     sort_fields: Vec<String>,
     /// The comparator and matcher as `&dyn Fn`, because `ReduceParams` borrows them and a
     /// closure written inline in `params()` would be a temporary.
-    comparator_fn: Box<dyn Fn(&DocumentData, &DocumentData) -> Ordering>,
-    matcher_fn: Box<dyn Fn(&DocumentData) -> bool>,
+    comparator_fn: CompareFn,
+    matcher_fn: MatchFn,
 }
+
+/// The closure types above, named so the struct does not repeat them.
+type CompareFn = Box<dyn Fn(&DocumentData, &DocumentData) -> Ordering>;
+type MatchFn = Box<dyn Fn(&DocumentData) -> bool>;
 
 impl<'a> LiveQuery<'a> {
     /// Builds a live query from a user query, by normalising it exactly as the collection does.
@@ -122,9 +126,9 @@ impl<'a> LiveQuery<'a> {
             .iter()
             .map(|part| part.field.clone())
             .collect();
-        let comparator_fn: Box<dyn Fn(&DocumentData, &DocumentData) -> Ordering> =
+        let comparator_fn: CompareFn =
             Box::new(move |left, right| comparator.compare(left.as_value(), right.as_value()));
-        let matcher_fn: Box<dyn Fn(&DocumentData) -> bool> =
+        let matcher_fn: MatchFn =
             Box::new(move |document: &DocumentData| matcher.matches(document.as_value()));
         LiveQuery {
             schema,

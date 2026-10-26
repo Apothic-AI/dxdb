@@ -28,9 +28,7 @@
 
 use serde_json::{json, Map, Value};
 
-use crate::util::{
-    random_number, random_string_with_special_chars, random_token,
-};
+use crate::util::{random_number, random_string_with_special_chars, random_token};
 
 /// `humanData(passportId, age, firstName)` — `schema-objects.ts:73`.
 ///
@@ -283,7 +281,11 @@ pub fn token() -> String {
 /// provenance self-check.
 pub fn all_generators() -> Vec<(&'static str, &'static str, Value)> {
     vec![
-        ("humanData", "src/plugins/test-utils/schema-objects.ts:73", random_human_data()),
+        (
+            "humanData",
+            "src/plugins/test-utils/schema-objects.ts:73",
+            random_human_data(),
+        ),
         (
             "simpleHumanData",
             "src/plugins/test-utils/schema-objects.ts:86",
@@ -324,7 +326,11 @@ pub fn all_generators() -> Vec<(&'static str, &'static str, Value)> {
             "src/plugins/test-utils/schema-objects.ts:432",
             average_schema_data(Map::new()),
         ),
-        ("pointData", "src/plugins/test-utils/schema-objects.ts:462", point_data()),
+        (
+            "pointData",
+            "src/plugins/test-utils/schema-objects.ts:462",
+            point_data(),
+        ),
         (
             "humanWithSubOther",
             "src/plugins/test-utils/schema-objects.ts:131",

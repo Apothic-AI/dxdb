@@ -367,6 +367,33 @@ def item_status_matrix():
     return "met", "docs/STATUS.md present and regenerable by `make status`"
 
 
+def item_build_hygiene():
+    """rustfmt, clippy -D warnings, and the wasm target all pass on master.
+
+    This item exists because the rest of the checklist measured behaviour and
+    missed hygiene: clippy was red for several merged commits because no lane ran
+    it on the merged result, and the checklist happily reported 10/10 while it was
+    broken. A definition of done that ignores the repo's own gates is not one.
+    """
+    problems = []
+    status, output = run(["make", "fmt-check"])
+    if status != 0:
+        problems.append("rustfmt --check fails")
+    status, output = run(["make", "clippy"])
+    if status != 0 and ("Terminated" in output or "timed out" in output.lower()):
+        problems.append("clippy could not be verified (build box busy)")
+    elif status != 0:
+        problems.append("clippy -D warnings fails")
+    status, output = run(["make", "wasm"])
+    if status != 0 and ("Terminated" in output or "timed out" in output.lower()):
+        problems.append("wasm target could not be verified (build box busy)")
+    elif status != 0:
+        problems.append("wasm32-unknown-unknown check fails")
+    if problems:
+        return "unmet", "; ".join(problems)
+    return "met", "rustfmt, clippy -D warnings, and wasm32-unknown-unknown all pass on master"
+
+
 CHECKS = [
     ("Every upstream module ported or justified", item_module_coverage),
     ("Ported tests pass and name their upstream origin", item_ported_tests_named),
@@ -378,6 +405,7 @@ CHECKS = [
     ("Benchmarks recorded, honestly including losses", item_benchmarks),
     ("LICENSE, NOTICE, unaffiliated README, clean trailers", item_license_notice),
     ("Status matrix published and regenerable", item_status_matrix),
+    ("Build hygiene: fmt, clippy -D warnings, wasm", item_build_hygiene),
 ]
 
 

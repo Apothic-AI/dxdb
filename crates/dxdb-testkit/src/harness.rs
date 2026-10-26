@@ -166,7 +166,8 @@ impl Harness {
     /// every write does with `assert.deepStrictEqual(response.error, [])`.
     pub async fn write_ok(&self, rows: Vec<dxdb_storage::BulkWriteRow>) -> BulkWriteResponse {
         let response = self
-            .instance.as_ref()
+            .instance
+            .as_ref()
             .bulk_write(rows, "testkit".to_string())
             .await
             .unwrap_or_else(|err| panic!("bulk_write failed outright: {err}"));
@@ -181,7 +182,8 @@ impl Harness {
     /// Writes rows and returns the response without asserting, for the cases whose
     /// subject *is* the error list.
     pub async fn write(&self, rows: Vec<dxdb_storage::BulkWriteRow>) -> BulkWriteResponse {
-        self.instance.as_ref()
+        self.instance
+            .as_ref()
             .bulk_write(rows, "testkit".to_string())
             .await
             .expect("bulk_write failed outright")
@@ -189,7 +191,8 @@ impl Harness {
 
     /// `findDocumentsById`.
     pub async fn find(&self, ids: &[&str], with_deleted: bool) -> Vec<DocumentData> {
-        self.instance.as_ref()
+        self.instance
+            .as_ref()
             .find_documents_by_id(
                 ids.iter().map(|id| (*id).to_string()).collect(),
                 with_deleted,
@@ -208,7 +211,8 @@ impl Harness {
 
     /// Runs a prepared query.
     pub async fn query(&self, prepared: PreparedQuery) -> Vec<DocumentData> {
-        self.instance.as_ref()
+        self.instance
+            .as_ref()
             .query(prepared)
             .await
             .expect("query failed")
@@ -232,7 +236,11 @@ impl Harness {
 
     /// `count()`.
     pub async fn count(&self, prepared: PreparedQuery) -> CountResult {
-        self.instance.as_ref().count(prepared).await.expect("count failed")
+        self.instance
+            .as_ref()
+            .count(prepared)
+            .await
+            .expect("count failed")
     }
 
     /// `close()`.
@@ -242,7 +250,11 @@ impl Harness {
 
     /// `remove()`.
     pub async fn remove(self) {
-        self.instance.as_ref().remove().await.expect("remove failed");
+        self.instance
+            .as_ref()
+            .remove()
+            .await
+            .expect("remove failed");
     }
 }
 
@@ -284,7 +296,9 @@ pub fn mango_query(query: &Value, primary_path: &str) -> MangoQuery {
     let mut sort: Vec<SortPart> = Vec::new();
     if let Some(parts) = query.get("sort").and_then(Value::as_array) {
         for part in parts {
-            let Some(object) = part.as_object() else { continue };
+            let Some(object) = part.as_object() else {
+                continue;
+            };
             for (field, direction) in object {
                 let direction = direction
                     .as_str()
@@ -304,7 +318,10 @@ pub fn mango_query(query: &Value, primary_path: &str) -> MangoQuery {
     }
 
     let skip = query.get("skip").and_then(Value::as_u64).unwrap_or(0) as usize;
-    let limit = query.get("limit").and_then(Value::as_u64).map(|n| n as usize);
+    let limit = query
+        .get("limit")
+        .and_then(Value::as_u64)
+        .map(|n| n as usize);
     let index = query.get("index").and_then(Value::as_array).map(|parts| {
         parts
             .iter()
@@ -385,13 +402,18 @@ fn planned_index(query: &MangoQuery, schema: &StorageSchema) -> Vec<String> {
                 // appear in the compared prefix.
                 break;
             }
-            if user_run.get(matched).map(|candidate| *candidate) == Some(*field) {
+            if user_run.get(matched).copied() == Some(*field) {
                 matched += 1;
             } else {
                 break;
             }
         }
-        if matched == sort_fields.iter().filter(|field| **field != primary).count() {
+        if matched
+            == sort_fields
+                .iter()
+                .filter(|field| **field != primary)
+                .count()
+        {
             return index.clone();
         }
     }
