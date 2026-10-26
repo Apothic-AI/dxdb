@@ -846,10 +846,17 @@ fn bound_string(
         .map_err(|e| StorageError::InvalidSchema(format!("index bound: {e}")))
 }
 
-/// `PlanKey` is a three-case union (string, number, unbounded) and encodes the
+/// `PlanKey` is a union of string, number, boolean, and unbounded. It encodes the
 /// `INDEX_MIN` / `INDEX_MAX` sentinels as *values* rather than variants, so they are
 /// recognised here by comparing against those sentinels. That keeps the plan
 /// JSON-round-trippable, which is why lane D modelled it that way.
+///
+/// `Boolean` exists because `_deleted` is a boolean and it is the first field of
+/// every index (PLAN.md 4.3: `_deleted` is prepended to every index), so a boolean
+/// bound is a normal plan key rather than an edge case. Adding the variant without
+/// a match arm here broke the workspace build after this crate was already merged,
+/// which is the cost of an enum that lives in one crate and is matched in another:
+/// the compiler catches it, but only in the lane that re-resolves first.
 fn bound_value(key: &PlanKey) -> BoundValue {
     match key {
         PlanKey::Unbounded => BoundValue::Missing,
@@ -859,6 +866,9 @@ fn bound_value(key: &PlanKey) -> BoundValue {
             BoundValue::IndexMax
         }
         PlanKey::String(s) => BoundValue::String(s.clone()),
+        // A boolean bound is an ordinary value: `false` and `true` are its own two
+        // points on the index line, not sentinels.
+        PlanKey::Boolean(flag) => BoundValue::Bool(*flag),
     }
 }
 
