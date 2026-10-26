@@ -513,6 +513,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-cleanup"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-key-compression"
 version = "0.0.0"
 dependencies = [
@@ -520,6 +528,14 @@ dependencies = [
  "dxdb-jsstr",
  "dxdb-schema",
  "dxdb-storage",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-leader-election"
+version = "0.0.0"
+dependencies = [
  "serde_json",
  "thiserror",
 ]

@@ -1,0 +1,15 @@
+[package]
+name = "dxdb-plugin-leader-election"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: single-writer election across instances (RxDB src/plugins/leader-election)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

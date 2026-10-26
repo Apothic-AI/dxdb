@@ -1,0 +1,15 @@
+[package]
+name = "dxdb-plugin-cleanup"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: periodic purging of tombstones under a shared retention policy (RxDB src/plugins/cleanup)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
