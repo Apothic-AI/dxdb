@@ -371,6 +371,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-testkit"
+version = "0.0.0"
+dependencies = [
+ "dxdb-memory",
+ "dxdb-storage",
+ "futures",
+ "serde_json",
+]
+
+[[package]]
 name = "dxdb-vectors"
 version = "0.0.0"
 dependencies = [
