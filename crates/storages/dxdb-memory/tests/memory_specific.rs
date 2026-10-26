@@ -582,7 +582,11 @@ fn a_wrong_digest_is_an_error() {
             )
             .await
             .expect("write");
-        assert!(response.is_ok(), "the write must be accepted: {:?}", response.error);
+        assert!(
+            response.is_ok(),
+            "the write must be accepted: {:?}",
+            response.error
+        );
 
         let error = instance
             .get_attachment_data("with-att".to_string(), "att-1".to_string(), "0".repeat(64))
