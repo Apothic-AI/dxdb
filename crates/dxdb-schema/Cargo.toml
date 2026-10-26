@@ -22,5 +22,3 @@ dxdb-jsstr = { path = "../dxdb-jsstr" }
 
 [dev-dependencies]
 proptest.workspace = true
-# The typed reader for `testdata/vectors/*.json`; see the note in dxdb-query's manifest.
-dxdb-vectors = { path = "../dxdb-vectors" }

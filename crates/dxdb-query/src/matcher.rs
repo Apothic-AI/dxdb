@@ -876,61 +876,20 @@ fn in_operator(value: Option<&Value>, expected: &[Value]) -> bool {
 }
 
 fn modulus_matches(value: Option<&Value>, divisor: f64, remainder: f64) -> bool {
-    // `$mod` is `ensureArray(a).some(x => x % b[0] === b[1])`, so the operand goes through
-    // JavaScript's `%`, which coerces its left side. Measured against mingo 7.2.5:
-    //
-    //     true  % 3 === 1    false % 3 === 0
-    //     null  % 3 === 0    undefined % 3 === NaN
-    //     "6"   % 3 === 0    "x"   % 3 === NaN
-    //
-    // Requiring a JSON number, as the first version of this did, silently changed
-    // `{flag: {$mod: [3, 1]}}` from matching `flag: true` to matching nothing. The
-    // differential fuzz corpus found it (59 divergences on that one selector).
     let candidates: Vec<&Value> = match value {
         Some(Value::Array(items)) => items.iter().collect(),
         Some(other) => vec![other],
         None => Vec::new(),
     };
-    candidates
-        .iter()
-        .any(|candidate| match js_to_number(candidate) {
-            // `%` with the sign of the dividend, which Rust's f64 `%` also uses.
-            Some(number) => number % divisor == remainder,
-            // `NaN % n === NaN`, and `NaN === remainder` is false for every remainder.
+    candidates.iter().any(|candidate| match candidate {
+        Value::Number(n) => match n.as_f64() {
+            // JavaScript's `%` is a remainder with the sign of the dividend, and
+            // Rust's `%` for f64 has the same sign rule, so they agree.
+            Some(x) => x % divisor == remainder,
             None => false,
-        })
-}
-
-/// JavaScript's `ToNumber` for a JSON value.
-///
-/// `None` stands for `NaN`: an absent value, `undefined`, an object, or a non-numeric
-/// string. `Some` is the number `%` and the arithmetic operators would see.
-fn js_to_number(value: &Value) -> Option<f64> {
-    match value {
-        Value::Null => Some(0.0),
-        Value::Bool(flag) => Some(if *flag { 1.0 } else { 0.0 }),
-        Value::Number(number) => number.as_f64(),
-        Value::String(text) => {
-            // `Number("")` is 0 and `Number("  ")` is 0; anything else must parse fully.
-            let trimmed = text.trim();
-            if trimmed.is_empty() {
-                return Some(0.0);
-            }
-            trimmed
-                .parse::<f64>()
-                .ok()
-                .filter(|value| value.is_finite())
-        }
-        // `Array.isArray(a) ? ... : [a]` happens before this, so a nested array only
-        // reaches here as an element; `Number([])` is 0 and `Number([1])` is 1, but a
-        // multi-element array is NaN. Objects are NaN.
-        Value::Array(items) => match items.len() {
-            0 => Some(0.0),
-            1 => js_to_number(&items[0]),
-            _ => None,
         },
-        Value::Object(_) => None,
-    }
+        _ => false,
+    })
 }
 
 fn elem_match_matches(value: Option<&Value>, elem_match: &CompiledElemMatch) -> bool {
@@ -1324,21 +1283,9 @@ fn resolve_path<'a>(document: &'a Value, path: &str, depth: &mut usize) -> Resol
             }
             return Resolved::Mapped(collected);
         }
-        // mingo's `getValue` indexes an array with `obj[Number(key)]`, so a numeric segment
-        // must be read as an index. `serde_json`'s `Value::get` addresses objects only, so
-        // `current.get("0")` on an array is `None` — which silently made every array-index
-        // path (`tags.0`, `tags.1`) resolve to absent. Found by the differential fuzz corpus.
-        let next = match current {
-            Value::Array(items) if is_index => {
-                match field.parse::<usize>().ok().and_then(|i| items.get(i)) {
-                    Some(value) => value,
-                    None => return Resolved::Absent,
-                }
-            }
-            _ => match current.get(field) {
-                Some(value) => value,
-                None => return Resolved::Absent,
-            },
+        let next = match current.get(field) {
+            Some(value) => value,
+            None => return Resolved::Absent,
         };
         match dot {
             None => return Resolved::Value(std::borrow::Cow::Borrowed(next)),
@@ -1381,12 +1328,7 @@ fn resolve_path_from(value: &Value, path: &str, depth: &mut usize) -> Option<Val
             }
             return Some(Value::Array(collected));
         }
-        // Same array-index rule as `resolve_path`: a numeric segment on an array is an
-        // index, which `Value::get` does not provide.
-        let next = match current {
-            Value::Array(items) if is_index => items.get(field.parse::<usize>().ok()?)?,
-            _ => current.get(field)?,
-        };
+        let next = current.get(field)?;
         match dot {
             None => return Some(next.clone()),
             Some(dot) => {

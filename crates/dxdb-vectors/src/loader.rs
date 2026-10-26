@@ -38,6 +38,8 @@ pub enum VectorFamily {
     SelectorMatching,
     /// `replication-transcripts.json` — replicated state and checkpoints.
     ReplicationTranscripts,
+    /// `error-vectors.json` — how upstream refuses, with each error's code.
+    ErrorVectors,
 }
 
 impl VectorFamily {
@@ -51,6 +53,7 @@ impl VectorFamily {
             VectorFamily::BulkWriteCategorization => "bulk-write-categorization",
             VectorFamily::SelectorMatching => "selector-matching",
             VectorFamily::ReplicationTranscripts => "replication-transcripts",
+            VectorFamily::ErrorVectors => "error-vectors",
         }
     }
 
@@ -260,6 +263,10 @@ impl Vectors {
             VectorFamily::ReplicationTranscripts => Ok(self
                 .load::<crate::replication_transcripts::Vectors>(family)?
                 .case_count()),
+            VectorFamily::ErrorVectors => Ok(self
+                .load::<crate::error_vectors::Vectors>(family)?
+                .raised_cases
+                .len()),
         }
     }
 }

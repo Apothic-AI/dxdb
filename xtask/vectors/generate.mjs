@@ -41,6 +41,7 @@ const FAMILIES = [
   { name: 'bulk-write-categorization', module: './families/bulk-write-categorization.mjs' },
   { name: 'selector-matching', module: './families/selector-matching.mjs' },
   { name: 'replication-transcripts', module: './families/replication-transcripts.mjs' },
+  { name: 'error-vectors', module: './families/error-vectors.mjs' },
 ];
 
 function usage() {

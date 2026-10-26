@@ -63,6 +63,18 @@ const ORACLE_MODULES = {
   // tree-shaken re-exports, so importing it through `schemaHelper` yields
   // undefined. Schema hashing must come from upstream, not from our copy.
   utilsHash: 'plugins/utils/utils-hash.ts',
+  // The dev-mode plugin is a *separate entry point* upstream, not part of core, and
+  // half the documented error codes (`COL22` duplicate id, `DXE1` Dexie-incompatible
+  // schema, the `DB*` family) are defined only there.
+  //
+  // Only the message table is bundled. `check-schema.ts` would raise those codes
+  // directly, but it imports `entity-properties.ts`, which imports `rx-collection`,
+  // `rx-database` and `rx-document`, which is the whole database layer and its runtime
+  // dependencies (`event-reduce-js`, `custom-idle-queue`, `oblivious-set`). Bundling
+  // that to reach a checker would make the oracle's dependency surface larger than the
+  // library it is checking. `error-messages.ts` imports only `utils-premium`, so the
+  // code *vocabulary* is authoritative here even where the raiser is out of reach.
+  devModeErrorMessages: 'plugins/dev-mode/error-messages.ts',
 };
 
 function log(msg) {

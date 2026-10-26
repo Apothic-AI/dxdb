@@ -21,8 +21,3 @@ dxdb-schema = { path = "../dxdb-schema" }
 
 [dev-dependencies]
 proptest.workspace = true
-# The typed reader for `testdata/vectors/*.json`. Production code never reads a
-# vector file, so this is a dev-dependency; tests go through it rather than each
-# hand-rolling path discovery and its own `serde_json` structs, which is how six
-# divergent readers appeared across four crates.
-dxdb-vectors = { path = "../dxdb-vectors" }

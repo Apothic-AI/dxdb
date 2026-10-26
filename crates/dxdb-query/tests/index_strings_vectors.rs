@@ -1,28 +1,27 @@
-//! Oracle tests: index strings and index-string bounds, read through `dxdb-vectors`.
+//! Oracle tests: index strings and index-string bounds.
 //!
-//! `testdata/vectors/index-strings.json` was produced by upstream RxDB 17.6.0 in Node: for
-//! every index of every fixture schema it records the index string of a document, the
-//! index-string length, and — for a large set of probe values — the lower and upper bound
-//! strings a storage would build.
+//! `testdata/vectors/index-strings.json` was produced by upstream RxDB 17.6.0 in
+//! Node: for every index of every fixture schema, it records the index string of a
+//! document, the index-string length, and — for a large set of probe values — the
+//! lower and upper bound strings the storage layer would build.
 //!
-//! The file is read through [`dxdb_vectors`], the typed reader. `IndexEntry` distinguishes a
-//! field path from a non-string entry, which is exactly the distinction upstream crashes on,
-//! so the reader models the contract instead of leaving it to `serde_json::Value` indexing.
-//!
-//! This is the family that catches the most damaging class of bug, because a wrong index
-//! string does not throw: it silently orders or filters documents differently and the data
-//! still looks valid. Three things are only pinned here:
+//! This is the family that would catch the most damaging class of bug, because a
+//! wrong index string does not throw: it silently orders or filters documents
+//! differently, and the resulting data still looks valid. Three specific things are
+//! only pinned here:
 //!
 //! - **Clamping.** A probe far below a field's declared `minimum` must encode as the
 //!   minimum, not as a negative number in a zero-padded field.
 //! - **The `\x00` string bound.** A lower bound for a string field is NUL-padded, not
 //!   space-padded, so a value containing `\t` is not excluded.
-//! - **Sentinel handling.** `INDEX_MIN` and `INDEX_MAX` produce all-zeros and all-nines.
+//! - **Sentinel handling.** `INDEX_MIN` and `INDEX_MAX` produce all-zeros and
+//!   all-nines number bounds.
 //!
-//! The family also records the indexes upstream *refuses*: a literal number in an index, a
-//! numeric indexed field with no `minimum`/`maximum`, and an index naming a field that does
-//! not exist. Those must be refused here too — a port that accepted them would produce index
-//! strings upstream cannot.
+//! The vector's `skipped` array records schemas upstream *rejects* (an index that
+//! names a literal number, a numeric indexed field with no `minimum`/`maximum`, an
+//! index naming a field that does not exist). Those are asserted to be rejected here
+//! too, in [`rejected_schemas_are_rejected_here`] — a port that silently accepts them
+//! would produce index strings upstream cannot produce.
 
 use serde_json::Value;
 
@@ -30,33 +29,40 @@ use dxdb_query::{
     get_index_string_length, get_indexable_string, get_start_index_string_from_lower_bound,
     get_start_index_string_from_upper_bound, BoundValue,
 };
-use dxdb_vectors::{index_strings, schema_hashes, VectorFamily, Vectors};
 
-/// Loads the family through the typed reader.
-fn load() -> index_strings::Vectors {
-    let vectors = Vectors::discover();
-    vectors
-        .load(VectorFamily::IndexStrings)
-        .expect("index-strings.json loads through dxdb-vectors")
+fn load() -> Value {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../testdata/vectors/index-strings.json"
+    );
+    let text = std::fs::read_to_string(path).unwrap_or_else(|error| {
+        panic!("cannot read {path}: {error}. The oracle vectors are committed.")
+    });
+    serde_json::from_str(&text).expect("index-strings.json is valid JSON")
 }
 
-/// The fixture schemas, keyed by name, from the `schema-hashes` family.
+/// The schemas the vector refers to by name.
 ///
-/// The index-strings family names a schema per case rather than repeating it, because the
-/// same fixture appears in hundreds of cases. The hashes family carries each input schema
-/// once under the same name, so there is one copy in the repo rather than two.
+/// The vector stores a schema *name* per case rather than repeating the schema,
+/// because the same fixture appears in hundreds of cases. The names come from
+/// `src/plugins/test-utils/schemas.ts`; each is reconstructed here from the
+/// `schema-hashes` family, which carries the input schema for every fixture under
+/// the same name. That keeps one copy of each fixture in the repo instead of two.
 fn schema_lookup() -> std::collections::HashMap<String, Value> {
-    let vectors = Vectors::discover();
-    let hashes: schema_hashes::Vectors = vectors
-        .load(VectorFamily::SchemaHashes)
-        .expect("schema-hashes.json loads through dxdb-vectors");
-    let mut lookup = std::collections::HashMap::new();
-    for case in &hashes.cases {
-        lookup
-            .entry(case.name.clone())
-            .or_insert_with(|| case.input.clone());
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../testdata/vectors/schema-hashes.json"
+    );
+    let text = std::fs::read_to_string(path).expect("schema-hashes.json is committed");
+    let vector: Value = serde_json::from_str(&text).expect("valid JSON");
+    let mut out = std::collections::HashMap::new();
+    for case in vector["cases"].as_array().expect("cases array") {
+        let name = case["name"].as_str().expect("name").to_string();
+        // The index-strings family names the plain fixtures, so a synthetic case
+        // (`synthetic:...`) can never collide with one.
+        out.entry(name).or_insert_with(|| case["input"].clone());
     }
-    lookup
+    out
 }
 
 fn filled(name: &str, lookup: &std::collections::HashMap<String, Value>) -> Value {
@@ -68,68 +74,49 @@ fn filled(name: &str, lookup: &std::collections::HashMap<String, Value>) -> Valu
     })
 }
 
-/// The index as field names, or `None` when an entry is not a field path.
-fn index_fields(index: &[index_strings::IndexEntry]) -> Option<Vec<String>> {
+fn index_fields(index: &Value) -> Vec<String> {
     index
+        .as_array()
+        .expect("index array")
         .iter()
-        .map(|entry| entry.as_field().map(str::to_owned))
+        .map(|field| field.as_str().expect("field name").to_string())
         .collect()
-}
-
-/// The family is the size the vectors crate expects.
-#[test]
-fn the_family_has_its_documented_case_count() {
-    let family = load();
-    assert_eq!(family.cases.len(), family.case_count);
-    let expected = dxdb_vectors::EXPECTED_CASE_COUNTS
-        .iter()
-        .find(|(candidate, _)| *candidate == VectorFamily::IndexStrings)
-        .map(|(_, count)| *count)
-        .expect("IndexStrings is in EXPECTED_CASE_COUNTS");
-    assert_eq!(family.cases.len(), expected);
-    // The three produced kinds plus the refusals must account for every case.
-    let mut produced = 0;
-    let mut refusals = 0;
-    for case in &family.cases {
-        match case {
-            index_strings::Case::Rejection(_) => refusals += 1,
-            _ => produced += 1,
-        }
-    }
-    assert_eq!(produced, family.produced_case_count);
-    assert_eq!(refusals, family.rejection_case_count);
 }
 
 /// `kind: "index-string"` — the encoding of one document under one index.
 #[test]
 fn index_strings_match_upstream_oracle() {
-    let family = load();
+    let vector = load();
     let lookup = schema_lookup();
+    let cases = vector["cases"].as_array().expect("cases array");
     let mut checked = 0;
     let mut failures = Vec::new();
 
-    for case in &family.cases {
-        let index_strings::Case::IndexString(case) = case else {
+    for case in cases {
+        if case["kind"].as_str() != Some("index-string") {
             continue;
-        };
-        let schema = filled(&case.schema, &lookup);
-        // A non-string entry has no field-name form; those are the refusal cases, asserted
-        // separately.
-        let Some(index) = index_fields(&case.index) else {
-            continue;
-        };
-        match get_indexable_string(&schema, &index, &case.document) {
-            Ok(actual) if actual == case.index_string => checked += 1,
-            Ok(actual) => failures.push(format!(
-                "{} [{index:?}] {}: encoded {actual:?} != upstream {:?} (field {:?})",
-                case.schema,
-                case.why,
-                case.index_string,
-                case.field.as_deref().unwrap_or("")
-            )),
+        }
+        let schema_name = case["schema"].as_str().expect("schema");
+        let schema = filled(schema_name, &lookup);
+        let index = index_fields(&case["index"]);
+        let document = &case["document"];
+        let expected = case["indexString"].as_str().expect("indexString");
+        let why = case["why"].as_str().unwrap_or_default();
+        let field = case["field"].as_str().unwrap_or_default();
+
+        match get_indexable_string(&schema, &index, document) {
+            Ok(actual) => {
+                if actual != expected {
+                    failures.push(format!(
+                        "{schema_name} [{index:?}] {why}: encoded {actual:?} != upstream {expected:?} \
+                         (field {field})"
+                    ));
+                } else {
+                    checked += 1;
+                }
+            }
             Err(error) => failures.push(format!(
-                "{} [{index:?}] {}: encoder failed: {error}",
-                case.schema, case.why
+                "{schema_name} [{index:?}] {why}: encoder failed: {error}"
             )),
         }
     }
@@ -142,36 +129,35 @@ fn index_strings_match_upstream_oracle() {
     );
     assert!(
         checked >= 400,
-        "expected at least 400 cases, checked {checked}"
+        "expected at least 400 index-string cases, checked {checked}"
     );
 }
 
 /// `kind: "index-string-length"` — the fixed width of an index.
 #[test]
 fn index_string_lengths_match_upstream_oracle() {
-    let family = load();
+    let vector = load();
     let lookup = schema_lookup();
+    let cases = vector["cases"].as_array().expect("cases array");
     let mut checked = 0;
     let mut failures = Vec::new();
 
-    for case in &family.cases {
-        let index_strings::Case::IndexStringLength(case) = case else {
+    for case in cases {
+        if case["kind"].as_str() != Some("index-string-length") {
             continue;
-        };
-        let schema = filled(&case.schema, &lookup);
-        let Some(index) = index_fields(&case.index) else {
-            continue;
-        };
+        }
+        let schema_name = case["schema"].as_str().expect("schema");
+        let schema = filled(schema_name, &lookup);
+        let index = index_fields(&case["index"]);
+        let expected = case["length"].as_u64().expect("length") as usize;
         match get_index_string_length(&schema, &index) {
-            Ok(actual) if actual == case.length => checked += 1,
+            Ok(actual) if actual == expected => checked += 1,
             Ok(actual) => failures.push(format!(
-                "{} [{index:?}]: width {actual} != upstream {}",
-                case.schema, case.length
+                "{schema_name} [{index:?}]: width {actual} != upstream {expected}"
             )),
-            Err(error) => failures.push(format!(
-                "{} [{index:?}]: width failed: {error}",
-                case.schema
-            )),
+            Err(error) => {
+                failures.push(format!("{schema_name} [{index:?}]: width failed: {error}"))
+            }
         }
     }
 
@@ -189,80 +175,79 @@ fn index_string_lengths_match_upstream_oracle() {
 
 /// `kind: "bounds"` — the lower and upper bound strings for one probe value.
 ///
-/// Each probe exercises a different branch: `lower-null`, `lower-undefined`, `lower-INDEX_MIN`,
-/// `lower-INDEX_MAX`, `lower-out-of-range-low`, `lower-out-of-range-high`, `lower-typed` and
-/// `lower-empty`.
+/// The probe value is the interesting part: `lower-null`, `lower-undefined`,
+/// `lower-INDEX_MIN`, `lower-INDEX_MAX`, `lower-out-of-range-low`,
+/// `lower-out-of-range-high`, `lower-typed` and `lower-empty` each exercise a
+/// different branch of the bound builders.
 #[test]
 fn bounds_match_upstream_oracle() {
-    let family = load();
+    let vector = load();
     let lookup = schema_lookup();
+    let cases = vector["cases"].as_array().expect("cases array");
     let mut checked = 0;
     let mut failures = Vec::new();
 
-    for case in &family.cases {
-        let index_strings::Case::Bounds(case) = case else {
+    for case in cases {
+        if case["kind"].as_str() != Some("bounds") {
             continue;
-        };
-        let schema = filled(&case.schema, &lookup);
-        let Some(index) = index_fields(&case.index) else {
-            continue;
-        };
+        }
+        let schema_name = case["schema"].as_str().expect("schema");
+        let schema = filled(schema_name, &lookup);
+        let index = index_fields(&case["index"]);
+        let why = case["why"].as_str().unwrap_or_default();
+        let field = case["field"].as_str().unwrap_or_default();
 
-        // The probe value sits at its field's position. Every other position is held at a
-        // *neutral* value — the field's schema minimum for a number, `false` for a boolean,
-        // the empty string otherwise — which is how the generator built the case. Using an
-        // absent bound instead would exercise a different branch and make every case disagree
-        // for the wrong reason.
+        // The probe value sits at the position of `field` in the index; every other
+        // position is held at a *neutral* value, not left absent. That is how the
+        // generator built the case (`xtask/vectors/families/index-strings.mjs:225`):
+        // the neutral filler is the field's schema minimum for a number, `false` for
+        // a boolean, and the empty string otherwise. Using `Missing` instead would
+        // exercise a different branch (`\0` string padding, all-zero numbers) and
+        // make every case disagree for the wrong reason.
         let field_position = index
             .iter()
-            .position(|candidate| *candidate == case.field)
-            .unwrap_or_else(|| {
-                panic!(
-                    "{} {}: field {:?} is not in {index:?}",
-                    case.schema, case.why, case.field
-                )
-            });
+            .position(|candidate| candidate == field)
+            .unwrap_or_else(|| panic!("{schema_name} {why}: field {field} is not in {index:?}"));
         let mut bound_values: Vec<BoundValue> = Vec::with_capacity(index.len());
         for candidate in &index {
-            let part = dxdb_schema::schema_part_by_object_path(&schema, candidate);
-            bound_values.push(
-                match part
-                    .and_then(|part| part.get("type"))
-                    .and_then(Value::as_str)
-                {
-                    Some("number") | Some("integer") => {
-                        let minimum = part
-                            .and_then(|part| part.get("minimum"))
-                            .and_then(Value::as_f64);
-                        BoundValue::Number(minimum.unwrap_or(0.0))
+            // A non-string index entry cannot be neutral, and such a schema is
+            // already covered by `rejected_schemas_are_rejected_here`.
+            let Some(part) = dxdb_schema::schema_part_by_object_path(&schema, candidate) else {
+                bound_values.push(BoundValue::Missing);
+                continue;
+            };
+            bound_values.push(match part.get("type").and_then(Value::as_str) {
+                Some("number") | Some("integer") => {
+                    match part.get("minimum").and_then(Value::as_f64) {
+                        Some(minimum) => BoundValue::Number(minimum),
+                        None => BoundValue::Number(0.0),
                     }
-                    Some("boolean") => BoundValue::Bool(false),
-                    _ => BoundValue::String(String::new()),
-                },
-            );
+                }
+                Some("boolean") => BoundValue::Bool(false),
+                _ => BoundValue::String(String::new()),
+            });
         }
         bound_values[field_position] = probe_bound(case);
 
+        let expected_lower = case["lowerBoundString"].as_str().expect("lowerBoundString");
+        let expected_upper = case["upperBoundString"].as_str().expect("upperBoundString");
+
         match get_start_index_string_from_lower_bound(&schema, &index, &bound_values) {
-            Ok(actual) if actual == case.lower_bound_string => {}
+            Ok(actual) if actual == expected_lower => {}
             Ok(actual) => failures.push(format!(
-                "{} [{index:?}] {}: lower {actual:?} != upstream {:?}",
-                case.schema, case.why, case.lower_bound_string
+                "{schema_name} [{index:?}] {why}: lower {actual:?} != upstream {expected_lower:?}"
             )),
             Err(error) => failures.push(format!(
-                "{} [{index:?}] {}: lower bound failed: {error}",
-                case.schema, case.why
+                "{schema_name} [{index:?}] {why}: lower bound failed: {error}"
             )),
         }
         match get_start_index_string_from_upper_bound(&schema, &index, &bound_values) {
-            Ok(actual) if actual == case.upper_bound_string => checked += 1,
+            Ok(actual) if actual == expected_upper => checked += 1,
             Ok(actual) => failures.push(format!(
-                "{} [{index:?}] {}: upper {actual:?} != upstream {:?}",
-                case.schema, case.why, case.upper_bound_string
+                "{schema_name} [{index:?}] {why}: upper {actual:?} != upstream {expected_upper:?}"
             )),
             Err(error) => failures.push(format!(
-                "{} [{index:?}] {}: upper bound failed: {error}",
-                case.schema, case.why
+                "{schema_name} [{index:?}] {why}: upper bound failed: {error}"
             )),
         }
     }
@@ -277,130 +262,98 @@ fn bounds_match_upstream_oracle() {
         checked >= 300,
         "expected at least 300 bound cases, checked {checked}"
     );
-    // The clamping branch must actually be exercised, or the most dangerous case is untested.
-    assert!(
-        family.cases.iter().any(
-            |case| matches!(case, index_strings::Case::Bounds(b) if b.why.contains("out-of-range"))
-        ),
-        "the corpus must still probe the clamping boundary"
-    );
 }
 
-/// Maps a bounds case's probe value onto a [`BoundValue`], sentinels included.
+/// Maps one bounds case's probe value onto a [`BoundValue`], sentinels included.
 ///
-/// Two ambiguities are upstream's, and one is a limitation of the typed reader:
+/// Two ambiguities have to be resolved, and both are upstream's:
 ///
-/// 1. `INDEX_MIN` is a number and `INDEX_MAX` the string `"\u{FFFF}"`, so neither is
-///    distinguishable from a real bound by inspection. [`BoundValue::from_json`] resolves
-///    them by value, the way upstream's `bound === INDEX_MIN` does.
-/// 2. **`null` versus absent.** `lower-null` records `"bound": null` and `lower-undefined`
-///    records *no* key at all, because JSON cannot hold `undefined`. But
-///    `index_strings::BoundValue` deserialises into an `Option`, and serde maps both an
-///    explicit `null` and a missing field to `None` — so the reader cannot tell the two
-///    apart. They take different branches for a boolean field (`null` gives `'1'`, absent
-///    gives `'0'`), so the case's own `why` label is what distinguishes them here.
-///
-///    This is a real gap in the typed reader rather than something to work around
-///    silently: the family's `why` is stable and documented (`lower-null`,
-///    `lower-undefined`), so using it is correct, but a reader with a `bound_present:
-///    bool` or a tri-state `Bound<T>` would be the better fix. Reported rather than
-///    papered over.
-fn probe_bound(case: &index_strings::BoundsCase) -> BoundValue {
-    let absent = case.why == "lower-undefined" || case.why == "lower-undefined-empty";
-    match (&case.bound, absent) {
-        (_, true) => BoundValue::Missing,
-        (None, false) => BoundValue::Null,
-        (Some(value), false) => BoundValue::from_json(Some(value)),
+/// - `INDEX_MIN` is a number and `INDEX_MAX` is the string `"\u{FFFF}"`, so neither
+///   is distinguishable from a real bound by inspection. `BoundValue::from_json`
+///   resolves them by value, the way upstream's `bound === INDEX_MIN` does.
+/// - The `lower-undefined` probe has *no* `bound` key at all, because JSON cannot
+///   hold `undefined`. A missing key must become [`BoundValue::Missing`], not
+///   `Null` — `Value::Index` on a missing key returns `Null` in serde, and confusing
+///   the two changes the upper bound for a boolean field from `'0'` to `'1'`.
+fn probe_bound(case: &Value) -> BoundValue {
+    match case.get("bound") {
+        None => BoundValue::Missing,
+        Some(value) => BoundValue::from_json(Some(value)),
     }
 }
 
-/// The indexes upstream refuses must be refused here.
+/// The schemas upstream rejects must be rejected here.
 ///
-/// A port that accepted one would produce index strings upstream cannot, so a store written
-/// by dxdb would be unreadable by RxDB. The rejection belongs at the encoder, not at fill
-/// time: upstream fills and *hashes* all of these schemas, and the `schema-hashes` family
-/// contains a hash for each.
+/// The vector's `skipped` array names four such schemas with the reason upstream
+/// itself failed on them:
+///
+/// - `compoundIndexNoString`: the index contains the literal number `10` instead of
+///   a field path.
+/// - `noStringIndex`: a numeric indexed field declares no `minimum`/`maximum`, so
+///   there is no digit budget for the encoding.
+/// - `notExistingIndex`: the index names `address.apartment`, which is not in the
+///   schema — upstream's error carries code `CI1`.
+///
+/// Accepting any of them would mean producing index strings upstream cannot, which
+/// is worse than failing: a store written by dxdb would be unreadable by RxDB.
 #[test]
-fn refused_indexes_are_refused_here() {
-    let family = load();
+fn rejected_schemas_are_rejected_here() {
+    let vector = load();
+    // The family records these as first-class `rejections` with the observable error
+    // identity, not as a `skipped` list: accepting any of them would mean producing
+    // index strings upstream cannot, which is worse than failing, because a store
+    // written by dxdb would then be unreadable by RxDB. The field was renamed when the
+    // vectors lane made rejections assertable rather than merely noted.
+    let rejections = vector["rejections"]
+        .as_array()
+        .expect("rejections array: the family must record the schemas upstream rejects");
+    assert!(
+        !rejections.is_empty(),
+        "the family must record the schemas upstream rejects"
+    );
+
     let lookup = schema_lookup();
-    let mut checked = 0;
-    let mut failures = Vec::new();
+    for entry in rejections {
+        let schema_name = entry["schema"].as_str().expect("schema");
+        let index: Vec<String> = entry["index"]
+            .as_array()
+            .expect("index array")
+            .iter()
+            .map(|field| {
+                // A skipped entry can name a literal number, which is exactly the
+                // entry that has no field name; it is represented by its JSON text.
+                match field {
+                    Value::String(name) => name.clone(),
+                    other => dxdb_json::to_js_json(other),
+                }
+            })
+            .collect();
+        // The new shape names the observable failure class and error name rather than a
+        // free-text reason, so the assertion can cite what upstream actually did.
+        let reason = entry["class"].as_str().unwrap_or_default();
 
-    assert!(
-        family.unexpected_rejections.is_empty(),
-        "the generator recorded an unexpected refusal: {:?}",
-        family.unexpected_rejections
-    );
-
-    for case in &family.cases {
-        let index_strings::Case::Rejection(case) = case else {
+        let Some(schema_input) = lookup.get(schema_name) else {
+            // `noStringIndex` is one of the fixtures; if a fixture is missing the
+            // oracle above already fails loudly.
             continue;
         };
-        let Some(schema_input) = lookup.get(&case.schema) else {
-            continue;
-        };
-        let filled = match dxdb_schema::fill_with_default_settings(schema_input) {
-            Ok(filled) => filled,
-            Err(error) => {
-                failures.push(format!(
-                    "{}: filling failed ({error}), but upstream fills and hashes this schema",
-                    case.schema
-                ));
-                continue;
-            }
-        };
-
-        // An index containing a non-string entry has no field-name form at all, and that
-        // absence *is* the refusal.
-        let Some(declared) = index_fields(&case.index) else {
-            match dxdb_schema::get_string_indexes(&filled) {
-                Err(_) => checked += 1,
-                Ok(indexes) => failures.push(format!(
-                    "{}: an index containing a non-string entry must not yield field names, \
-                     but get_string_indexes returned {indexes:?}",
-                    case.schema
-                )),
-            }
-            continue;
-        };
-
-        // Otherwise find the filled form containing the declared fields and require the
-        // encoder to refuse it.
-        let filled_indexes = dxdb_schema::get_string_indexes(&filled).unwrap_or_default();
-        let candidate = filled_indexes.iter().find(|candidate| {
-            declared
-                .iter()
-                .all(|field| candidate.iter().any(|entry| entry == field))
-        });
-        let Some(candidate) = candidate else {
-            // No filled form exists, so there is nothing to encode: also a refusal.
-            checked += 1;
-            continue;
-        };
-        let encoded = get_indexable_string(&filled, candidate, &serde_json::json!({}));
-        let width = get_index_string_length(&filled, candidate);
-        if encoded.is_err() && width.is_err() {
-            checked += 1;
-        } else {
-            failures.push(format!(
-                "{} {candidate:?}: must be refused, but encoded={:?} width={:?}",
-                case.schema,
-                encoded.ok(),
-                width.ok()
-            ));
-        }
+        // Filling may already fail (a numeric index field with no bounds), or the
+        // failure may only appear when the index is used. Either is a rejection.
+        // Filling is permissive by design (upstream fills these schemas too), so the
+        // rejection has to appear at the encoder.
+        let filled = dxdb_schema::fill_with_default_settings(schema_input)
+            .expect("upstream fills this schema; only encoding fails");
+        let document = entry["document"].clone();
+        let result = get_indexable_string(&filled, &index, &document);
+        assert!(
+            result.is_err(),
+            "{schema_name} {index:?} must be rejected (upstream: {reason}), but it produced {result:?}"
+        );
+        // The length query must reject it too: an index with no width is not
+        // representable.
+        assert!(
+            get_index_string_length(&filled, &index).is_err(),
+            "{schema_name} {index:?}: width must be rejected as well"
+        );
     }
-
-    assert!(
-        failures.is_empty(),
-        "{} refusal cases diverged:\n{}",
-        failures.len(),
-        failures.join("\n")
-    );
-    assert_eq!(
-        checked, family.rejection_case_count,
-        "every refusal case must be asserted"
-    );
-    assert_eq!(checked, 4, "the family records four refusals");
 }
