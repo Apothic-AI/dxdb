@@ -1109,3 +1109,101 @@ Two, both deliberately out of the storage layer:
 
 Neither is a gap in `dxdb-storage`; both are above it by design.
 
+
+---
+
+## 14. Interop with real upstream RxDB — what was proved, and how
+
+`PLAN.md` section 10 asks for "dxdb client <-> upstream RxDB client through the same HTTP
+endpoint converges, and checkpoints survive a restart on both sides". That claim needed real
+upstream, so this lane provisioned it: `crates/dxdb-replication/tests/interop/vendor.mjs`
+fetches the pinned commit and bundles its TypeScript with esbuild, exactly as
+`xtask/vectors/vendor.mjs` does. Nothing checked in here was produced by our own code.
+
+### 14.1 A finding first: upstream has no HTTP replication client
+
+The audit item says "through the same HTTP endpoint". Upstream **has no HTTP replication
+client to interop with**. Its shipped transports are:
+
+| transport | file | shape |
+| --- | --- | --- |
+| WebSocket | `plugins/replication-websocket/` | `{id, collection, method, params}` frames |
+| GraphQL | `plugins/replication-graphql/` | a user-supplied GraphQL server |
+| CouchDB | `plugins/replication-couchdb/` | the CouchDB `_changes` protocol |
+| MongoDB, Firestore, Supabase, Appwrite, NATS, Google Drive, OneDrive, WebRTC | their own providers | |
+
+Every `RxReplicationHandler` is caller-supplied. There is no generic "RxDB HTTP endpoint"
+whose wire format we could match — the HTTP shape in `tests/common/http_transport.rs` is
+**ours**, invented for the two-process test, and no upstream client speaks it.
+
+So interop was proved over **WebSocket**, which is the one transport where upstream ships both
+a client and a server, and whose frame format is upstream's own (`websocket-types.ts:37-45`)
+rather than one we designed. That is a stronger test than HTTP would have been, and it is the
+shape `crates/dxdb-replication/src/websocket.rs` already implements.
+
+**Consequence for the HTTP test:** it stays as a transport-agnostic convergence test and should
+not be described as interop. If a generic HTTP endpoint is wanted, it is a new design, not a
+port, and `docs/DECISIONS.md` should say so.
+
+### 14.2 Direction 1: upstream client → dxdb endpoint
+
+`client-upstream.mjs`. Genuine `replicateWithWebsocketServer` from rxdb@17.6.0 at the pin,
+against an endpoint that speaks our frames and applies our `upstream.rs` write rules.
+
+| assertion | result |
+| --- | --- |
+| dxdb → upstream (a document seeded on the endpoint appears in upstream) | **pass** |
+| upstream → dxdb (a document inserted in upstream reaches the endpoint) | **pass** |
+| checkpoint equality | **pass** — upstream persisted `{id: "from-upstream", lwt: 102}` and our endpoint's own checkpoint was byte-identical, including the `lwt`, because upstream adopted the value we assigned |
+| restart re-sends nothing | **pass** — `restartResends: []`, 3 frames after restart (a stream request and two pulls, no `masterWrite`) |
+| frames understood | 8, zero rejected |
+
+**Honest limitation, stated so it is not overclaimed:** direction 1 is a *wire-format* test, not
+a whole-process test. Node cannot dial into `cargo test`, so the dxdb half is re-implemented in
+JavaScript from the Rust behaviour, with each rule citing the Rust source it mirrors. It proves
+an upstream client's frames are understood and its checkpoints land where ours do. It does
+**not** prove our Rust server process talks to an upstream client. Direction 2 is the one that
+runs our shape against a genuine upstream server.
+
+### 14.3 Direction 2: dxdb client → upstream server
+
+`client-dxdb.mjs`. Our client frame shapes against genuine `startWebsocketServer`. This is the
+reference implementation of the endpoint, so a frame-shape mistake in our code fails here.
+
+| assertion | result |
+| --- | --- |
+| `masterChangesSince` returns documents and a `{id, lwt}` checkpoint | **pass** |
+| `masterWrite` returns conflicts **only** (empty array for an accepted write) | **pass** |
+| the pushed document exists in upstream's collection | **pass** |
+| `masterChangeStream$` is handled as a stream subscription, not an RPC | **pass** — upstream answers with `id: 'stream'` frames, matching what `websocket.rs` documents |
+
+### 14.4 Two upstream behaviours the interop run surfaced
+
+1. **`ignoreDuplicate: true` requires dev mode.** `createRxDatabase` throws `DB9` outside dev
+   mode when `ignoreDuplicate` is set (`rx-database.ts:874-880`).
+2. **A schema that omits `_deleted` from `properties` fails at collection creation** with
+   `CI1 fieldName: "_deleted"`, because `fillWithDefaultSettings` prepends `_deleted` to every
+   index (`rx-schema-helper.ts:271`) and `getIndexMeta` then looks up
+   `properties._deleted` (`custom-index.ts:61-63`). Our Rust `human_schema()` also omits it,
+   which is harmless today because nothing consumes indexes — but it will bite the moment
+   `dxdb-query` indexes a replicated collection.
+
+### 14.5 Reproducing
+
+```bash
+cd crates/dxdb-replication/tests/interop
+npm install          # pinned deps from upstream's own package.json at the pin
+node run.mjs         # both directions; exits non-zero on failure
+```
+
+Hermetic: every server binds `127.0.0.1:0`, ports are read back from the OS, nothing leaves
+the machine, and upstream is fetched from the pin rather than checked in. `node_modules/` is
+gitignored (47 MB). The upstream checkout and the bundle are cached under
+`~/.cache/dxdb-vectors/` and shared with the vector generator.
+
+**Not yet wired into `make`**: `Makefile` and `xtask/` are leader-owned. Requested target:
+
+```make
+interop:
+	@cd crates/dxdb-replication/tests/interop && node run.mjs
+```
