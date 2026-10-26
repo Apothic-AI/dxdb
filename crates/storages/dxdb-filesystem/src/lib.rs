@@ -300,6 +300,79 @@ impl FilesystemStorage {
         Ok(previous)
     }
 
+    /// Writes several documents in **one** redb transaction.
+    ///
+    /// This is what a real `bulk_write` should do, and it is why it exists: the
+    /// per-document [`put_document`](Self::put_document) commits once per row, which
+    /// is right for a single write and wrong for a 500-row batch because it becomes
+    /// 500 fsyncs. Upstream's `bulkInsert` is one `bulk_write` call, so the
+    /// benchmark has to measure one commit per batch to be comparable.
+    ///
+    /// Returns the number of rows written. All rows are committed together or not at
+    /// all; per-document *semantics* stay above this layer, which is where
+    /// `categorizeBulkWriteRows` decides what is insertable.
+    pub fn put_documents(
+        &self,
+        collection: &str,
+        version: u32,
+        rows: &[(String, i64, bool, Vec<u8>)],
+    ) -> Result<usize, StorageError> {
+        let prefix = layout::prefix(collection, version);
+        let tx = self
+            .db
+            .begin_write()
+            .map_err(|e| StorageError::redb("put_many/begin_write", e))?;
+        let mut written = 0usize;
+        {
+            let mut docs = tx
+                .open_table(DOCS)
+                .map_err(|e| StorageError::redb("put_many/docs", e))?;
+            let mut chg = tx
+                .open_table(CHG)
+                .map_err(|e| StorageError::redb("put_many/chg", e))?;
+            let mut cleanup = tx
+                .open_table(CLEANUP)
+                .map_err(|e| StorageError::redb("put_many/cleanup", e))?;
+
+            for (id, lwt, deleted, body) in rows {
+                let mut doc_key = prefix.clone();
+                doc_key.extend_from_slice(id.as_bytes());
+
+                let mut chg_key = layout::encode_lwt(*lwt).to_vec();
+                chg_key.extend_from_slice(&doc_key);
+
+                let mut cleanup_key = layout::cleanup_prefix(collection, version, *deleted);
+                cleanup_key.extend_from_slice(&layout::encode_lwt(*lwt));
+                cleanup_key.extend_from_slice(id.as_bytes());
+
+                docs.insert(doc_key.as_slice(), body.as_slice())
+                    .map_err(|e| StorageError::redb("put_many/docs_insert", e))?;
+                chg.insert(chg_key.as_slice(), &[][..])
+                    .map_err(|e| StorageError::redb("put_many/chg_insert", e))?;
+                cleanup
+                    .insert(cleanup_key.as_slice(), &[][..])
+                    .map_err(|e| StorageError::redb("put_many/cleanup_insert", e))?;
+                written += 1;
+            }
+        }
+        tx.commit()
+            .map_err(|e| StorageError::redb("put_many/commit", e))?;
+        Ok(written)
+    }
+
+    /// A read transaction, for a caller that needs to scan an index table.
+    ///
+    /// Deliberately returning redb's own type rather than wrapping it: the
+    /// benchmark and any future query layer need to range-scan `chg`/`idx`, and a
+    /// wrapper would either leak the same type or force a callback per entry with no
+    /// benefit. The lifetime rule from [`layout`] claim 2 still applies -- do not hold
+    /// this across operations, or cross-process visibility breaks.
+    pub fn read_transaction(&self) -> Result<redb::ReadTransaction, StorageError> {
+        self.db
+            .begin_read()
+            .map_err(|e| StorageError::redb("begin_read", e))
+    }
+
     /// Reads one document by id.
     pub fn get_document(
         &self,
