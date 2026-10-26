@@ -57,8 +57,16 @@ impl SortComparator {
         for part in &self.parts {
             let value_a = resolve_field(a, &part.field);
             let value_b = resolve_field(b, &part.field);
-            if value_a == value_b {
-                // `if (valueA !== valueB)`: a tie moves on to the next part.
+            // `if (valueA !== valueB)`: a tie moves on to the next part.
+            //
+            // The comparison is JavaScript's `!==`, not `serde_json::Value` equality. They
+            // differ for numbers: `{"n": 1}` and `{"n": 1.0}` are `Number(1u64)` and
+            // `Number(1.0f64)` in serde and compare *unequal*, while in JavaScript they hold
+            // the same number and are tied. Deciding the tie with `Value ==` made those two
+            // documents fall through to a comparison that ordered them by representation, so
+            // the primary key never got to break the tie and the sort was non-deterministic
+            // across input permutations. `js_equal` fixes that; see `sort_ties.rs`.
+            if js_equal(&value_a, &value_b) {
                 continue;
             }
             let direction = part.direction;
@@ -74,6 +82,13 @@ impl SortComparator {
                 _ => None,
             };
             if let Some(ordering) = fast {
+                if ordering == Ordering::Equal {
+                    // Two representations of the same sortable value — `-0.0` versus `0.0`,
+                    // or a string pair that compares equal. This part is a tie, so the next
+                    // part decides; returning `Equal` here would stop the sort early and leave
+                    // the relative order to the caller's input order.
+                    continue;
+                }
                 return match direction {
                     SortDirection::Asc => ordering,
                     // `(valueA < valueB ? -1 : 1) * dirMultiplier` — so a `desc`
@@ -154,5 +169,26 @@ pub fn get_sort_comparator(query: &FilledMangoQuery) -> SortComparator {
                 direction: part.direction,
             })
             .collect(),
+    }
+}
+
+/// JavaScript's `!==` for two resolved field values, which is what the sort comparator's
+/// tie test means.
+///
+/// The only difference from `==` on `Option<Value>` that matters is numbers: JavaScript has one
+/// number type, so `1` and `1.0` are identical and any two representations of the same value
+/// tie. `serde_json` keeps the representation, so `Number(1u64) != Number(1.0f64)`. Comparing
+/// numeric values by `f64` makes the tie test agree with JavaScript.
+///
+/// Everything else already agrees: strings compare by content, `null` equals `null`, booleans
+/// by value, and a missing field is only equal to another missing field (which is upstream's
+/// `undefined !== undefined`… in fact `undefined === undefined` is true, so two absent fields
+/// tie, and `None == None` gives the same answer).
+fn js_equal(a: &Option<Value>, b: &Option<Value>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(Value::Number(x)), Some(Value::Number(y))) => x.as_f64() == y.as_f64(),
+        (Some(x), Some(y)) => x == y,
+        _ => false,
     }
 }
