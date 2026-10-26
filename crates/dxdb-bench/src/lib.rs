@@ -70,7 +70,16 @@ pub fn dxdb_size_fixture_probe(input: &str) -> String {
     // feature is on, so its code cannot be dropped.
     let mut touched = input.len();
 
-    #[cfg(any(feature = "memory-bundle", feature = "engine-memory-bundle"))]
+    // `full-engine-memory-bundle` must be listed explicitly: it enables `dep:dxdb-memory`
+    // but NOT `engine-memory-bundle`, so a gate naming only the latter two would link the
+    // storage and never call it -- dead-code elimination then drops it and the row measures
+    // the binding floor while claiming to include memory. That is the same failure that
+    // produced two byte-identical fixtures earlier; each new bundle has to be added here.
+    #[cfg(any(
+        feature = "memory-bundle",
+        feature = "engine-memory-bundle",
+        feature = "full-engine-memory-bundle"
+    ))]
     {
         // `MemoryStorage` itself is a unit struct with no inherent `name()`; the name
         // comes from the `RxStorage` impl, so bring the trait into scope.
