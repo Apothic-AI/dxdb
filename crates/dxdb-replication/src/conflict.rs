@@ -416,3 +416,148 @@ mod tests {
         assert!(is_fatal_error(&validation));
     }
 }
+
+// ---------------------------------------------------------------------------
+// resolveConflictError
+// ---------------------------------------------------------------------------
+
+/// Stamps a handler's resolution so it can be written to the fork.
+///
+/// Ports `resolveConflictError` (`conflicts.ts:22-53`). The handler decides the *content*;
+/// this decides the *bookkeeping*, and every part of it is deliberate:
+///
+/// ```text
+/// resolvedDoc = { ...resolved,
+///     _meta:        { ...forkState._meta },      // the fork's, not the master's
+///     _rev:         '',
+///     _attachments: { ...(resolved._attachments || forkState._attachments) } };
+/// resolvedDoc._meta.lwt = now();
+/// resolvedDoc._rev = createRevision(checkpointKey, forkState);
+/// ```
+///
+/// * `_meta` comes from the **fork**, because the result is written to the fork. Keeping
+///   the master's `_meta` would import the master's last-write time and break the local
+///   ordering.
+/// * `_rev` is a fresh fork revision: `height(fork._rev) + 1` with the checkpoint key as
+///   token. That new revision is what the caller then stores in the meta row's
+///   `isResolvedConflict`, which is how the pull later knows the fork state is a
+///   resolution that still has to be pushed.
+/// * `_attachments` prefers the resolved document's own, falling back to the fork's — a
+///   handler that returns the master state has no attachments of its own when the master
+///   never sent them.
+///
+/// Returns the document to write, not a write row: the caller pairs it with
+/// `previous: forkState`, which it already holds.
+pub fn resolve_conflict_error(
+    handler: &dyn ConflictHandler,
+    input: &ConflictHandlerInput,
+    fork_state: &DocumentData,
+    checkpoint_key: &str,
+    lwt: f64,
+) -> Result<DocumentData, String> {
+    let resolved = handler.resolve(input, "replication-resolve-conflict");
+    let mut document = resolved.clone();
+
+    // `_meta: flatClone(forkState._meta)`
+    let mut meta = fork_state.meta().cloned().unwrap_or_default();
+    if let Some(number) = crate::convert::json_number(lwt) {
+        meta.insert("lwt".to_string(), number);
+    }
+    document.set("_meta", Value::Object(meta));
+
+    // `_attachments: flatClone(resolved._attachments || forkState._attachments)`
+    let attachments = resolved
+        .get("_attachments")
+        .cloned()
+        .or_else(|| fork_state.get("_attachments").cloned())
+        .unwrap_or_else(|| Value::Object(Map::new()));
+    document.set("_attachments", attachments);
+
+    // `_rev = createRevision(checkpointKey, forkState)`
+    document.set(
+        "_rev",
+        Value::String(dxdb_storage::create_revision(
+            checkpoint_key,
+            fork_state.rev(),
+        )),
+    );
+
+    Ok(document)
+}
+
+#[cfg(test)]
+mod resolve_tests {
+    use super::*;
+    use dxdb_json::parse;
+
+    fn doc(json: &str) -> DocumentData {
+        DocumentData::from_value(parse(json).expect("valid JSON")).expect("object")
+    }
+
+    #[test]
+    fn the_fork_meta_wins_and_lwt_is_fresh() {
+        let fork = doc(
+            r#"{"id":"a","_rev":"3-fork","_deleted":false,"_meta":{"lwt":1.0,"plugin":"fork"},"_attachments":{}}"#,
+        );
+        let master = doc(r#"{"id":"a","_deleted":false,"_meta":{"lwt":99.0,"plugin":"master"}}"#);
+        let input = ConflictHandlerInput {
+            assumed_master_state: None,
+            real_master_state: master,
+            new_document_state: fork.clone(),
+        };
+        let resolved = resolve_conflict_error(&DefaultConflictHandler, &input, &fork, "cpkey", 7.5)
+            .expect("resolved");
+        let meta = resolved.meta().expect("meta");
+        assert_eq!(
+            meta.get("plugin").and_then(Value::as_str),
+            Some("fork"),
+            "the fork's _meta keys survive, not the master's"
+        );
+        assert_eq!(
+            resolved.lwt(),
+            Some(7.5),
+            "lwt is the injected clock's value"
+        );
+    }
+
+    #[test]
+    fn the_resolved_revision_continues_the_fork_chain() {
+        let fork = doc(
+            r#"{"id":"a","_rev":"3-fork","_deleted":false,"_meta":{"lwt":1.0},"_attachments":{}}"#,
+        );
+        let master = doc(r#"{"id":"a","_deleted":false,"_meta":{"lwt":1.0}}"#);
+        let input = ConflictHandlerInput {
+            assumed_master_state: None,
+            real_master_state: master,
+            new_document_state: fork.clone(),
+        };
+        let resolved = resolve_conflict_error(&DefaultConflictHandler, &input, &fork, "cpkey", 1.0)
+            .expect("resolved");
+        assert_eq!(
+            resolved.rev(),
+            Some("4-cpkey"),
+            "height comes from the fork, token from the checkpoint key"
+        );
+    }
+
+    #[test]
+    fn attachments_come_from_the_resolved_doc_then_the_fork() {
+        let fork = doc(
+            r#"{"id":"a","_rev":"1-f","_deleted":false,"_meta":{"lwt":1.0},"_attachments":{"fork":{"length":1,"digest":"df","type":"t"}}}"#,
+        );
+        // The default handler returns the master state, which has no attachments.
+        let master = doc(r#"{"id":"a","_deleted":false,"_meta":{"lwt":1.0}}"#);
+        let input = ConflictHandlerInput {
+            assumed_master_state: None,
+            real_master_state: master,
+            new_document_state: fork.clone(),
+        };
+        let resolved =
+            resolve_conflict_error(&DefaultConflictHandler, &input, &fork, "k", 1.0).expect("ok");
+        let attachments = resolved.attachments().expect("attachments");
+        assert!(
+            attachments.contains_key("fork"),
+            "the fork's attachments are the fallback when the resolution has none"
+        );
+    }
+}
