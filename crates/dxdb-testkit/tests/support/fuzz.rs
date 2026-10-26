@@ -257,8 +257,16 @@ pub async fn run_sequence<S: RxStorage>(
 
     for (index, op) in ops.iter().enumerate() {
         log.push(format!("{index:03} {op:?}"));
-        let step = apply(storage, &instance, &primary, op, &mut model, &mut revisions, &mut next_height)
-            .await;
+        let step = apply(
+            storage,
+            &instance,
+            &primary,
+            op,
+            &mut model,
+            &mut revisions,
+            &mut next_height,
+        )
+        .await;
         if let Err(err) = step {
             return Err(format!(
                 "seed {seed}, operation {index} ({op:?})\n  {err}\n\n  operation log:\n{}",
@@ -267,16 +275,23 @@ pub async fn run_sequence<S: RxStorage>(
         }
         if matches!(
             op,
-            Op::InsertOverExisting { .. }
-                | Op::StaleUpdate { .. }
-                | Op::MixedBulk { .. }
+            Op::InsertOverExisting { .. } | Op::StaleUpdate { .. } | Op::MixedBulk { .. }
         ) {
             expected_conflicts += 1;
         }
 
         // Invariants that must hold after *every* operation, not just at the end.
-        check_invariants(storage, &instance, &primary, &model, &mut revisions, seed, index, log)
-            .await?;
+        check_invariants(
+            storage,
+            &instance,
+            &primary,
+            &model,
+            &mut revisions,
+            seed,
+            index,
+            log,
+        )
+        .await?;
     }
 
     let final_docs = all_documents(&instance, &primary).await?;
@@ -330,7 +345,18 @@ async fn apply<S: RxStorage>(
                 assert_conflict(&response.error, id, "insert over an existing document")?;
                 return Ok(());
             }
-            write_document(instance, primary, id, *value, false, None, model, revisions, next_height).await
+            write_document(
+                instance,
+                primary,
+                id,
+                *value,
+                false,
+                None,
+                model,
+                revisions,
+                next_height,
+            )
+            .await
         }
         Op::InsertOverExisting { id, value } => {
             let response = instance
@@ -363,7 +389,9 @@ async fn apply<S: RxStorage>(
             };
             let previous = fetch(instance, id).await?;
             let Some(previous) = previous else {
-                return Err(format!("model believes {id} exists but the storage does not"));
+                return Err(format!(
+                    "model believes {id} exists but the storage does not"
+                ));
             };
             write_document(
                 instance,
@@ -388,7 +416,9 @@ async fn apply<S: RxStorage>(
             // hoping is the point of having a model.
             let current = fetch(instance, id).await?;
             let Some(current) = current else {
-                return Err(format!("model believes {id} exists but the storage does not"));
+                return Err(format!(
+                    "model believes {id} exists but the storage does not"
+                ));
             };
             let height = dxdb_storage::get_height_of_revision(current.rev().unwrap_or("1-x"));
             if height > 1 {
@@ -421,7 +451,9 @@ async fn apply<S: RxStorage>(
             };
             let previous = fetch(instance, id).await?;
             let Some(previous) = previous else {
-                return Err(format!("model believes {id} exists but the storage does not"));
+                return Err(format!(
+                    "model believes {id} exists but the storage does not"
+                ));
             };
             write_document(
                 instance,
@@ -447,7 +479,9 @@ async fn apply<S: RxStorage>(
             // "should be able to update the state of a deleted document" contract.
             let previous = fetch(instance, id).await?;
             let Some(previous) = previous else {
-                return Err(format!("model believes tombstone {id} exists but the storage does not"));
+                return Err(format!(
+                    "model believes tombstone {id} exists but the storage does not"
+                ));
             };
             write_document(
                 instance,
@@ -471,7 +505,9 @@ async fn apply<S: RxStorage>(
             }
             let previous = fetch(instance, id).await?;
             let Some(previous) = previous else {
-                return Err(format!("model believes {id} exists but the storage does not"));
+                return Err(format!(
+                    "model believes {id} exists but the storage does not"
+                ));
             };
             write_document(
                 instance,
@@ -516,14 +552,24 @@ async fn apply<S: RxStorage>(
                         // so the model decides the prediction rather than the generator's
                         // guess about the state.
                         let ok = !model.docs.contains_key(&row.id);
-                        push(&mut write_rows, &mut outcomes, insert_row(&row.id, row.value, 1), ok);
+                        push(
+                            &mut write_rows,
+                            &mut outcomes,
+                            insert_row(&row.id, row.value, 1),
+                            ok,
+                        );
                     }
                     RowIntent::ConflictInsert => {
                         if !model.docs.contains_key(&row.id) {
                             // Nothing to conflict with; skip the row rather than guess.
                             continue;
                         }
-                        push(&mut write_rows, &mut outcomes, insert_row(&row.id, row.value, 1), false);
+                        push(
+                            &mut write_rows,
+                            &mut outcomes,
+                            insert_row(&row.id, row.value, 1),
+                            false,
+                        );
                     }
                     RowIntent::CorrectUpdate => {
                         let Some(existing) = model.docs.get(&row.id).cloned() else {
@@ -535,7 +581,13 @@ async fn apply<S: RxStorage>(
                         push(
                             &mut write_rows,
                             &mut outcomes,
-                            update_row_from(previous, &row.id, row.value, existing.deleted, next_height),
+                            update_row_from(
+                                previous,
+                                &row.id,
+                                row.value,
+                                existing.deleted,
+                                next_height,
+                            ),
                             true,
                         );
                     }
@@ -774,7 +826,12 @@ fn stale_previous(id: &str, value: i64, current_revision: &str) -> BulkWriteRow 
     let stale_doc = build_document(id, value, false, &stale_revision);
     BulkWriteRow::update(
         stale_doc,
-        DocumentWriteData::new(build_document(id, value + 1, false, "2-fuzzfuzzfuzzfuzzfuzzfuzzfuzzfu")),
+        DocumentWriteData::new(build_document(
+            id,
+            value + 1,
+            false,
+            "2-fuzzfuzzfuzzfuzzfuzzfuzzfuzzfu",
+        )),
     )
 }
 
@@ -876,7 +933,10 @@ async fn check_invariants<S: RxStorage>(
 
     // 1. No lost writes: every id the model believes exists is readable, and ids the model
     //    does not know about do not appear.
-    let stored_all: BTreeSet<String> = all.iter().map(|d| id_of(d, primary)).collect::<Result<_, _>>()?;
+    let stored_all: BTreeSet<String> = all
+        .iter()
+        .map(|d| id_of(d, primary))
+        .collect::<Result<_, _>>()?;
     let model_all: BTreeSet<String> = model.all_ids().into_iter().cloned().collect();
     if stored_all != model_all {
         return Err(format!(
@@ -890,7 +950,11 @@ async fn check_invariants<S: RxStorage>(
 
     // 2. count == query().len(), for a selector that includes tombstones and one that does
     //    not. The two paths are independent in most storages, which is the point.
-    for selector in [json!({}), json!({"_deleted": false}), json!({"_deleted": true})] {
+    for selector in [
+        json!({}),
+        json!({"_deleted": false}),
+        json!({"_deleted": true}),
+    ] {
         let prepared = dxdb_testkit::harness::build_prepared_query_for_schema(
             &json!({ "selector": selector, "sort": [{ primary: "asc" }] }),
             instance.schema(),
@@ -921,8 +985,10 @@ async fn check_invariants<S: RxStorage>(
             .find_documents_by_id(ids.clone(), true)
             .await
             .map_err(|e| format!("{}: find_documents_by_id failed: {e}", context()))?;
-        let by_id_ids: BTreeSet<String> =
-            by_id.iter().map(|d| id_of(d, primary)).collect::<Result<_, _>>()?;
+        let by_id_ids: BTreeSet<String> = by_id
+            .iter()
+            .map(|d| id_of(d, primary))
+            .collect::<Result<_, _>>()?;
         let from_scan: BTreeSet<String> = stored_all.clone();
         if by_id_ids != from_scan {
             return Err(format!(

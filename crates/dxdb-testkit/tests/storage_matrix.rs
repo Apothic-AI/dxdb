@@ -305,9 +305,8 @@ fn indexeddb_row() -> StorageRow {
     // exactly this: an in-memory stand-in for a browser's IndexedDB, so the storage logic is
     // measurable without a browser. Using the real `WebBacking` would make this row depend on
     // the host, which is a property of the machine rather than of the storage.
-    let storage = dxdb_indexeddb::IndexedDbStorage::new(Rc::new(
-        dxdb_indexeddb::MemoryBacking::default(),
-    ));
+    let storage =
+        dxdb_indexeddb::IndexedDbStorage::new(Rc::new(dxdb_indexeddb::MemoryBacking::default()));
     StorageRow {
         storage: "indexeddb",
         krate: "crates/storages/dxdb-indexeddb",

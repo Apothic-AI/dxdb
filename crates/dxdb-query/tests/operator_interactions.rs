@@ -149,7 +149,9 @@ fn every_document_declares_its_state() {
         .collect();
     assert_eq!(
         states,
-        ["absent", "null", "value"].into_iter().collect::<BTreeSet<_>>(),
+        ["absent", "null", "value"]
+            .into_iter()
+            .collect::<BTreeSet<_>>(),
         "the corpus must contain all three field states"
     );
 }
@@ -221,7 +223,11 @@ fn compound_selectors_agree_with_the_upstream_oracle() {
             } else {
                 divergences.push(format!(
                     "{group} [{why}]: document {id} {} but upstream says it {}\n  selector: {}",
-                    if did_match { "matched" } else { "did not match" },
+                    if did_match {
+                        "matched"
+                    } else {
+                        "did not match"
+                    },
                     if should_match { "does" } else { "does not" },
                     case["selector"]
                 ));
@@ -244,7 +250,10 @@ fn compound_selectors_agree_with_the_upstream_oracle() {
         corpus["caseCount"].as_u64().unwrap_or_default() as u32,
         "every case must be compared or asserted refused"
     );
-    assert_eq!(compared, corpus["comparisonCount"].as_u64().unwrap_or_default() as u32);
+    assert_eq!(
+        compared,
+        corpus["comparisonCount"].as_u64().unwrap_or_default() as u32
+    );
 }
 
 /// The three-way matrix, asserted cell by cell as an explicit table.
@@ -287,8 +296,16 @@ fn the_absent_null_matrix_is_what_upstream_does() {
         (serde_json::json!({"f": {"$gt": null}}), false, false),
         (serde_json::json!({"f": {"$lt": null}}), false, false),
         // `$not` negates, so it flips each cell.
-        (serde_json::json!({"f": {"$not": {"$eq": null}}}), false, false),
-        (serde_json::json!({"f": {"$not": {"$exists": true}}}), true, false),
+        (
+            serde_json::json!({"f": {"$not": {"$eq": null}}}),
+            false,
+            false,
+        ),
+        (
+            serde_json::json!({"f": {"$not": {"$exists": true}}}),
+            true,
+            false,
+        ),
         // Combining presence with equality narrows to the explicit null.
         (
             serde_json::json!({"f": {"$exists": true, "$eq": null}}),
@@ -335,12 +352,12 @@ fn not_negates_the_conjunction_not_each_arm() {
     let matcher = Matcher::new(&serde_json::json!({"f": {"$not": {"$gte": 1, "$lte": 2}}}))
         .expect("compiles");
     for (value, expected) in [
-        (serde_json::json!({"f": 0}), true),  // below the interval: conjunction false
+        (serde_json::json!({"f": 0}), true), // below the interval: conjunction false
         (serde_json::json!({"f": 1}), false), // lower bound: conjunction true
         (serde_json::json!({"f": 2}), false), // upper bound: conjunction true
-        (serde_json::json!({"f": 3}), true),  // above: conjunction false
+        (serde_json::json!({"f": 3}), true), // above: conjunction false
         (serde_json::json!({"f": null}), true), // null fails both arms
-        (serde_json::json!({}), true),        // absent fails both arms
+        (serde_json::json!({}), true),       // absent fails both arms
     ] {
         assert_eq!(
             matcher.matches(&value),

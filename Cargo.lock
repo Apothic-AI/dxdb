@@ -821,8 +821,11 @@ dependencies = [
 name = "dxdb-testkit"
 version = "0.0.0"
 dependencies = [
+ "dxdb-filesystem",
+ "dxdb-indexeddb",
  "dxdb-localstorage",
  "dxdb-memory",
+ "dxdb-opfs",
  "dxdb-schema",
  "dxdb-storage",
  "futures",

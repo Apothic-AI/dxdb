@@ -50,11 +50,7 @@ struct UnderTest {
 /// deliberately tiny.
 trait StorageDriver {
     /// Runs one generated sequence.
-    fn run(
-        &self,
-        seed: u64,
-        ops: &[fuzz::Op],
-    ) -> Result<RunOutcome, String>;
+    fn run(&self, seed: u64, ops: &[fuzz::Op]) -> Result<RunOutcome, String>;
 }
 
 /// Blanket implementation over any `RxStorage`, so a storage needs no per-type code here.
@@ -78,7 +74,8 @@ struct FuzzFilesystem {
 impl StorageDriver for FuzzFilesystem {
     fn run(&self, seed: u64, ops: &[fuzz::Op]) -> Result<RunOutcome, String> {
         let mut log = Vec::new();
-        let result = futures::executor::block_on(fuzz::run_sequence(&self.storage, seed, ops, &mut log));
+        let result =
+            futures::executor::block_on(fuzz::run_sequence(&self.storage, seed, ops, &mut log));
         let _ = std::fs::remove_dir_all(&self.base);
         result
     }
@@ -97,7 +94,9 @@ fn storages_under_test() -> Vec<UnderTest> {
         },
         UnderTest {
             name: "memory",
-            make: Box::new(|| Box::new(dxdb_memory::MemoryStorage::new()) as Box<dyn StorageDriver>),
+            make: Box::new(|| {
+                Box::new(dxdb_memory::MemoryStorage::new()) as Box<dyn StorageDriver>
+            }),
         },
         UnderTest {
             name: "localstorage",
@@ -131,8 +130,8 @@ fn storages_under_test() -> Vec<UnderTest> {
                 use std::sync::atomic::{AtomicU64, Ordering};
                 static NEXT: AtomicU64 = AtomicU64::new(0);
                 let n = NEXT.fetch_add(1, Ordering::Relaxed);
-                let base = std::env::temp_dir()
-                    .join(format!("dxdb-fuzz-{}-{n}", std::process::id()));
+                let base =
+                    std::env::temp_dir().join(format!("dxdb-fuzz-{}-{n}", std::process::id()));
                 let _ = std::fs::remove_dir_all(&base);
                 let storage = dxdb_filesystem::FilesystemRxStorage::new(&base);
                 Box::new(FuzzFilesystem { storage, base }) as Box<dyn StorageDriver>
@@ -238,10 +237,7 @@ fn every_storage_satisfies_the_invariants() {
                 seeds.len()
             );
             for failure in &failures {
-                report.push_str(&format!(
-                    "\n\n=== `{}` ===\n{failure}\n",
-                    entry.name
-                ));
+                report.push_str(&format!("\n\n=== `{}` ===\n{failure}\n", entry.name));
             }
         }
     }
@@ -374,9 +370,9 @@ fn same_observable_state(a: &RunOutcome, b: &RunOutcome) -> bool {
 #[test]
 fn the_harness_catches_a_storage_that_loses_writes() {
     use dxdb_storage::{
-        BulkWriteResponse, ChangedDocuments, ChangeStream, Checkpoint, CountResult,
-        DocumentData, DynRxStorageInstance, FindAttachmentResult, InstanceCreationParams,
-        PreparedQuery, RxStorage, RxStorageInstance, StorageError, StorageSchema,
+        BulkWriteResponse, ChangeStream, ChangedDocuments, Checkpoint, CountResult, DocumentData,
+        DynRxStorageInstance, FindAttachmentResult, InstanceCreationParams, PreparedQuery,
+        RxStorage, RxStorageInstance, StorageError, StorageSchema,
     };
 
     /// Accepts every write, stores only the first document, and reports success for all.
@@ -450,10 +446,7 @@ fn the_harness_catches_a_storage_that_loses_writes() {
                 .cloned()
                 .collect())
         }
-        async fn query(
-            &self,
-            _prepared: PreparedQuery,
-        ) -> Result<Vec<DocumentData>, StorageError> {
+        async fn query(&self, _prepared: PreparedQuery) -> Result<Vec<DocumentData>, StorageError> {
             Ok(self.stored.borrow().clone())
         }
         async fn count(&self, prepared: PreparedQuery) -> Result<CountResult, StorageError> {
@@ -500,12 +493,8 @@ fn the_harness_catches_a_storage_that_loses_writes() {
     let ops = fuzz::generate_ops_public(&rng, fuzz::ops_per_sequence(), fuzz::id_pool());
 
     let mut log = Vec::new();
-    let outcome = futures::executor::block_on(fuzz::run_sequence(
-        &LossyStorage,
-        seed,
-        &ops,
-        &mut log,
-    ));
+    let outcome =
+        futures::executor::block_on(fuzz::run_sequence(&LossyStorage, seed, &ops, &mut log));
     assert!(
         outcome.is_err(),
         "the fuzz harness passed a storage that silently drops every write after the first \
