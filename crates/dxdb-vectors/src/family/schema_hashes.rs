@@ -93,35 +93,6 @@ impl Vectors {
     pub fn relation_input(&self, endpoint: &str) -> Option<&serde_json::Value> {
         self.case(endpoint).map(|c| &c.input)
     }
-
-    /// Every fixture schema, keyed by the name the other families use to refer to it.
-    ///
-    /// This family is the repo's single copy of the upstream fixtures: `index-strings`
-    /// and `normalised-queries` name a schema per case rather than repeating it
-    /// hundreds of times. A consumer that needs the schema behind such a name wants
-    /// exactly this, and building it by hand is what every consumer did before this
-    /// existed — one `schema_lookup()` reading this file through `serde_json::Value`,
-    /// duplicated in two test files, plus a hand-copied `averageSchema` literal.
-    ///
-    /// Only cases that hashed (i.e. that upstream could create) are included; a
-    /// rejected schema has no usable input, and a consumer asking for one wants a
-    /// clear miss rather than a schema that will not fill.
-    pub fn fixture_inputs(&self) -> std::collections::BTreeMap<&str, &serde_json::Value> {
-        self.cases
-            .iter()
-            .filter(|c| c.hash.is_some())
-            .map(|c| (c.name.as_str(), &c.input))
-            .collect()
-    }
-
-    /// The input schema a fixture name refers to.
-    ///
-    /// Convenience over [`Vectors::fixture_inputs`] for the common lookup-one case.
-    pub fn fixture_input(&self, name: &str) -> Option<&serde_json::Value> {
-        self.case(name)
-            .filter(|c| !c.was_rejected())
-            .map(|c| &c.input)
-    }
 }
 
 /// The determinism stubs the generator installed.
@@ -150,34 +121,21 @@ pub struct Case {
     /// The schema as it was handed to `createRxSchema`. Key order preserved.
     pub input: serde_json::Value,
     /// `RxSchema.hash` — lowercase hex SHA-256.
-    ///
-    /// `None` for a schema upstream refused to create, in which case [`Case::rejected`]
-    /// explains why. Optional rather than absent-by-convention so "hashed" and
-    /// "rejected" are distinguishable without out-of-band knowledge.
-    #[serde(default)]
-    pub hash: Option<String>,
+    pub hash: String,
     /// `JSON.stringify(defaultedSchema).length`. Cheap cross-check for a port that
     /// produces the right hash bytes but the wrong serialisation.
-    #[serde(default, rename = "hashInputLength")]
-    pub hash_input_length: Option<usize>,
+    #[serde(rename = "hashInputLength")]
+    pub hash_input_length: usize,
     /// The object that was stringified and hashed: the schema after
     /// `fillWithDefaultSettings` and `normalizeRxJsonSchema`. Key order preserved.
-    #[serde(default, rename = "defaultedSchema")]
-    pub defaulted_schema: Option<serde_json::Value>,
-    /// The error message when upstream refused this schema. `None` for a normal case.
-    #[serde(default)]
-    pub rejected: Option<String>,
+    #[serde(rename = "defaultedSchema")]
+    pub defaulted_schema: serde_json::Value,
 }
 
 impl Case {
     /// Whether this schema was taken from upstream's fixtures rather than synthesised.
     pub fn is_fixture(&self) -> bool {
         self.origin == "fixture"
-    }
-
-    /// Whether upstream refused to create this schema.
-    pub fn was_rejected(&self) -> bool {
-        self.rejected.is_some()
     }
 }
 
