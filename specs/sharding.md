@@ -480,13 +480,32 @@ falling back to a scan.
 | INV-8 single shard is a pass-through | `inv_08_single_shard_is_a_pass_through` |
 | INV-9 cleanup and remove cover every shard | `inv_09_cleanup_and_remove_cover_every_shard` |
 
-INV-6 (change streams) and INV-10 (attachments follow their document) are implemented and
-covered by acceptance tests rather than named invariant tests, because `dxdb-memory`'s
-change feed and attachment store are not yet rich enough to make a strong assertion: the
-memory storage's `change_stream` is present but the corpus does not exercise cross-instance
-forwarding. Recorded here rather than claimed. INV-4 additionally pins routing to the
-published FNV-1a vectors, so a routing change is a test failure rather than a silent data
-migration.
+| INV-6 change stream is complete and unique | `inv_06_change_stream_is_complete_and_unique` |
+| INV-10 attachments follow their document | `inv_10_attachments_follow_their_document` |
+
+**Correction, recorded because it was published wrongly for a period.** An earlier
+revision of this section claimed INV-6 and INV-10 could not be proven because
+"`dxdb-memory`'s change feed and attachment store are not yet rich enough to make a strong
+assertion". That was false, and it was a claim about another crate's code made without
+reading it. `dxdb-memory` queues an `EventBulk` to every subscriber on write and stores
+attachment payloads keyed by `(document_id, attachment_id)`, complete with digest
+verification. Both invariants are now proven properly:
+
+- `inv_06` writes 20 documents through a 5-shard wrapper and requires exactly 20 events,
+  one per document id, with no duplicates. A non-blocking drain is used so a feed that
+  never yields fails the test rather than hanging the suite.
+- `inv_10` writes one document per shard, each with a distinct attachment payload, reads
+  every payload back and compares bytes, and then requires a wrong digest to be an error.
+  A wrong-shard read would return the wrong bytes or nothing, so byte equality is the
+  assertion.
+
+One thing that test taught, worth recording: the categoriser only emits an
+attachment-add for an id that has a **stub** in `_attachments`, because it derives the
+digest from the stub. A payload supplied with no stub is silently not stored. The first
+version of `inv_10` did exactly that and read back nothing.
+
+INV-4 additionally pins routing to the published FNV-1a vectors, so a routing change is a
+test failure rather than a silent data migration.
 
 ## Test map
 

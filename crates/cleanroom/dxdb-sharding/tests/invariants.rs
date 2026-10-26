@@ -248,6 +248,19 @@ fn write_corpus(instance: &DynRxStorageInstance<'_>, documents: &[Value]) {
     );
 }
 
+/// A stored-shape document for change-feed tests.
+fn stored_document(id: &str, name: &str) -> DocumentData {
+    DocumentData::from_value(json!({
+        "id": id,
+        "name": name,
+        "_rev": "1-a",
+        "_deleted": false,
+        "_meta": {"lwt": 1000},
+        "_attachments": {}
+    }))
+    .expect("valid document")
+}
+
 /// The outcome of one query against one storage.
 fn run_query(
     instance: &DynRxStorageInstance<'_>,
@@ -510,3 +523,165 @@ fn corpus_size_is_reported() {
 const _: () = {
     let _ = std::mem::size_of::<NonZeroU32>();
 };
+
+// ---------------------------------------------------------------------------
+// INV-6 — change events cross the shard boundary
+// ---------------------------------------------------------------------------
+
+/// INV-6: every change event reaches a subscriber exactly once.
+///
+/// `dxdb-memory` emits events on write (its `bulk_write` queues an `EventBulk` to each
+/// subscriber), so this is a real assertion rather than a placeholder: subscribe, write
+/// N documents, and require exactly N events naming exactly those documents, with no
+/// duplicates.
+#[test]
+fn inv_06_change_stream_is_complete_and_unique() {
+    use futures::StreamExt as _;
+
+    let Some(config) = ShardingConfig::new(5, ShardMode::Collection) else {
+        panic!("nonzero")
+    };
+    let storage = ShardedStorage::new(MemoryStorage::new(), config);
+    let instance = block_on(
+        storage.create_storage_instance(params_for(&schema_for(Some(config)), "change-feed")),
+    )
+    .expect("instance");
+
+    // Subscribe before writing, so no event can be missed.
+    let mut stream = instance.change_stream();
+
+    let ids: Vec<String> = (0..20).map(|index| format!("doc-{index:02}")).collect();
+    for id in &ids {
+        let response = block_on(instance.bulk_write(
+            vec![BulkWriteRow::insert(DocumentWriteData::new(
+                stored_document(id, &format!("name {id}")),
+            ))],
+            "change-feed-write".to_string(),
+        ))
+        .expect("write");
+        assert!(response.is_ok());
+    }
+
+    // Drain with a bounded wait: an event stream that never yields must fail this test
+    // rather than hang the suite. `dxdb-memory`'s feed is an mpsc channel, so all the
+    // events are already buffered by the time the writes have returned; a single
+    // non-blocking drain is enough, and the deadline exists only so a broken feed fails
+    // instead of hanging.
+    let mut seen: Vec<String> = Vec::new();
+    // `dxdb-memory`'s feed is an mpsc channel, so every event is already buffered by the
+    // time the writes have returned: a non-blocking drain collects them all. Using
+    // `now_or_never` rather than a blocking `next()` means a feed that never yields
+    // fails this test instead of hanging the suite.
+    while let Some(Some(bulk)) = futures::FutureExt::now_or_never(stream.next()) {
+        for event in bulk.events {
+            seen.push(event.document_id);
+        }
+    }
+
+    let mut sorted_seen = seen.clone();
+    sorted_seen.sort();
+    sorted_seen.dedup();
+    assert_eq!(
+        sorted_seen.len(),
+        seen.len(),
+        "every event must be delivered exactly once; saw {seen:?}"
+    );
+    let mut expected = ids.clone();
+    expected.sort();
+    assert_eq!(sorted_seen, expected, "every write must produce an event");
+}
+
+// ---------------------------------------------------------------------------
+// INV-10 — attachments follow their document's shard
+// ---------------------------------------------------------------------------
+
+/// INV-10: an attachment read resolves through the document's own shard.
+///
+/// `dxdb-memory` stores attachment payloads, so bytes can be round-tripped and compared
+/// against an unsharded instance — not merely error-checked.
+#[test]
+fn inv_10_attachments_follow_their_document() {
+    let Some(config) = ShardingConfig::new(4, ShardMode::Collection) else {
+        panic!("nonzero")
+    };
+    let mut schema = schema_for(Some(config));
+    schema["attachments"] = json!({});
+    let schema = dxdb_schema::fill_with_default_settings(&schema).expect("filled");
+
+    let storage = ShardedStorage::new(MemoryStorage::new(), config);
+    let instance = block_on(storage.create_storage_instance(InstanceCreationParams {
+        database_instance_token: "inv-10".to_string(),
+        database_name: "inv-10-db".to_string(),
+        collection_name: "attachments".to_string(),
+        schema: StorageSchema::from_value(&schema).expect("schema"),
+        options: json!({}),
+        multi_instance: false,
+        dev_mode: true,
+    }))
+    .expect("instance");
+
+    // One document per shard, each with a distinct payload, so a read that went to the
+    // wrong shard would return the wrong bytes or nothing.
+    let mut expected: std::collections::BTreeMap<String, Vec<u8>> =
+        std::collections::BTreeMap::new();
+    for index in 0..8 {
+        let id = format!("doc-{index}");
+        let payload = format!("payload for {id}").into_bytes();
+        expected.insert(id.clone(), payload.clone());
+
+        // The stub must be present in `_attachments`, because the categoriser only emits
+        // an attachment-add for an id that has a stub (it derives the digest from the
+        // stub). A payload with no stub is silently not stored — which is what a first
+        // version of this test did, and why it read back nothing.
+        let mut document = DocumentWriteData::new(
+            DocumentData::from_value(json!({
+                "id": id,
+                "name": format!("name {index}"),
+                "_rev": "1-a",
+                "_deleted": false,
+                "_meta": {"lwt": 1000},
+                "_attachments": {}
+            }))
+            .expect("document"),
+        );
+        document.insert_attachment(
+            "att-1",
+            dxdb_storage::AttachmentWriteData {
+                stub: dxdb_storage::AttachmentData {
+                    length: payload.len() as u64,
+                    content_type: "text/plain".to_string(),
+                    digest: "digest".to_string(),
+                },
+                data: Some(payload.clone()),
+            },
+        );
+        let row = BulkWriteRow::insert(document);
+        let response = block_on(instance.bulk_write(vec![row], "seed".to_string())).expect("write");
+        assert!(
+            response.is_ok(),
+            "attachment write failed: {:?}",
+            response.error
+        );
+    }
+
+    for (id, payload) in &expected {
+        let bytes = block_on(instance.get_attachment_data(
+            id.clone(),
+            "att-1".to_string(),
+            "digest".to_string(),
+        ))
+        .unwrap_or_else(|error| panic!("attachment for {id} must resolve: {error}"));
+        assert_eq!(&bytes, payload, "payload for {id} came back wrong");
+    }
+
+    // A digest that does not match must not return the bytes.
+    let mismatched = block_on(instance.get_attachment_data(
+        "doc-0".to_string(),
+        "att-1".to_string(),
+        "wrong-digest".to_string(),
+    ));
+    assert!(
+        mismatched.is_err(),
+        "a wrong digest must be an error, not a match"
+    );
+}
