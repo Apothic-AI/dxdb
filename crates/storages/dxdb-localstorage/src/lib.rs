@@ -45,9 +45,9 @@ use dxdb_query::custom_index::{
 use dxdb_query::matcher::Matcher;
 use dxdb_storage::{
     categorize_bulk_write_rows, index_name, BulkWriteResponse, BulkWriteRow, ChangeEvent,
-    ChangeStream, Checkpoint, CountMode, CountResult, DocumentData, DynRxStorageInstance, EventBulk,
-    FindAttachmentResult, InstanceCreationParams, Operation, PlanKey, PreparedQuery, QueryPlan,
-    RxStorage, RxStorageInstance, StorageError, StorageSchema, WriteError,
+    ChangeStream, Checkpoint, CountMode, CountResult, DocumentData, DynRxStorageInstance,
+    EventBulk, FindAttachmentResult, InstanceCreationParams, Operation, PlanKey, PreparedQuery,
+    QueryPlan, RxStorage, RxStorageInstance, StorageError, StorageSchema, WriteError,
 };
 
 pub use kv::{Kv, KvError};
@@ -121,7 +121,7 @@ fn create_instance<K: Kv + 'static>(
     }
 
     let instance = LocalStorageInstance::new(kv, params);
-    Ok(Box::new(DynRxStorageInstance::new_box(instance)))
+    Ok(DynRxStorageInstance::new_box(instance))
 }
 
 // ---------------------------------------------------------------------------
@@ -159,15 +159,9 @@ impl<K: Kv + 'static> LocalStorageInstance<K> {
         let mut indexes = HashMap::new();
         // Every schema index plus the cleanup index. Upstream maintains the
         // cleanup index unconditionally so `cleanup()` never has to scan.
-        for index in params
-            .schema
-            .indexes
-            .iter()
-            .cloned()
-            .chain(std::iter::once(
-                CLEANUP_INDEX.iter().map(|s| (*s).to_string()).collect(),
-            ))
-        {
+        for index in params.schema.indexes.iter().cloned().chain(std::iter::once(
+            CLEANUP_INDEX.iter().map(|s| (*s).to_string()).collect(),
+        )) {
             indexes.insert(index_name(&index), Vec::new());
         }
 
@@ -279,7 +273,9 @@ impl<K: Kv + 'static> LocalStorageInstance<K> {
             // both the position and the guarantee that ties are ordered by doc id,
             // which is what makes the ordering total.
             let position = rows
-                .binary_search_by(|(s, id)| (s.as_str(), id.as_str()).cmp(&(new_string.as_str(), doc_id)))
+                .binary_search_by(|(s, id)| {
+                    (s.as_str(), id.as_str()).cmp(&(new_string.as_str(), doc_id))
+                })
                 .unwrap_or_else(|pos| pos);
             rows.insert(position, (new_string, doc_id.to_string()));
         }
@@ -717,7 +713,11 @@ impl<K: Kv + 'static> LocalStorageInstance<K> {
         let uses_plan_index = index_name(&index) == name;
         let (lower, upper) = if uses_plan_index {
             (
-                Some(bound_string(&self.schema.raw, &walk_index, &plan.start_keys)?),
+                Some(bound_string(
+                    &self.schema.raw,
+                    &walk_index,
+                    &plan.start_keys,
+                )?),
                 Some(bound_string(&self.schema.raw, &walk_index, &plan.end_keys)?),
             )
         } else {
@@ -776,24 +776,20 @@ impl<K: Kv + 'static> LocalStorageInstance<K> {
             }
         }
 
-        // Sorting. The index walk is already in `(indexString, docId)` order, which
-        // is the sort order *when* the query sorts on that index's fields. Only the
-        // mismatch and `desc` cases need a real comparison, and `has_desc_sort`
-        // forces it — upstream re-sorts for exactly that reason.
-        let sort_fields: Vec<String> = prepared.query.sort_fields().map(str::to_string).collect();
+        // Sorting. The index walk is already in `(indexString, docId)` order,
+        // which is the sort order *when* the query sorts on that index's fields.
+        // Only the mismatch and `desc` cases need a real comparison, and
+        // `has_desc_sort` forces it — upstream re-sorts for exactly that reason.
+        //
+        // The comparison uses `dxdb-query`'s `get_sort_comparator`, which is the
+        // ported upstream comparator: it handles per-part direction
+        // (`a asc, b desc`), code-unit string ordering, and mingo's treatment of
+        // missing values. Hand-rolling it here was the first thing I wrote and it
+        // was wrong: concatenating the sort fields into one index string cannot
+        // express a mixed-direction sort.
         if !plan.sort_satisfied_by_index || prepared.query.has_desc_sort() {
-            let schema = self.schema.raw.clone();
-            let mut keyed: Vec<(Vec<String>, DocumentData)> = Vec::with_capacity(collected.len());
-            for doc in collected {
-                let key = sort_key(&schema, &sort_fields, &doc)?;
-                keyed.push((key, doc));
-            }
-            let descending = prepared.query.sort.iter().map(|p| {
-                p.direction == dxdb_storage::SortDirection::Desc
-            });
-            let desc: Vec<bool> = descending.collect();
-            keyed.sort_by(|(a, _), (b, _)| compare_sort_keys(a, b, &desc));
-            collected = keyed.into_iter().map(|(_, doc)| doc).collect();
+            let comparator = self.sort_comparator(&prepared.query)?;
+            collected.sort_by(|a, b| comparator.compare(a.as_value(), b.as_value()));
         }
 
         let skip = prepared.query.skip;
@@ -826,7 +822,10 @@ impl<K: Kv + 'static> LocalStorageInstance<K> {
 }
 
 fn is_deleted(doc: &DocumentData) -> bool {
-    matches!(doc.get_object_path("_deleted"), Some(serde_json::Value::Bool(true)))
+    matches!(
+        doc.get_object_path("_deleted"),
+        Some(serde_json::Value::Bool(true))
+    )
 }
 
 /// Builds one index-range bound string from the plan's keys.
@@ -847,50 +846,67 @@ fn bound_string(
         .map_err(|e| StorageError::InvalidSchema(format!("index bound: {e}")))
 }
 
+/// `PlanKey` is a three-case union (string, number, unbounded) and encodes the
+/// `INDEX_MIN` / `INDEX_MAX` sentinels as *values* rather than variants, so they are
+/// recognised here by comparing against those sentinels. That keeps the plan
+/// JSON-round-trippable, which is why lane D modelled it that way.
 fn bound_value(key: &PlanKey) -> BoundValue {
     match key {
-        PlanKey::IndexMin => BoundValue::IndexMin,
-        PlanKey::IndexMax => BoundValue::IndexMax,
-        PlanKey::Null => BoundValue::Null,
-        PlanKey::Bool(b) => BoundValue::Bool(*b),
+        PlanKey::Unbounded => BoundValue::Missing,
+        PlanKey::Number(n) if *n == dxdb_storage::INDEX_MIN => BoundValue::IndexMin,
         PlanKey::Number(n) => BoundValue::Number(*n),
+        PlanKey::String(s) if s.chars().eq(std::iter::once(dxdb_storage::INDEX_MAX)) => {
+            BoundValue::IndexMax
+        }
         PlanKey::String(s) => BoundValue::String(s.clone()),
     }
 }
 
-/// The sort key of one document: its index string on the query's sort fields.
-///
-/// Using the ported encoder means a re-sort agrees with the index order rather than
-/// with a separately-implemented comparison, which is the class of bug that makes
-/// a `desc` query return a slightly wrong order.
-fn sort_key(
-    schema: &serde_json::Value,
-    sort_fields: &[String],
-    doc: &DocumentData,
-) -> Result<Vec<String>, StorageError> {
-    if sort_fields.is_empty() {
-        return Ok(Vec::new());
+impl<K: Kv + 'static> LocalStorageInstance<K> {
+    /// Builds the ported upstream sort comparator for this query.
+    ///
+    /// `get_sort_comparator` needs a `FilledMangoQuery`, and the storage holds the
+    /// already-normalised query in the trait's own `MangoQuery` shape. Re-running
+    /// the normaliser is the honest way to bridge them: it is idempotent on a
+    /// normalised query (shorthands are already expanded, the primary key is
+    /// already appended), and it means the sort semantics come from lane B's
+    /// port rather than from a second implementation here.
+    fn sort_comparator(
+        &self,
+        query: &dxdb_storage::MangoQuery,
+    ) -> Result<dxdb_query::sort::SortComparator, StorageError> {
+        let as_query = dxdb_query::normalize::MangoQuery {
+            selector: Some(query.selector.clone()),
+            index: query.index.clone(),
+            sort: Some(
+                query
+                    .sort
+                    .iter()
+                    .map(|part| dxdb_query::normalize::SortPart {
+                        field: part.field.clone(),
+                        direction: match part.direction {
+                            dxdb_storage::SortDirection::Asc => {
+                                dxdb_query::normalize::SortDirection::Asc
+                            }
+                            dxdb_storage::SortDirection::Desc => {
+                                dxdb_query::normalize::SortDirection::Desc
+                            }
+                        },
+                    })
+                    .collect(),
+            ),
+            skip: Some(query.skip as u64),
+            limit: query.limit.map(|l| l as u64),
+        };
+        let filled = dxdb_query::normalize::normalize_mango_query(
+            &as_query,
+            &self.schema.primary_path,
+            &self.schema.indexes,
+            false,
+        )
+        .map_err(|e| StorageError::InvalidSchema(format!("sort: {e}")))?;
+        Ok(dxdb_query::sort::get_sort_comparator(&filled))
     }
-    let encoded = get_indexable_string(schema, sort_fields, doc.as_value())
-        .map_err(|e| StorageError::InvalidSchema(format!("sort key: {e}")))?;
-    // The encoder concatenates with fixed widths per field, so splitting is not
-    // possible; a single concatenated key is correct because every field's width is
-    // fixed by the schema. Compare it as one string.
-    Ok(vec![encoded])
-}
-
-fn compare_sort_keys(a: &[String], b: &[String], desc: &[bool]) -> std::cmp::Ordering {
-    for (i, (left, right)) in a.iter().zip(b.iter()).enumerate() {
-        let ordering = left.cmp(right);
-        if ordering != std::cmp::Ordering::Equal {
-            return if desc.get(i).copied().unwrap_or(false) {
-                ordering.reverse()
-            } else {
-                ordering
-            };
-        }
-    }
-    std::cmp::Ordering::Equal
 }
 
 // ---------------------------------------------------------------------------
