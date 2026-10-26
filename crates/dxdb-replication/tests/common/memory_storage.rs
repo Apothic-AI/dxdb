@@ -347,12 +347,22 @@ impl RxStorageInstance for MemoryStorage {
                                 .insert((id.clone(), attachment_id.clone()), bytes);
                         }
                         None => {
-                            // No payload: keep whatever is stored, but only if the digest
-                            // matches. A new digest with no data is the upstream `510`.
+                            // No payload supplied. Upstream's rule
+                            // (`rx-storage-helper.ts:385-407`) is narrow: a `510` is an
+                            // attachment that is **new relative to the previous document
+                            // state** and carries no data. An attachment the stored document
+                            // already had may be written stub-only, because its bytes are
+                            // already here -- which is exactly what the pull does: it copies
+                            // the master's stubs and relies on the local payloads still being
+                            // present for the digests that did not change.
+                            let existed_before = existing
+                                .as_ref()
+                                .and_then(|previous| previous.attachment(attachment_id.as_str()))
+                                .is_some();
                             let known = state
                                 .payloads
                                 .contains_key(&(id.clone(), attachment_id.clone()));
-                            if !known {
+                            if !existed_before && !known {
                                 errors.push(WriteError::Attachment {
                                     document_id: id.clone(),
                                     write_row: row.clone(),
