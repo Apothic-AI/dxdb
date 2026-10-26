@@ -49,7 +49,7 @@ use dxdb_storage::{
     PreparedQuery, RxStorage, RxStorageInstance, StorageError, StorageSchema,
 };
 use futures::channel::mpsc;
-use redb::{ReadableDatabase, ReadableTable};
+use redb::ReadableTable;
 
 use crate::layout;
 use crate::FilesystemStorage;
@@ -119,9 +119,7 @@ impl RxStorage for FilesystemRxStorage {
 
         let store = FilesystemStorage::open(&self.base_path)?;
         Ok(DynRxStorageInstance::new_box(FilesystemRxInstance::new(
-            params,
-            store,
-            self.base_path.clone(),
+            params, store,
         )))
     }
 }
@@ -132,7 +130,6 @@ pub struct FilesystemRxInstance {
     collection_name: String,
     schema: StorageSchema,
     store: FilesystemStorage,
-    base_path: PathBuf,
     /// Subscribers to `change_stream`. A mutex because `change_stream(&self)` registers
     /// a sender and the instance is shared behind a `Box<dyn>`.
     subscribers: std::sync::Mutex<Vec<mpsc::Sender<EventBulk>>>,
@@ -149,13 +146,12 @@ impl std::fmt::Debug for FilesystemRxInstance {
 }
 
 impl FilesystemRxInstance {
-    fn new(params: InstanceCreationParams, store: FilesystemStorage, base_path: PathBuf) -> Self {
+    fn new(params: InstanceCreationParams, store: FilesystemStorage) -> Self {
         Self {
             database_name: params.database_name,
             collection_name: params.collection_name,
             schema: params.schema,
             store,
-            base_path,
             subscribers: std::sync::Mutex::new(Vec::new()),
             closed: std::sync::atomic::AtomicBool::new(false),
         }
@@ -265,7 +261,7 @@ impl RxStorageInstance for FilesystemRxInstance {
         {
             let document: &DocumentData = &row.document;
             let id = document.id(&primary_path)?.to_string();
-            let lwt = document.lwt().unwrap_or_else(|| now()).round() as i64;
+            let lwt = document.lwt().unwrap_or_else(now).round() as i64;
             let deleted = document
                 .get("_deleted")
                 .and_then(|v| v.as_bool())

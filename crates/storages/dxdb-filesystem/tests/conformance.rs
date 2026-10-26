@@ -23,7 +23,6 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 
-use dxdb_storage::RxStorage;
 use dxdb_testkit::{decl::exercised_cases, suite};
 
 /// One case's outcome, kept so the report can name every failure at once.
