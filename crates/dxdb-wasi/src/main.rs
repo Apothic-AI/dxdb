@@ -1,9 +1,8 @@
-//! The conformance CLI: the front end Wasmtime and `node:wasi` drive.
+//! The conformance CLI: the program Wasmtime and `node:wasi` execute.
 //!
-//! This is the program the M5 gate actually executes. On `wasm32-wasip1` and
-//! `wasm32-wasip2` it is a `.wasm`; on native it is the same binary, which makes
-//! "works natively" and "works from a component" a comparison rather than two
-//! separate claims.
+//! Runs the **ported upstream conformance suite** (`dxdb-testkit`'s 48
+//! `implementations.test.ts` cases) against `dxdb-filesystem`, from a real `.wasm` on a
+//! preopened directory or natively as a baseline.
 //!
 //! # Usage
 //!
@@ -11,38 +10,46 @@
 //! dxdb-conformance --dir <path> [--filter <substr>] [--json]
 //! ```
 //!
-//! `--dir` is a **guest-side** path on WASI: the directory mapped in with
-//! `wasmtime run --dir <host>::/data` must be referred to here as `/data`, not as
-//! the host path. Passing the host path is the trap that produces `ENOENT` from a
-//! directory that demonstrably exists (`docs/lanes/m5-port-plan.md` 3.4).
+//! On WASI, `--dir` is a **guest-side** path: the directory mapped with
+//! `wasmtime run --dir <host>::/data` must be referred to here as `/data`, never as the
+//! host path. Passing the host path is the trap that produces `ENOENT` from a directory
+//! that demonstrably exists, so [`dxdb_wasi::conformance::assert_preopen_usable`] proves
+//! the directory is writable before any case runs and refuses with a message naming the
+//! mapping.
 //!
 //! # Exit codes
 //!
 //! | Code | Meaning |
 //! | --- | --- |
 //! | 0 | every case passed |
-//! | 1 | at least one case failed, or no case matched the filter |
-//! | 2 | usage error (bad arguments, missing directory) |
+//! | 1 | a case failed (the panic/abort exits 101/134 on native; all nonzero), or no case matched |
+//! | 2 | usage error, or the preopen is missing/read-only |
 //!
-//! Failures are printed as `FAIL <id>: <message>` per case, and the process exit
-//! code carries the verdict. A run that prints a summary but exits 0 is the bug
-//! this is written against.
+//! A run that printed a summary and exited 0 with a failure would defeat the gate, so the
+//! summary is only printed after every case has passed.
 
-use dxdb_wasi::suite::{run_suite, CASE_IDS};
+use dxdb_wasi::conformance::{assert_preopen_usable, planned_cases, run};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-/// Exit code for a usage error.
+/// Exit code for a usage or preopen problem.
 const EXIT_USAGE: u8 = 2;
 
 fn usage() -> String {
+    let cases = planned_cases();
     format!(
         "usage: dxdb-conformance --dir <path> [--filter <substr>] [--json]\n\n\
-         Runs the M5 storage conformance suite against the directory given.\n\
-         On WASI, <path> is the guest-side path of a preopened directory.\n\n\
-         cases ({}):\n  {}\n",
-        CASE_IDS.len(),
-        CASE_IDS.join("\n  ")
+         Runs the {} ported conformance cases (impl-*, from\n\
+         test/unit/rx-storage-implementations.test.ts) against dxdb-filesystem.\n\n\
+         On WASI, <path> must be the guest-side path of a preopened directory:\n\
+           wasmtime run --dir /host/dir::/data dxdb.wasm --dir /data\n\n\
+         Cases:\n  {}\n",
+        cases.len(),
+        cases
+            .iter()
+            .map(|c| format!("{}  ({})", c.id, c.title))
+            .collect::<Vec<_>>()
+            .join("\n  ")
     )
 }
 
@@ -85,34 +92,32 @@ fn main() -> ExitCode {
         return ExitCode::from(EXIT_USAGE);
     };
 
-    // Fail fast with a message that names the capability, rather than letting the
-    // first case fail with an unrelated ENOENT inside redb.
-    if !dir.exists() {
-        eprintln!(
-            "error: directory {} does not exist.\n\
-             On WASI this must be the guest-side path of a preopened directory: \
-             map it with `wasmtime run --dir <host>::<guest>`, and pass <guest> here. \
-             A host path will not resolve even when it exists on the host.",
-            dir.display()
-        );
+    // Prove the preopen before running anything: a missing or read-only mapping must be
+    // a startup error that names the mapping, not a confusing first-case failure.
+    if let Err(reason) = assert_preopen_usable(&dir) {
+        eprintln!("error: {reason}");
         return ExitCode::from(EXIT_USAGE);
     }
 
-    let result = run_suite(&dir, filter.as_deref());
+    let total = planned_cases().len();
+    let outcome = run(&dir, filter.as_deref());
 
     if json {
-        println!("{}", result.to_json());
+        println!(
+            "{{\"passed\":{},\"failed\":0,\"skipped\":{},\"total\":{total}}}",
+            outcome.passed.len(),
+            outcome.skipped.len()
+        );
     } else {
-        println!("{}", result.summary());
+        println!("{}", outcome.summary(total));
     }
 
-    // An empty run is a failure, so a filter typo cannot look green.
-    if result.cases.is_empty() {
+    if outcome.passed.is_empty() {
         eprintln!(
             "error: no case matched the filter {:?}; refusing to report success",
             filter.as_deref().unwrap_or("")
         );
     }
 
-    ExitCode::from(u8::try_from(result.exit_code()).unwrap_or(1))
+    ExitCode::from(u8::try_from(outcome.exit_code()).unwrap_or(1))
 }

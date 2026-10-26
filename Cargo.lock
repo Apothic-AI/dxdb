@@ -394,6 +394,7 @@ dependencies = [
  "dxdb-filesystem",
  "dxdb-js",
  "dxdb-memory",
+ "dxdb-opfs",
  "dxdb-schema",
  "dxdb-sqlite",
  "dxdb-storage",
@@ -780,6 +781,8 @@ dependencies = [
  "dxdb-filesystem",
  "dxdb-json",
  "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
  "serde_json",
  "tempfile",
 ]

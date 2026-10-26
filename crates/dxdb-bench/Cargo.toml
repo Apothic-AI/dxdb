@@ -34,6 +34,10 @@ wasm-size = ["dep:brotli"]
 memory-bundle = ["wasm-size-fixtures", "dep:dxdb-memory"]
 sqlite-bundle = ["wasm-size-fixtures", "dep:dxdb-sqlite"]
 
+# The OPFS bundle. `dxdb-opfs` is wasm32-only by construction (web-sys), which is fine:
+# this feature is only ever built for `wasm32-unknown-unknown`.
+opfs-bundle = ["wasm-size-fixtures", "dep:dxdb-opfs"]
+
 [dependencies]
 dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
 dxdb-sqlite = { path = "../storages/dxdb-sqlite", optional = true }
@@ -41,6 +45,7 @@ dxdb-memory = { path = "../storages/dxdb-memory", optional = true }
 # The wasm size-budget fixtures need `dxdb-js`'s wasm-bindgen surface. Optional so the
 # native benches do not pay for a wasm-only dependency tree.
 dxdb-js = { path = "../dxdb-js", optional = true }
+dxdb-opfs = { path = "../storages/dxdb-opfs", optional = true }
 dxdb-storage = { path = "../dxdb-storage" }
 dxdb-schema = { path = "../dxdb-schema" }
 futures.workspace = true
