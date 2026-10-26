@@ -517,10 +517,7 @@ mod tests {
         // `PartialEq` against `json!(42)`, but the JS-semantics rendering is `42`, which is
         // what `dxdb_json::to_js_json` emits and what the dump will contain.
         assert_eq!(imported["_meta"]["lwt"].as_f64(), Some(42.0));
-        assert_eq!(
-            dxdb_json::to_js_json(&imported["_meta"]),
-            r#"{"lwt":42}"#
-        );
+        assert_eq!(dxdb_json::to_js_json(&imported["_meta"]), r#"{"lwt":42}"#);
         assert_eq!(imported["_deleted"], json!(false));
         assert_eq!(imported["_attachments"], json!({}));
     }

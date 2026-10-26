@@ -83,10 +83,18 @@ fn index_of(entry: &Value) -> Vec<String> {
 fn the_corpus_is_the_documented_size_and_provenance() {
     let corpus = load();
     let cases = corpus["cases"].as_array().expect("cases");
-    assert_eq!(cases.len() as u64, corpus["schemaCount"].as_u64().expect("schemaCount"));
+    assert_eq!(
+        cases.len() as u64,
+        corpus["schemaCount"].as_u64().expect("schemaCount")
+    );
     let values: u64 = cases
         .iter()
-        .map(|entry| entry["values"].as_array().map(|v| v.len() as u64).unwrap_or(0))
+        .map(|entry| {
+            entry["values"]
+                .as_array()
+                .map(|v| v.len() as u64)
+                .unwrap_or(0)
+        })
         .sum();
     assert_eq!(values, corpus["valueCount"].as_u64().expect("valueCount"));
     assert_eq!(
@@ -95,7 +103,10 @@ fn the_corpus_is_the_documented_size_and_provenance() {
         "the expectations must come from the pinned upstream commit"
     );
     assert!(cases.len() >= 12, "expected at least 12 boundary schemas");
-    assert!(values >= 150, "expected at least 150 probe values, got {values}");
+    assert!(
+        values >= 150,
+        "expected at least 150 probe values, got {values}"
+    );
 }
 
 /// The digit budget upstream derives from each schema, reproduced exactly.
@@ -130,10 +141,7 @@ fn digit_budgets_match_upstream() {
                 {
                     failures.push(format!(
                         "{name}: budget range [{}, {}] != upstream [{}, {}]",
-                        ours.minimum,
-                        ours.maximum,
-                        budget["minimum"],
-                        budget["maximum"]
+                        ours.minimum, ours.maximum, budget["minimum"], budget["maximum"]
                     ));
                 } else {
                     checked += 1;
@@ -149,7 +157,10 @@ fn digit_budgets_match_upstream() {
         failures.len(),
         failures.join("\n")
     );
-    assert_eq!(checked, corpus["schemaCount"].as_u64().expect("schemaCount"));
+    assert_eq!(
+        checked,
+        corpus["schemaCount"].as_u64().expect("schemaCount")
+    );
 }
 
 /// Index-string *length* per schema.
@@ -170,7 +181,12 @@ fn index_string_lengths_match_upstream() {
             Err(error) => failures.push(format!("{name}: width failed: {error}")),
         }
     }
-    assert!(failures.is_empty(), "{} lengths diverged:\n{}", failures.len(), failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "{} lengths diverged:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }
 
 /// Every probe value's index string, both bound strings, and the fixed width.
@@ -233,15 +249,17 @@ fn boundary_values_encode_like_upstream() {
                     continue;
                 }
                 let part = dxdb_schema::schema_part_by_object_path(&schema, field);
-                bounds.push(match part.and_then(|p| p.get("type")).and_then(Value::as_str) {
-                    Some("number") | Some("integer") => BoundValue::Number(
-                        part.and_then(|p| p.get("minimum"))
-                            .and_then(Value::as_f64)
-                            .unwrap_or(0.0),
-                    ),
-                    Some("boolean") => BoundValue::Bool(false),
-                    _ => BoundValue::String(String::new()),
-                });
+                bounds.push(
+                    match part.and_then(|p| p.get("type")).and_then(Value::as_str) {
+                        Some("number") | Some("integer") => BoundValue::Number(
+                            part.and_then(|p| p.get("minimum"))
+                                .and_then(Value::as_f64)
+                                .unwrap_or(0.0),
+                        ),
+                        Some("boolean") => BoundValue::Bool(false),
+                        _ => BoundValue::String(String::new()),
+                    },
+                );
             }
             match get_start_index_string_from_lower_bound(&schema, &index, &bounds) {
                 Ok(ours) => {
@@ -282,7 +300,11 @@ fn boundary_values_encode_like_upstream() {
     );
     let expected_values = corpus["valueCount"].as_u64().expect("valueCount") as u32;
     assert_eq!(encoded_checks, expected_values, "every value must encode");
-    assert_eq!(bound_checks, expected_values * 2, "every value needs both bounds");
+    assert_eq!(
+        bound_checks,
+        expected_values * 2,
+        "every value needs both bounds"
+    );
 }
 
 /// Clamping, asserted as a property rather than only through the oracle.
@@ -313,8 +335,12 @@ fn out_of_range_values_clamp_to_the_boundary() {
         // *not* clamped — upstream records `0.4 -> "0004"` for `ceil-max` while
         // `-999.5 -> "0000"`. Asserting against the declared minimum was wrong; the
         // corpus's own `digitBudget` carries the floored/ceiled bounds, so use them.
-        let clamp_low = entry["digitBudget"]["minimum"].as_f64().expect("budget minimum");
-        let clamp_high = entry["digitBudget"]["maximum"].as_f64().expect("budget maximum");
+        let clamp_low = entry["digitBudget"]["minimum"]
+            .as_f64()
+            .expect("budget minimum");
+        let clamp_high = entry["digitBudget"]["maximum"]
+            .as_f64()
+            .expect("budget maximum");
         assert_eq!(
             encode(clamp_low - 1.0),
             encode(clamp_low),
@@ -341,7 +367,10 @@ fn out_of_range_values_clamp_to_the_boundary() {
         );
         checks += 4;
     }
-    assert_eq!(checks, corpus["schemaCount"].as_u64().expect("schemaCount") as usize * 4);
+    assert_eq!(
+        checks,
+        corpus["schemaCount"].as_u64().expect("schemaCount") as usize * 4
+    );
 }
 
 /// Within the declared range, the encoding is monotone.
@@ -384,7 +413,10 @@ fn encoding_is_monotone_across_the_declared_range() {
             previous = Some((value, encoded));
         }
     }
-    assert!(comparisons >= 250, "expected 300 range comparisons, did {comparisons}");
+    assert!(
+        comparisons >= 250,
+        "expected 300 range comparisons, did {comparisons}"
+    );
 }
 
 /// The clamp boundary is the floored minimum and ceiled maximum, not the declared values.
@@ -440,6 +472,10 @@ fn the_clamp_boundary_is_the_floored_minimum_and_ceiled_maximum() {
     assert_eq!(encode(-0.5), encode(0.0), "below the floor must clamp");
     assert_eq!(encode(-1e9), encode(0.0));
     // Above the ceil (11), clamping applies; 10.6 is inside it.
-    assert_ne!(encode(10.6), encode(11.0), "10.6 is inside the ceiled range");
+    assert_ne!(
+        encode(10.6),
+        encode(11.0),
+        "10.6 is inside the ceiled range"
+    );
     assert_eq!(encode(11.5), encode(11.0), "above the ceil must clamp");
 }
