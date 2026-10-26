@@ -22,7 +22,8 @@
 //! | [`write`] | `rx-storage-helper.ts:612`, `rx-collection-helper.ts:34` | Revision and `_meta` assignment, insert defaulting |
 //! | [`cache`] | `doc-cache.ts`, `incremental-write.ts:237` | One state per id, newest revision wins |
 //! | [`queue`] | `incremental-write.ts:48` | Serialised incremental writes per document |
-//! | [`hooks`] | `src/hooks.ts` | 24 named hooks, owned registry (PLAN.md 4.3) |
+//! | [`hooks`] | `src/hooks.ts` | 24 named hooks, owned registry, explicit ordering (PLAN.md 4.3) |
+//! | [`plugin`] | `src/plugin.ts` | `Plugin`/`PluginHandle`/`PluginSet`, overwritables (PLAN.md 4.3) |
 //! | [`document`] | `rx-document.ts` | The document value and patch semantics |
 //! | [`query`] | `rx-query-helper.ts:345` | Normalise + plan, plus the tombstone filter |
 //! | [`collection`] | `rx-collection.ts` | CRUD, bulk operations, `find`/`count` |
@@ -52,6 +53,7 @@ pub mod database;
 pub mod document;
 pub mod error;
 pub mod hooks;
+pub mod plugin;
 pub mod query;
 pub mod queue;
 pub mod write;
@@ -61,6 +63,9 @@ pub use collection::{BulkResult, Collection, BULK_INSERT_CONTEXT, UPDATE_CONTEXT
 pub use database::{CollectionDefinition, Database};
 pub use document::{Document, PatchOperation};
 pub use error::{CoreError, CoreResult};
-pub use hooks::{HookId, HookName, HookOutcome, HookPayload, Hooks, PayloadKind};
+pub use hooks::{HookId, HookName, HookOutcome, HookPayload, Hooks, Order, PayloadKind};
+pub use plugin::{
+    Overwritables, Plugin, PluginError, PluginHandle, PluginSet, Registrations,
+};
 pub use queue::WriteQueue;
 pub use write::{assign_revisions, fill_object_data_before_insert, PreparedRow};
