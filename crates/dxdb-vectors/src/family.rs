@@ -9,6 +9,7 @@
 //! and that is what is typed.
 
 pub mod bulk_write_categorization;
+pub mod error_vectors;
 pub mod index_strings;
 pub mod jsnum;
 pub mod normalised_queries;

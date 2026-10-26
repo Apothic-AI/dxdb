@@ -72,8 +72,8 @@ mod loader;
 
 pub use error::VectorError;
 pub use family::{
-    bulk_write_categorization, index_strings, jsnum, normalised_queries, replication_transcripts,
-    schema_hashes, selector_matching,
+    bulk_write_categorization, error_vectors, index_strings, jsnum, normalised_queries,
+    replication_transcripts, schema_hashes, selector_matching,
 };
 pub use loader::{FamilyFile, Provenance, VectorFamily, Vectors};
 
@@ -100,6 +100,9 @@ pub const EXPECTED_CASE_COUNTS: &[(VectorFamily, usize)] = &[
     // Counting snapshots, not transcripts: 13 across 6 transcripts. The batch
     // boundary entry is counted too, since it carries comparable data.
     (VectorFamily::ReplicationTranscripts, 13),
+    // Raised cases only: 5 typed + 3 untyped. The 219 declared codes are vocabulary,
+    // not cases, and are counted by `declaredCodeCount` inside the file.
+    (VectorFamily::ErrorVectors, 8),
 ];
 
 /// Every family, in the order the generator runs them.
@@ -111,6 +114,7 @@ pub const ALL_FAMILIES: &[VectorFamily] = &[
     VectorFamily::BulkWriteCategorization,
     VectorFamily::SelectorMatching,
     VectorFamily::ReplicationTranscripts,
+    VectorFamily::ErrorVectors,
 ];
 
 #[cfg(test)]

@@ -36,6 +36,7 @@ use std::rc::Rc;
 
 use common::memory_storage::{stored_document, MemoryStorage};
 use dxdb_json::Value;
+use dxdb_replication::adapters::websocket::{self, Frame, WebSocketHandler};
 use dxdb_replication::checkpoint::Sha256HashFunction;
 use dxdb_replication::conflict::DefaultConflictHandler;
 use dxdb_replication::downstream::Downstream;
@@ -44,7 +45,6 @@ use dxdb_replication::state::{
     ReplicationInput, ReplicationState, WriteToMasterRow,
 };
 use dxdb_replication::upstream::Upstream;
-use dxdb_replication::websocket::{self, Frame, WebSocketHandler};
 use dxdb_storage::{DocumentData, RxStorageInstance, StorageError};
 
 // ---------------------------------------------------------------------------
@@ -311,7 +311,7 @@ fn serve_frame(
             map.insert("error".to_string(), Value::String(error.to_string()));
             return write_frame(
                 stream,
-                &Frame::Response(dxdb_replication::websocket::Response {
+                &Frame::Response(dxdb_replication::adapters::websocket::Response {
                     id: String::new(),
                     collection: String::new(),
                     result: Value::Object(map),
@@ -367,7 +367,10 @@ impl LoopbackSender {
         }
     }
 
-    fn call(&self, frame: Frame) -> Result<Frame, dxdb_replication::websocket::TransportError> {
+    fn call(
+        &self,
+        frame: Frame,
+    ) -> Result<Frame, dxdb_replication::adapters::websocket::SendError> {
         let base = self.server.base();
         let authority = base.strip_prefix("ws://").unwrap_or(&base).to_string();
         let mut stream = TcpStream::connect(&authority).map_err(socket_error)?;
@@ -419,17 +422,18 @@ impl LoopbackSender {
         let text = read_frame(&mut stream)
             .map_err(socket_error)?
             .ok_or_else(|| socket("server closed without answering"))?;
-        Frame::parse(&text)
-            .map_err(|error| dxdb_replication::websocket::TransportError::Socket(error.to_string()))
+        Frame::parse(&text).map_err(|error| {
+            dxdb_replication::adapters::websocket::SendError::Transport(error.to_string())
+        })
     }
 }
 
-fn socket(message: impl Into<String>) -> dxdb_replication::websocket::TransportError {
-    dxdb_replication::websocket::TransportError::Socket(message.into())
+fn socket(message: impl Into<String>) -> dxdb_replication::adapters::websocket::SendError {
+    dxdb_replication::adapters::websocket::SendError::Transport(message.into())
 }
 
-fn socket_error(error: std::io::Error) -> dxdb_replication::websocket::TransportError {
-    dxdb_replication::websocket::TransportError::Socket(error.to_string())
+fn socket_error(error: std::io::Error) -> dxdb_replication::adapters::websocket::SendError {
+    dxdb_replication::adapters::websocket::SendError::Transport(error.to_string())
 }
 
 // ---------------------------------------------------------------------------
@@ -659,8 +663,9 @@ impl ReplicationHandler for StorageMaster {
 /// A `WebSocketHandler` whose frames go through a real socket, served inline.
 fn handler_over(
     sender: Rc<LoopbackSender>,
-) -> WebSocketHandler<impl Fn(Frame) -> Result<Frame, dxdb_replication::websocket::TransportError>>
-{
+) -> WebSocketHandler<
+    impl Fn(Frame) -> Result<Frame, dxdb_replication::adapters::websocket::SendError>,
+> {
     WebSocketHandler::new("human", move |frame: Frame| sender.call(frame))
 }
 
@@ -671,7 +676,7 @@ struct Side {
 
 fn side<F>(handler: WebSocketHandler<F>, identifier: &str) -> Side
 where
-    F: Fn(Frame) -> Result<Frame, dxdb_replication::websocket::TransportError> + 'static,
+    F: Fn(Frame) -> Result<Frame, dxdb_replication::adapters::websocket::SendError> + 'static,
 {
     let fork = MemoryStorage::new("ws-client", "human", human_schema(), "fork-token");
     let meta_schema =
@@ -758,7 +763,7 @@ fn two_dxdb_instances_converge_over_websocket() {
         matches!(
             frame,
             Frame::Request(request)
-                if request.method == dxdb_replication::websocket::Method::MasterWrite
+                if request.method == dxdb_replication::adapters::websocket::Method::MasterWrite
         )
     });
     assert!(
@@ -905,18 +910,20 @@ fn a_bad_call_is_answered_with_an_error() {
     let sender = LoopbackSender::new(server, master);
 
     let answer = sender
-        .call(Frame::Request(dxdb_replication::websocket::Request {
-            id: "bad".to_string(),
-            collection: "human".to_string(),
-            method: dxdb_replication::websocket::Method::MasterChangesSince,
-            // Wrong arity on purpose.
-            params: vec![Value::Null],
-        }))
+        .call(Frame::Request(
+            dxdb_replication::adapters::websocket::Request {
+                id: "bad".to_string(),
+                collection: "human".to_string(),
+                method: dxdb_replication::adapters::websocket::Method::MasterChangesSince,
+                // Wrong arity on purpose.
+                params: vec![Value::Null],
+            },
+        ))
         .expect("a response comes back");
     let Frame::Response(response) = answer else {
         panic!("expected a response")
     };
-    let error = dxdb_replication::websocket::result_error(&response.result)
+    let error = dxdb_replication::adapters::websocket::result_error(&response.result)
         .expect("the server must report the arity error");
     assert!(
         error.contains("expects 2 parameters"),

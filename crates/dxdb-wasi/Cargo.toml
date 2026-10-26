@@ -14,7 +14,12 @@ description = "dxdb WASI host binding: the conformance suite as a wasip1/wasip2 
 dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
 dxdb-storage = { path = "../dxdb-storage" }
 dxdb-json = { path = "../dxdb-json" }
+# The real conformance suite. A normal dependency rather than dev-only: the CLI artifact
+# that runs on Wasmtime and under Node has to contain the cases, so the suite is part of
+# the shipped binary rather than a test-time concern.
+dxdb-testkit = { path = "../dxdb-testkit" }
 serde_json.workspace = true
+futures.workspace = true
 
 [lib]
 # `cdylib` for the wasip2 component build, `rlib` for the CLI and for tests.

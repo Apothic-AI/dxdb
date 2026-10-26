@@ -166,16 +166,16 @@ impl Frame {
     ///
     /// A `result` key means a response; a `method` key means a request. Upstream distinguishes
     /// them the same way, and the two never collide because a response has no `method`.
-    pub fn parse(text: &str) -> Result<Self, TransportError> {
+    pub fn parse(text: &str) -> Result<Self, FrameError> {
         let value =
-            dxdb_json::parse(text).map_err(|error| TransportError::Malformed(error.to_string()))?;
+            dxdb_json::parse(text).map_err(|error| FrameError::Malformed(error.to_string()))?;
         let map = value
             .as_object()
-            .ok_or_else(|| TransportError::Malformed("a frame is a JSON object".to_string()))?;
+            .ok_or_else(|| FrameError::Malformed("a frame is a JSON object".to_string()))?;
         let id = map
             .get("id")
             .and_then(Value::as_str)
-            .ok_or_else(|| TransportError::Malformed("a frame needs an id".to_string()))?
+            .ok_or_else(|| FrameError::Malformed("a frame needs an id".to_string()))?
             .to_string();
         let collection = map
             .get("collection")
@@ -185,7 +185,7 @@ impl Frame {
 
         if let Some(method) = map.get("method").and_then(Value::as_str) {
             let method = Method::parse(method)
-                .ok_or_else(|| TransportError::UnknownMethod(method.to_string()))?;
+                .ok_or_else(|| FrameError::UnknownMethod(method.to_string()))?;
             let params = map
                 .get("params")
                 .and_then(Value::as_array)
@@ -208,37 +208,18 @@ impl Frame {
 }
 
 /// Why a frame could not be handled.
+///
+/// A frame *parse* problem, not a transport problem: the bytes arrived but did not say what
+/// they should. Transport failures use [`crate::adapters::TransportError`], so a caller can tell
+/// "the socket died" from "the peer sent nonsense".
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum TransportError {
+pub enum FrameError {
     /// The frame was not valid JSON, or not the expected shape.
     #[error("malformed frame: {0}")]
     Malformed(String),
     /// The `method` string is not one the protocol serves.
     #[error("unknown method: {0}")]
     UnknownMethod(String),
-    /// A `params` list of the wrong arity for its method.
-    #[error("{method} expects {expected} parameters, got {got}")]
-    Arity {
-        /// The method.
-        method: &'static str,
-        /// How many upstream passes.
-        expected: usize,
-        /// How many arrived.
-        got: usize,
-    },
-    /// A parameter had the wrong type.
-    #[error("{method} parameter {index} is invalid: {why}")]
-    BadParameter {
-        /// The method.
-        method: &'static str,
-        /// Which parameter, 0-based.
-        index: usize,
-        /// What was wrong.
-        why: String,
-    },
-    /// The socket failed.
-    #[error("socket: {0}")]
-    Socket(String),
     /// The server answered with an error.
     #[error("server error: {0}")]
     Server(String),
@@ -333,7 +314,7 @@ fn document_with_payloads(document: &DocumentData, payloads: &BTreeMap<String, V
 }
 
 /// Decodes a `masterChangesSince` result.
-pub fn decode_changes_since(result: &Value) -> Result<DocumentsWithCheckpoint, TransportError> {
+pub fn decode_changes_since(result: &Value) -> Result<DocumentsWithCheckpoint, FrameError> {
     let documents = result
         .get("documents")
         .and_then(Value::as_array)
@@ -342,7 +323,7 @@ pub fn decode_changes_since(result: &Value) -> Result<DocumentsWithCheckpoint, T
         .into_iter()
         .map(|value| {
             DocumentData::from_value(value).map_err(|error| {
-                TransportError::Malformed(format!("a document is not an object: {error}"))
+                FrameError::Malformed(format!("a document is not an object: {error}"))
             })
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -351,7 +332,7 @@ pub fn decode_changes_since(result: &Value) -> Result<DocumentsWithCheckpoint, T
         .filter(|value| !value.is_null())
         .map(|value| Checkpoint::new(value.clone()))
         .transpose()
-        .map_err(|error| TransportError::Malformed(error.to_string()))?;
+        .map_err(|error| FrameError::Malformed(error.to_string()))?;
     Ok(DocumentsWithCheckpoint {
         documents,
         checkpoint,
@@ -362,12 +343,12 @@ pub fn decode_changes_since(result: &Value) -> Result<DocumentsWithCheckpoint, T
 ///
 /// A server that returned acknowledgements instead would produce a client that re-resolves
 /// conflicts forever; [`decode_conflicts`] exists so that mistake has a name.
-pub fn decode_master_write(result: &Value) -> Result<Vec<DocumentData>, TransportError> {
+pub fn decode_master_write(result: &Value) -> Result<Vec<DocumentData>, FrameError> {
     decode_conflicts(result)
 }
 
 /// The conflicts a `masterWrite` answered with.
-pub fn decode_conflicts(result: &Value) -> Result<Vec<DocumentData>, TransportError> {
+pub fn decode_conflicts(result: &Value) -> Result<Vec<DocumentData>, FrameError> {
     let conflicts = result
         .get("conflicts")
         .and_then(Value::as_array)
@@ -377,7 +358,7 @@ pub fn decode_conflicts(result: &Value) -> Result<Vec<DocumentData>, TransportEr
         .into_iter()
         .map(|value| {
             DocumentData::from_value(value).map_err(|error| {
-                TransportError::Malformed(format!("a conflict is not an object: {error}"))
+                FrameError::Malformed(format!("a conflict is not an object: {error}"))
             })
         })
         .collect()
@@ -587,7 +568,7 @@ pub fn result_error(result: &Value) -> Option<&str> {
 /// a socket without the protocol knowing which.
 pub struct WebSocketHandler<F>
 where
-    F: Fn(Frame) -> Result<Frame, TransportError>,
+    F: Fn(Frame) -> Result<Frame, SendError>,
 {
     collection: String,
     send: F,
@@ -598,7 +579,7 @@ where
 
 impl<F> WebSocketHandler<F>
 where
-    F: Fn(Frame) -> Result<Frame, TransportError>,
+    F: Fn(Frame) -> Result<Frame, SendError>,
 {
     /// Builds a handler over a frame channel.
     pub fn new(collection: impl Into<String>, send: F) -> Self {
@@ -623,7 +604,7 @@ where
         format!("r{next}")
     }
 
-    fn call(&self, frame: Frame) -> Result<Value, TransportError> {
+    fn call(&self, frame: Frame) -> Result<Value, SendError> {
         let expected_id = match &frame {
             Frame::Request(request) => request.id.clone(),
             Frame::Response(response) => response.id.clone(),
@@ -632,26 +613,26 @@ where
         match response {
             Frame::Response(response) => {
                 if response.id != expected_id {
-                    return Err(TransportError::Server(format!(
+                    return Err(SendError::Frame(FrameError::Server(format!(
                         "response id {} does not match request id {expected_id}",
                         response.id
-                    )));
+                    ))));
                 }
                 if let Some(error) = result_error(&response.result) {
-                    return Err(TransportError::Server(error.to_string()));
+                    return Err(SendError::Frame(FrameError::Server(error.to_string())));
                 }
                 Ok(response.result)
             }
-            Frame::Request(_) => Err(TransportError::Server(
+            Frame::Request(_) => Err(SendError::Frame(FrameError::Server(
                 "expected a response, got a request".to_string(),
-            )),
+            ))),
         }
     }
 }
 
 impl<F> ReplicationHandler for WebSocketHandler<F>
 where
-    F: Fn(Frame) -> Result<Frame, TransportError>,
+    F: Fn(Frame) -> Result<Frame, SendError>,
 {
     fn master_changes_since(
         &self,
@@ -662,7 +643,7 @@ where
         let frame = encode_changes_since(id, &self.collection, checkpoint, batch_size);
         Box::pin(async move {
             let result = self.call(frame).map_err(to_storage_error)?;
-            decode_changes_since(&result).map_err(to_storage_error)
+            decode_changes_since(&result).map_err(|error| to_storage_error(error.into()))
         })
     }
 
@@ -674,7 +655,7 @@ where
         let frame = encode_master_write(id, &self.collection, &rows);
         Box::pin(async move {
             let result = self.call(frame).map_err(to_storage_error)?;
-            decode_master_write(&result).map_err(to_storage_error)
+            decode_master_write(&result).map_err(|error| to_storage_error(error.into()))
         })
     }
 
@@ -683,8 +664,25 @@ where
     }
 }
 
-fn to_storage_error(error: TransportError) -> StorageError {
-    StorageError::Unsupported(format!("websocket transport: {error}"))
+/// What can go wrong sending one frame and reading its answer.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum SendError {
+    /// The frame could not cross: no connection, a closed socket, a write failure.
+    #[error("transport: {0}")]
+    Transport(String),
+    /// The answer arrived but was not a frame this adapter understands.
+    #[error("frame: {0}")]
+    Frame(#[from] FrameError),
+}
+
+impl From<crate::adapters::TransportError> for SendError {
+    fn from(error: crate::adapters::TransportError) -> Self {
+        SendError::Transport(error.message())
+    }
+}
+
+fn to_storage_error(error: SendError) -> StorageError {
+    StorageError::Unsupported(format!("websocket: {error}"))
 }
 
 #[cfg(test)]
@@ -732,7 +730,7 @@ mod tests {
     fn an_unknown_method_is_reported_rather_than_ignored() {
         let error = Frame::parse(r#"{"id":"a","collection":"c","method":"nope","params":[]}"#)
             .expect_err("must fail");
-        assert_eq!(error, TransportError::UnknownMethod("nope".to_string()));
+        assert_eq!(error, FrameError::UnknownMethod("nope".to_string()));
     }
 
     #[test]

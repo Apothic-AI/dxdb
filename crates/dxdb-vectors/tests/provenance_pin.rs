@@ -147,6 +147,10 @@ fn every_committed_vector_file_records_the_documented_pin() {
                 .load::<dxdb_vectors::replication_transcripts::Vectors>(*family)
                 .unwrap()
                 .provenance(),
+            VectorFamily::ErrorVectors => vectors
+                .load::<dxdb_vectors::error_vectors::Vectors>(*family)
+                .unwrap()
+                .provenance(),
         };
 
         if *family == VectorFamily::Jsnum {

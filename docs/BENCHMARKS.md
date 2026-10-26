@@ -54,7 +54,7 @@ ran on:     the box; only the artifact is fetched back for compression
 | --- | ---: | ---: | ---: |
 | `dxdb-js` + smoke surface (base fixture) | **6,735 B** (6.6 KiB) | 250 KiB (256,000 B) | **−243.4 KiB (within by 95.1%)** |
 | + `dxdb-memory` | **6,759 B** (6.6 KiB) | 320 KiB (327,680 B) | **−313.4 KiB (within by 97.9%)** |
-| + `dxdb-opfs` | — | 400 KiB | **not measurable: storage not implemented** |
+| + `dxdb-opfs` | **14,194 B** (13.9 KiB) | 400 KiB (409,600 B) | **−386.1 KiB (within by 96.5%)** |
 | + `dxdb-sqlite` | **283,011 B** (276.4 KiB) | 900 KiB (921,600 B) | **−623.6 KiB (within by 69.2%)** |
 
 All three measured rows are **within budget**. That is the good news, and it is also
@@ -91,6 +91,13 @@ row said, and remains unproven rather than proven.
   engine is at least `dxdb-core` + `dxdb-schema` + `dxdb-query`. If those three land
   above 637 KiB brotli, the 900 KiB budget is exceeded and the SQLite row is the one
   that breaks first. That is a prediction this file can now be held to.
+- **OPFS costs 7,459 B more than the base fixture** (14,194 − 6,735), i.e. 2.2× the
+  binding floor and 1.1% of its own 400 KiB budget. That was measured rather than
+  predicted, and it lands where the design said it would: OPFS is *our* code plus
+  web-sys bindings and a file layout, with no embedded C database, so it sits near the
+  memory row (6,759 B) rather than anywhere near SQLite (283,011 B). The 400 KiB budget
+  has 386 KiB spare — more than any other row — which means the OPFS row will not be
+  the one that constrains the engine.
 - **Adding a storage to the binding floor is nearly free when the storage is small**
   (memory added 26 B brotli; the memory storage's own code is already in the tree at
   46/48 conformance) and expensive when it embeds a C database (sqlite, +276 KiB).
@@ -289,9 +296,11 @@ all, and the distinction matters because "pending" implies someone will get to i
   figure. A real measurement needs the `demo/` browser harness driving Chromium over the
   same operation mix, reporting the same JSON shape.
 - **`opfs`** needs a dedicated worker and `FileSystemSyncAccessHandle`, which exists
-  only in a browser worker context. The storage is not implemented yet
-  (`crates/storages/dxdb-opfs` does not exist), so there is nothing to run even if the
-  harness existed.
+  only in a browser worker context. The crate now exists and passes 49/49 conformance
+  (`crates/storages/dxdb-opfs`), but it runs against a `FileStore`, and the only backing
+  available natively is an in-memory one: benchmarking that would measure a hash map, not
+  OPFS. Its *size* is measurable and measured (14,194 B brotli, well within the 400 KiB
+  budget); its *throughput* is not.
 
 Both are therefore recorded as **not measurable on the build box; requires the `demo/`
 browser harness**, which is lane F's territory. Recording a native proxy number instead

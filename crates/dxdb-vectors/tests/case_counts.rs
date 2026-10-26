@@ -52,7 +52,7 @@ fn every_family_loads_and_has_the_expected_case_count() {
         total += count;
     }
 
-    assert_eq!(total, 2178, "total corpus size changed: {total} cases");
+    assert_eq!(total, 2186, "total corpus size changed: {total} cases");
 }
 
 #[test]
@@ -217,6 +217,10 @@ fn provenance_is_present_and_matches_the_documented_pin() {
                 .provenance(),
             VectorFamily::ReplicationTranscripts => vectors
                 .load::<replication_transcripts::Vectors>(*family)
+                .unwrap()
+                .provenance(),
+            VectorFamily::ErrorVectors => vectors
+                .load::<dxdb_vectors::error_vectors::Vectors>(*family)
                 .unwrap()
                 .provenance(),
         };
