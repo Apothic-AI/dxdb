@@ -30,6 +30,8 @@ futures.workspace = true
 # name them, and dev-dependencies keep that out of any published surface.
 dxdb-memory = { path = "../storages/dxdb-memory" }
 dxdb-localstorage = { path = "../storages/dxdb-localstorage" }
+dxdb-indexeddb = { path = "../storages/dxdb-indexeddb" }
+dxdb-filesystem = { path = "../storages/dxdb-filesystem" }
 
 [features]
 # Which storages the matrix can open. Default-on so `make gate-matrix` works with no
@@ -38,6 +40,10 @@ dxdb-localstorage = { path = "../storages/dxdb-localstorage" }
 # the corresponding feature off.
 #
 # These gate `tests/storage_matrix.rs` only. The library names no storage either way.
-default = ["matrix-memory", "matrix-localstorage"]
+default = ["matrix-memory", "matrix-localstorage", "matrix-indexeddb", "matrix-filesystem"]
 matrix-memory = []
 matrix-localstorage = []
+matrix-indexeddb = []
+# Off by default: dxdb-filesystem opens a real redb file, so a run needs a writable
+# temp directory. The matrix row is still emitted (as `BackendNeeded`) without it.
+matrix-filesystem = []
