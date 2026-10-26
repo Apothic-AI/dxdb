@@ -607,3 +607,6 @@ pub fn change_indexable_string_by_one_quantum(input: &str, direction: i8) -> Str
     chars.into_iter().collect()
 }
 
+
+#[cfg(test)]
+mod tests;
