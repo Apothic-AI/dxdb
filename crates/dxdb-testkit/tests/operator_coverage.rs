@@ -53,8 +53,8 @@ mod support;
 
 use std::rc::Rc;
 
-use dxdb_testkit::harness::{fill_with_default_settings, Harness, InstanceSpec};
 use dxdb_storage::RxStorage;
+use dxdb_testkit::harness::{fill_with_default_settings, Harness, InstanceSpec};
 use serde_json::{json, Value};
 use support::reference_storage::ReferenceStorage;
 
@@ -70,8 +70,25 @@ use support::reference_storage::ReferenceStorage;
 /// This is the list coverage is measured against. Adding to it without adding a case below
 /// fails `every_documented_operator_is_covered_with_every_clause`.
 pub const DOCUMENTED_OPERATORS: &[&str] = &[
-    "$eq", "$gt", "$gte", "$lt", "$lte", "$ne", "$in", "$nin", "$regex", "$options",
-    "$exists", "$type", "$mod", "$not", "$size", "$elemMatch", "$and", "$or", "$nor",
+    "$eq",
+    "$gt",
+    "$gte",
+    "$lt",
+    "$lte",
+    "$ne",
+    "$in",
+    "$nin",
+    "$regex",
+    "$options",
+    "$exists",
+    "$type",
+    "$mod",
+    "$not",
+    "$size",
+    "$elemMatch",
+    "$and",
+    "$or",
+    "$nor",
 ];
 
 // ---------------------------------------------------------------------------
@@ -125,32 +142,108 @@ struct OperatorCase {
 /// together, because `$options` alone is not a meaningful selector.
 fn cases() -> Vec<OperatorCase> {
     vec![
-        OperatorCase { operator: "$eq", selector: json!({"name": {"$eq": "alpha"}}), expect_empty: false },
-        OperatorCase { operator: "$gt", selector: json!({"score": {"$gt": 25}}), expect_empty: false },
-        OperatorCase { operator: "$gte", selector: json!({"score": {"$gte": 25}}), expect_empty: false },
-        OperatorCase { operator: "$lt", selector: json!({"score": {"$lt": 35}}), expect_empty: false },
-        OperatorCase { operator: "$lte", selector: json!({"score": {"$lte": 35}}), expect_empty: false },
+        OperatorCase {
+            operator: "$eq",
+            selector: json!({"name": {"$eq": "alpha"}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$gt",
+            selector: json!({"score": {"$gt": 25}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$gte",
+            selector: json!({"score": {"$gte": 25}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$lt",
+            selector: json!({"score": {"$lt": 35}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$lte",
+            selector: json!({"score": {"$lte": 35}}),
+            expect_empty: false,
+        },
         // `$ne` cannot use an index, so it is the operator most likely to be right on a full
         // scan and wrong once a limit is applied.
-        OperatorCase { operator: "$ne", selector: json!({"name": {"$ne": "alpha"}}), expect_empty: false },
-        OperatorCase { operator: "$in", selector: json!({"name": {"$in": ["alpha", "beta", "zeta"]}}), expect_empty: false },
-        OperatorCase { operator: "$nin", selector: json!({"name": {"$nin": ["alpha", "beta"]}}), expect_empty: false },
-        OperatorCase { operator: "$regex", selector: json!({"name": {"$regex": "^a"}}), expect_empty: false },
+        OperatorCase {
+            operator: "$ne",
+            selector: json!({"name": {"$ne": "alpha"}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$in",
+            selector: json!({"name": {"$in": ["alpha", "beta", "zeta"]}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$nin",
+            selector: json!({"name": {"$nin": ["alpha", "beta"]}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$regex",
+            selector: json!({"name": {"$regex": "^a"}}),
+            expect_empty: false,
+        },
         // `$options` rides with `$regex` by definition: it is the flag set.
-        OperatorCase { operator: "$options", selector: json!({"name": {"$regex": "^A", "$options": "i"}}), expect_empty: false },
-        OperatorCase { operator: "$exists", selector: json!({"opt": {"$exists": false}}), expect_empty: false },
+        OperatorCase {
+            operator: "$options",
+            selector: json!({"name": {"$regex": "^A", "$options": "i"}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$exists",
+            selector: json!({"opt": {"$exists": false}}),
+            expect_empty: false,
+        },
         // `score` is a number on every document that has it, and absent on `c2`, so
         // `$type: "number"` matches 11 of 12 -- not vacuous, and not everything (which
         // is what the guard requires, because a selector matching everything would hide
         // a too-permissive matcher).
-        OperatorCase { operator: "$type", selector: json!({"score": {"$type": "number"}}), expect_empty: false },
-        OperatorCase { operator: "$mod", selector: json!({"score": {"$mod": [20, 10]}}), expect_empty: false },
-        OperatorCase { operator: "$not", selector: json!({"name": {"$not": {"$eq": "alpha"}}}), expect_empty: false },
-        OperatorCase { operator: "$size", selector: json!({"tags": {"$size": 2}}), expect_empty: false },
-        OperatorCase { operator: "$elemMatch", selector: json!({"tags": {"$elemMatch": {"$eq": "x"}}}), expect_empty: false },
-        OperatorCase { operator: "$and", selector: json!({"$and": [{"name": {"$eq": "alpha"}}, {"score": {"$lt": 15}}]}), expect_empty: false },
-        OperatorCase { operator: "$or", selector: json!({"$or": [{"name": {"$eq": "alpha"}}, {"score": {"$eq": 60}}]}), expect_empty: false },
-        OperatorCase { operator: "$nor", selector: json!({"$nor": [{"name": {"$eq": "alpha"}}, {"name": {"$eq": "beta"}}]}), expect_empty: false },
+        OperatorCase {
+            operator: "$type",
+            selector: json!({"score": {"$type": "number"}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$mod",
+            selector: json!({"score": {"$mod": [20, 10]}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$not",
+            selector: json!({"name": {"$not": {"$eq": "alpha"}}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$size",
+            selector: json!({"tags": {"$size": 2}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$elemMatch",
+            selector: json!({"tags": {"$elemMatch": {"$eq": "x"}}}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$and",
+            selector: json!({"$and": [{"name": {"$eq": "alpha"}}, {"score": {"$lt": 15}}]}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$or",
+            selector: json!({"$or": [{"name": {"$eq": "alpha"}}, {"score": {"$eq": 60}}]}),
+            expect_empty: false,
+        },
+        OperatorCase {
+            operator: "$nor",
+            selector: json!({"$nor": [{"name": {"$eq": "alpha"}}, {"name": {"$eq": "beta"}}]}),
+            expect_empty: false,
+        },
     ]
 }
 
@@ -199,10 +292,7 @@ async fn run_case<S: RxStorage>(storage: &S, case: &OperatorCase) {
         // one to choose. Without them every case is a full scan and an index bug hides.
         "indexes": ["name", "score"]
     }));
-    let spec = InstanceSpec {
-        schema,
-        ..spec
-    };
+    let spec = InstanceSpec { schema, ..spec };
 
     let harness = Harness::open(storage, &spec)
         .await
@@ -213,7 +303,10 @@ async fn run_case<S: RxStorage>(storage: &S, case: &OperatorCase) {
         .map(|document| {
             // The meta fields come from the fixture helper, not by hand.
             let with_meta = dxdb_testkit::fixtures::write::write_data_with(
-                document.as_object().expect("fixture doc is an object").clone(),
+                document
+                    .as_object()
+                    .expect("fixture doc is an object")
+                    .clone(),
                 1_700_000_000_000.0,
                 serde_json::Map::new(),
             );
@@ -268,7 +361,11 @@ async fn run_case<S: RxStorage>(storage: &S, case: &OperatorCase) {
         counted.count,
         all.len(),
         "{}",
-        context("count(no limit) vs full query", &all, &vec!["".into(); counted.count])
+        context(
+            "count(no limit) vs full query",
+            &all,
+            &vec!["".into(); counted.count]
+        )
     );
 
     // 2. A limit slices the front of the full result.
