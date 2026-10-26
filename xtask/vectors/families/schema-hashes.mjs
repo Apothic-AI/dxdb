@@ -155,9 +155,38 @@ export async function run({ check, repo }) {
 
   const outFile = join(repo, 'testdata', 'vectors', `${FAMILY}.json`);
 
-  const fixtureSchemas = Object.entries(fixtures).filter(
-    ([, value]) => value && typeof value === 'object' && value.primaryKey
-  );
+  /**
+   * Fixture exports that are schemas, including the ones exported as functions.
+   *
+   * `averageSchema` is a function because its `title` embeds `randomString(5)`
+   * (`src/plugins/test-utils/schemas.ts:950`, "randomisation used so hash differs"),
+   * and this used to be filtered out by `typeof value === 'object'`. That omission had
+   * a cost beyond one missing hash: `normalised-queries` names `averageSchema` in 19
+   * cases, so any consumer wanting that fixture's schema had nowhere to read it from
+   * and had to copy the schema literal out of the generator by hand. That is exactly
+   * the drift this family exists to prevent, so the function is called here instead.
+   *
+   * The random title is not a problem for determinism: `harness.mjs` seeds
+   * `Math.random` before any fixture is built, so the title is the same on every run,
+   * and the hash of it is therefore stable and worth pinning.
+   */
+  const fixtureSchemas = Object.entries(fixtures)
+    .map(([name, value]) => {
+      if (!value) return null;
+      if (typeof value === 'object' && value.primaryKey) return [name, value];
+      // A zero-argument function export is a schema factory (`averageSchema`).
+      // Called once here, under the seeded PRNG, so the result is reproducible.
+      if (typeof value === 'function' && value.length === 0) {
+        try {
+          const built = value();
+          if (built && typeof built === 'object' && built.primaryKey) return [name, built];
+        } catch {
+          // A factory that will not build is not a schema; skip it.
+        }
+      }
+      return null;
+    })
+    .filter((entry) => entry !== null);
 
   const inputs = [...fixtureSchemas.map(([name, schema]) => ({ name, schema, origin: 'fixture' }))];
   for (const [name, schema] of Object.entries(SYNTHETIC)) {
