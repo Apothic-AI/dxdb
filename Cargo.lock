@@ -285,6 +285,14 @@ name = "dxdb-node"
 version = "0.0.0"
 
 [[package]]
+name = "dxdb-plugin-cleanup"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-key-compression"
 version = "0.0.0"
 dependencies = [
