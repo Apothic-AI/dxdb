@@ -778,6 +778,8 @@ dependencies = [
  "dxdb-filesystem",
  "dxdb-json",
  "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
  "serde_json",
  "tempfile",
 ]

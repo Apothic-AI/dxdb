@@ -44,6 +44,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod conformance;
 pub mod suite;
 
 /// The WIT world a component host can import, in source form.
