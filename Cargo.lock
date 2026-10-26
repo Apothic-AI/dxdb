@@ -540,6 +540,7 @@ dependencies = [
  "dxdb-query",
  "dxdb-schema",
  "dxdb-storage",
+ "dxdb-testkit",
  "futures",
  "serde",
  "serde_json",

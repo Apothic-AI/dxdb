@@ -26,3 +26,7 @@ serde_json.workspace = true
 # The conformance test builds prepared queries the way core does, so it needs the
 # schema index list and the normaliser rather than hand-built plans.
 dxdb-schema = { path = "../../dxdb-schema" }
+# `tests/conformance.rs` drives the shared ported suite rather than a private one.
+# A dev-dependency, not a dependency: the gate names the testkit, the storage does
+# not. This is the same shape `dxdb-filesystem` and `dxdb-sharding` use.
+dxdb-testkit = { path = "../../dxdb-testkit" }
