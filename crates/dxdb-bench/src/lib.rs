@@ -70,13 +70,123 @@ pub fn dxdb_size_fixture_probe(input: &str) -> String {
     // feature is on, so its code cannot be dropped.
     let mut touched = input.len();
 
-    #[cfg(feature = "memory-bundle")]
+    #[cfg(any(feature = "memory-bundle", feature = "engine-memory-bundle"))]
     {
         // `MemoryStorage` itself is a unit struct with no inherent `name()`; the name
         // comes from the `RxStorage` impl, so bring the trait into scope.
         use dxdb_storage::RxStorage as _;
         let storage = dxdb_memory::MemoryStorage::new();
         touched += storage.name().len();
+    }
+
+    // --- The engine. This is what the real bundle contains and the fixtures above do
+    // not. Each call is a genuine code path, not an unreachable reference: dead-code
+    // elimination drops "used" functions that are never called, so a size fixture that
+    // merely names them measures the binding floor and reports a flattering number.
+    #[cfg(any(feature = "engine", feature = "schema-only-bundle"))]
+    {
+        // schema: defaulting, the meta schema, field lookup and sorting.
+        let raw = serde_json::json!({
+            "version": 0,
+            "primaryKey": "id",
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "maxLength": 100},
+                "age": {"type": "number"}
+            },
+            "required": ["id", "age"],
+            "indexes": ["age"]
+        });
+        if let Ok(filled) = dxdb_schema::fill_with_default_settings(&raw) {
+            touched += filled.as_object().map(|m| m.len()).unwrap_or(0);
+            touched += dxdb_schema::primary_field_of_primary_key(&filled)
+                .map(|p| p.len())
+                .unwrap_or(0);
+            touched += dxdb_schema::sort_object(&filled)
+                .as_object()
+                .map(|m| m.len())
+                .unwrap_or(0);
+        }
+        touched += dxdb_schema::rx_meta_schema()
+            .as_object()
+            .map(|m| m.len())
+            .unwrap_or(0);
+    }
+
+    #[cfg(feature = "engine")]
+    {
+        // query: index-string encoding and range bounds, i.e. the planner's actual work.
+        // Its own `raw` because this block is compiled independently of the schema block
+        // (the `schema-only` fixture enables one without the other).
+        let bounds_schema = serde_json::json!({
+            "version": 0,
+            "primaryKey": "id",
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "maxLength": 100},
+                "age": {"type": "number", "minimum": 0, "maximum": 150, "multipleOf": 1}
+            },
+            "required": ["id", "age"],
+            "indexes": ["age"]
+        });
+        let index = vec!["age".to_string()];
+        if let Ok(meta) = dxdb_query::custom_index::index_meta(&bounds_schema, &index) {
+            touched += meta.len();
+        }
+        if let Ok(lower) = dxdb_query::custom_index::get_start_index_string_from_lower_bound(
+            &bounds_schema,
+            &index,
+            &[dxdb_query::custom_index::BoundValue::IndexMin],
+        ) {
+            touched += lower.len();
+            touched +=
+                dxdb_query::custom_index::change_indexable_string_by_one_quantum(&lower, 1).len();
+        }
+        // The selector matcher: Mango operators, including the regex path.
+        if let Ok(matcher) = dxdb_query::matcher::Matcher::new(&serde_json::json!({
+            "age": {"$gt": 1}
+        })) {
+            let doc = serde_json::json!({"id": "a", "age": 2});
+            touched += if matcher.matches(&doc) { 1 } else { 0 };
+        }
+    }
+
+    #[cfg(feature = "full-engine-memory-bundle")]
+    {
+        // core + reactivity, the two engine crates the narrower fixtures leave out.
+        // A schema hash and a revision are the two cheapest real entry points into
+        // them that do not need a database.
+        let schema = serde_json::json!({
+            "version": 0,
+            "primaryKey": "id",
+            "type": "object",
+            "properties": {"id": {"type": "string", "maxLength": 100}},
+            "required": ["id"],
+            "indexes": []
+        });
+        let _ = &schema;
+        // core: the newest-of-states comparison and revision height, which is the
+        // conflict-resolution path a real bundle cannot drop.
+        if let Ok(doc) = dxdb_storage::DocumentData::from_value(serde_json::json!({
+            "_id": "a", "_rev": "1-tok", "_deleted": false,
+            "_meta": {"lwt": 1.0}, "_attachments": {}
+        })) {
+            touched += dxdb_core::revision_height(&doc).unwrap_or(0) as usize;
+            touched += dxdb_core::find_newest_of_document_states(std::slice::from_ref(&doc))
+                .map(|d| d.to_js_json().len())
+                .unwrap_or(0);
+        }
+        // reactivity: the change-event buffer's ordering logic.
+        touched += std::mem::size_of::<dxdb_reactivity::ChangeEventBuffer>();
+    }
+
+    #[cfg(feature = "regress-only-bundle")]
+    {
+        // Forces the ECMAScript-regex engine into the artifact so its share of the
+        // query crate's cost can be measured instead of guessed.
+        if let Ok(re) = regress::Regex::new(r"^a.*z$") {
+            touched += if re.find("abcz").is_some() { 1 } else { 0 };
+        }
     }
 
     #[cfg(feature = "opfs-bundle")]
@@ -90,7 +200,7 @@ pub fn dxdb_size_fixture_probe(input: &str) -> String {
         touched += dxdb_opfs::web::path_report().len();
     }
 
-    #[cfg(feature = "sqlite-bundle")]
+    #[cfg(any(feature = "sqlite-bundle", feature = "engine-sqlite-bundle"))]
     {
         // A driver handle rather than a database: constructing a `Connection` needs a
         // host filesystem, which the size artifact must not require.

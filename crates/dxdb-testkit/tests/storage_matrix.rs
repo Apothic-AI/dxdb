@@ -36,6 +36,10 @@
 //! cargo test -p dxdb-testkit --test storage_matrix -- --nocapture   # same, verbose
 //! ```
 
+// NOTE: the matrix catches a panic per case so one broken case does not hide the
+// rest. That needs `panic = "unwind"`; cargo test provides it. See
+// dxdb_testkit::suite::PANIC_STRATEGY.
+
 #[path = "support/mod.rs"]
 mod support;
 

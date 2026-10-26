@@ -20,6 +20,11 @@
 //! cargo test -p dxdb-filesystem --test conformance -- --nocapture
 //! ```
 
+// NOTE: per-case catching, so this reports all failures -- but only under
+// `panic = "unwind"`, which cargo test provides. See
+// dxdb_testkit::suite::PANIC_STRATEGY. The M5 `.wasm` runner deliberately does NOT
+// catch for this reason (panic="abort" in the release profile).
+
 use std::cell::RefCell;
 use std::path::PathBuf;
 

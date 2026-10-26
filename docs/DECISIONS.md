@@ -270,3 +270,38 @@ the record: the WebSocket test does, and the HTTP test is a different thing.
 **Verified evidence:** checkpoint equality is byte-identical including the `lwt` (both sides
 persisted `{id:"from-upstream",lwt:102}`), and a restart on either side produces zero
 `masterWrite` frames afterwards -- observed, not inferred.
+
+---
+
+## D10: `$options` follows JavaScript's real flag grammar, and there is no `x` flag
+
+**Decided:** 2026-10-26. **Raised by:** lane B, which corrected a brief I wrote.
+
+I asked the query lane to verify that every flag upstream accepts behaves the same, and listed
+`i m s u x` as the set to check. That list was wrong: **ECMAScript has no `x` flag.**
+`new RegExp('a', 'x')` throws. The free-spacing `x` flag belongs to PCRE and Python, not to
+JavaScript.
+
+The lane verified the real grammar against upstream mingo 7.2.5 rather than against my brief:
+
+| `$options` | upstream |
+| --- | --- |
+| `""` `d` `g` `i` `m` `s` `u` `v` `y` | accepted |
+| combinations `gimsuy` `dv` `du` `ims` | accepted |
+| repeated flag `ii` `uu` `vv` … | **throws** |
+| `u` + `v` together | **throws** (mutually exclusive) |
+| `x`, `X`, `I`, `z`, unknown | **throws** |
+
+**Decision:** dxdb rejects `x` with an error whose message says there is no `x` flag. It does not
+accept it as a no-op and does not implement free-spacing.
+
+**Why this matters enough to record:** accepting `x` would make dxdb *more permissive* than RxDB,
+which sounds harmless and is not. A query written against dxdb using `x` would fail on upstream, so
+the divergence surfaces as a support ticket rather than a test failure, and the direction is the bad
+one — we would be teaching users a syntax their other client rejects. Parity on an error path is
+parity too.
+
+**The general lesson, which applies to my own briefs:** a specification claim I write into a task is
+not evidence. The lane checked the flag list against upstream before implementing it, found one item
+wrong, and said so rather than implementing the brief as written. That is the behaviour I want, and
+recording the correction here is how the next person avoids re-deriving it.

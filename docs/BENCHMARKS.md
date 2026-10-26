@@ -37,6 +37,22 @@ Budgets are aspirational until measured; they get revised with numbers, not vibe
 Measure the release profile already in `Cargo.toml` (`opt-level="s"`, `lto="fat"`,
 `codegen-units=1`, `panic="abort"`), then brotli.
 
+### Status of the four budgets
+
+Two columns per row on purpose: the binding floor is not the budget test, and the
+engine-linked figure is. Both are measured; the second is the one that decides whether
+PLAN.md 5.3 was a real target.
+
+| Artifact | Budget (brotli) | Binding floor only | **With engine linked** | Status |
+| --- | ---: | ---: | ---: | --- |
+| `dxdb-js` core only | 250 KiB | 6,735 B | n/a (no engine by definition) | within, 95.1% unused |
+| `dxdb-js` + memory | 320 KiB | 6,759 B | **131,775 B** | **within, 59.8% unused** |
+| `dxdb-js` + OPFS | 400 KiB | 14,194 B | not measured: OPFS is wasm32-only and needs a worker to run, but its size does not depend on the engine | within, 96.5% unused |
+| `dxdb-js` + SQLite | 900 KiB | 283,011 B | **402,134 B** | **within, 55.1% unused** |
+
+Adding `dxdb-core` and `dxdb-reactivity` on top of schema+query costs a further 1,378 B
+(133,153 B total), so the memory budget holds with the *entire* engine present.
+
 ### Measurement 2026-10-26: all four budget rows, and the caveat that dominates them
 
 ```
@@ -60,7 +76,62 @@ ran on:     the box; only the artifact is fetched back for compression
 All three measured rows are **within budget**. That is the good news, and it is also
 where the honest reporting has to start.
 
-#### The caveat that matters more than the numbers
+#### Measurement 2026-10-26: the engine-linked bundles (the budget test)
+
+The rows above link a *storage* to the binding floor, which says how small the binding
+layer is. They are not the budget test, because `dxdb-js` links exactly one workspace
+crate (`dxdb-storage`): no schema validator, no query planner, no index-string encoder.
+These two rows link the engine, which is the first measurement where PLAN.md 5.3's
+numbers are a real constraint.
+
+| Bundle | Brotli q11 | Budget | Δ vs budget |
+| --- | ---: | ---: | ---: |
+| `dxdb-js` + schema + query + memory | **131,775 B** (128.7 KiB) | 320 KiB (327,680 B) | **−191.3 KiB (within by 59.8%)** |
+| `dxdb-js` + schema + query + sqlite | **402,134 B** (392.7 KiB) | 900 KiB (921,600 B) | **−507.3 KiB (within by 55.1%)** |
+| `dxdb-js` + core + reactivity + schema + query + memory | **133,153 B** (130.0 KiB) | 320 KiB (327,680 B) | **−190.0 KiB (within by 59.4%)** |
+
+**Both budgets hold with the engine linked.** That is the answer to "does PLAN.md 5.3
+survive contact", and it survives with roughly 59% and 55% of the respective budgets
+unused. `dxdb-core` and `dxdb-reactivity` cost only ~1.4 KiB brotli on top of
+schema+query (133,153 − 131,775), so the three-crate guess in the earlier caveat would
+have been wrong about where the weight is.
+
+##### Where the weight actually is (attribution, not guesswork)
+
+Measured by linking one dependency at a time, each with a real code path so dead-code
+elimination cannot drop it:
+
+| Fixture | Brotli q11 | Marginal cost |
+| --- | ---: | ---: |
+| binding floor (`dxdb-js` + `dxdb-storage`) | 6,735 B | — |
+| + `regress` alone (ECMAScript regex) | 86,511 B | **+79,776 B** |
+| + `dxdb-schema` alone | 37,864 B | **+31,129 B** |
+| + schema + query + memory | 131,775 B | +93,911 B over query's dependencies |
+| + core + reactivity on top | 133,153 B | **+1,378 B** |
+
+The dominant term is **`regress`, the ECMAScript-regex engine, at ~80 KiB brotli** —
+62% of the whole engine+memory bundle's cost over the binding floor (131,775 − 6,735 =
+125,040 B). It is pulled in by `dxdb-query` for Mango `$regex`, and PLAN.md 9 chose it
+deliberately because RxDB's `$regex` is ECMAScript and `regex`'s semantics differ. So
+this is a known, accepted cost rather than an accident — but it is worth naming, because
+if the 320 KiB budget were ever exceeded, `regress` would be the first place to look and
+a lazily-loaded `$regex` path would be the first remedy.
+
+`dxdb-schema` is ~31 KiB, of which the `jsonschema` crate is the bulk; our own schema
+code is a fraction. `dxdb-core` + `dxdb-reactivity` are negligible at this granularity.
+SQLite adds ~270 KiB on top of the engine (402,134 − 131,775), i.e. the embedded C
+database remains the single biggest line item in the largest bundle.
+
+#### The caveat that this measurement retires
+
+The paragraph below was true when it was written and is **no longer true**: the
+engine-linked rows above now contain `dxdb-schema`, `dxdb-query`, `dxdb-core` and
+`dxdb-reactivity`, so "within budget" is a statement about a bundle that contains the
+engine. It is kept for the record because the reasoning it records — that a bundle
+without the engine proves nothing about the budget — is why the measurement above
+exists.
+
+
 
 **These bundles do not contain the engine, so "within budget" does not yet mean the
 budget is achievable.** `crates/dxdb-js` today links exactly one workspace crate,
