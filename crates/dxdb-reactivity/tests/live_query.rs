@@ -92,6 +92,11 @@ fn delete_event(previous: DocumentData) -> ChangeEvent {
     }
 }
 
+/// The comparator and matcher as boxed `dyn Fn`, named so clippy's type-complexity lint is
+/// satisfied and the intent is legible.
+type BoxedComparator = Box<dyn Fn(&DocumentData, &DocumentData) -> Ordering>;
+type BoxedMatcher = Box<dyn Fn(&DocumentData) -> bool>;
+
 /// A live query: the compiled matcher/comparator plus the parameters event-reduce needs.
 ///
 /// Owns its normalised query so [`LiveQuery::params`] can hand out a `ReduceParams` borrowing
@@ -104,8 +109,8 @@ struct LiveQuery<'a> {
     sort_fields: Vec<String>,
     /// The comparator and matcher as `&dyn Fn`, because `ReduceParams` borrows them and a
     /// closure written inline in `params()` would be a temporary.
-    comparator_fn: Box<dyn Fn(&DocumentData, &DocumentData) -> Ordering>,
-    matcher_fn: Box<dyn Fn(&DocumentData) -> bool>,
+    comparator_fn: BoxedComparator,
+    matcher_fn: BoxedMatcher,
 }
 
 impl<'a> LiveQuery<'a> {
@@ -122,9 +127,9 @@ impl<'a> LiveQuery<'a> {
             .iter()
             .map(|part| part.field.clone())
             .collect();
-        let comparator_fn: Box<dyn Fn(&DocumentData, &DocumentData) -> Ordering> =
+        let comparator_fn: BoxedComparator =
             Box::new(move |left, right| comparator.compare(left.as_value(), right.as_value()));
-        let matcher_fn: Box<dyn Fn(&DocumentData) -> bool> =
+        let matcher_fn: BoxedMatcher =
             Box::new(move |document: &DocumentData| matcher.matches(document.as_value()));
         LiveQuery {
             schema,
