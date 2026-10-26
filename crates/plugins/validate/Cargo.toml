@@ -1,0 +1,28 @@
+[package]
+name = "dxdb-plugin-validate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: validate documents before they reach storage, reporting 422 write errors (RxDB src/plugins/validate-*)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-core = { path = "../../dxdb-core" }
+dxdb-schema = { path = "../../dxdb-schema" }
+dxdb-storage = { path = "../../dxdb-storage" }
+dxdb-json = { path = "../../dxdb-json" }
+# Same pin and the same `default-features = false` as dxdb-schema: the default features
+# enable `resolve-http`/`resolve-file`, which do not compile for wasm32-unknown-unknown.
+jsonschema = { version = "0.60.1", default-features = false }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[features]
+# Precompile each schema's validator once at first use instead of building it per instance.
+# The analogue of upstream's `validate-ajv-standalone`; see the crate docs for why this is
+# a feature rather than a second crate.
+precompiled = []

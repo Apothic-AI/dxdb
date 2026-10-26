@@ -736,6 +736,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-validate"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-json",
+ "dxdb-schema",
+ "dxdb-storage",
+ "jsonschema",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-vector"
 version = "0.0.0"
 dependencies = [
