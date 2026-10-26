@@ -208,7 +208,7 @@ impl OpTimings {
         let mut sorted = self.samples_ms.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let mid = sorted.len() / 2;
-        if sorted.len() % 2 == 0 {
+        if sorted.len().is_multiple_of(2) {
             (sorted[mid - 1] + sorted[mid]) / 2.0
         } else {
             sorted[mid]
@@ -316,10 +316,10 @@ pub fn time_ms<T>(f: impl FnOnce() -> T) -> (T, f64) {
 pub fn report_json(report: &BenchReport) -> String {
     let mut out = String::new();
     out.push_str("{\n");
-    let _ = writeln!(out, "  \"storage\": {},", json_str(&report.storage));
+    let _ = writeln!(out, "  \"storage\": {},", json_str(report.storage));
     let _ = writeln!(out, "  \"schema_version\": 1,");
     out.push_str("  \"environment\": {\n");
-    let _ = writeln!(out, "    \"box\": {},", json_str(&report.box_name));
+    let _ = writeln!(out, "    \"box\": {},", json_str(report.box_name));
     let _ = writeln!(out, "    \"toolchain\": {},", json_str(&report.toolchain));
     let _ = writeln!(out, "    \"idle_at_start\": {},", report.idle_at_start);
     let _ = writeln!(
