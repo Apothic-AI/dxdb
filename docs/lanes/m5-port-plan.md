@@ -566,6 +566,34 @@ bump.
 What we still do not implement: crash-safe commit, MVCC, and writer
 serialisation. Those come from the engine.
 
+**Claim 1b — the concurrency mode is target-dependent, and WASI loses multi-process.**
+
+Third correction to this section, and the most consequential one. `MultiWriter`
+requires **byte-range** file locks, and redb implements `RangeLock` only for
+linux/apple/windows; everywhere else it is `impl RangeLock for File {}`. The
+whole-file-lock fallback in `page_manager.rs` runs **only** for `ExclusiveWriter`.
+So on WASI:
+
+```text
+wasm32-wasip1 under Wasmtime, MultiWriter:  every case fails
+  "redb open: The storage backend does not support this operation"
+wasm32-wasip1 under Wasmtime, ExclusiveWriter: 12/12 pass
+```
+
+That is a platform fact rather than a bug: WASI offers whole-file locking, which is
+what `ExclusiveWriter` uses. `FilesystemStorage::concurrency_mode()` therefore picks
+per target, and `Capabilities::multi_process` is `false` on wasm so a caller does not
+have to read the source to find out. The cost, stated rather than hidden:
+`multiInstance: true` across two WASI instances sharing one preopened directory is
+unsupported, and the second open fails loudly with `DatabaseAlreadyOpen` rather than
+corrupting the file. A serverless host running one instance per directory -- the
+common WASI deployment -- is unaffected.
+
+This also invalidated one conformance case: `rollback_leaves_no_rows` opened a
+second handle mid-case, which cannot work on WASI and made the per-target case
+counts incomparable. It is now `row_count_is_exact_after_bulk_writes`, which tests
+exactness on every target.
+
 **Claim 2 — a second process sees the first process's committed writes.**
 Provided under `MultiWriter`, but only on a fresh transaction. redb is
 snapshot-isolated: a long-lived read transaction in process B keeps returning
@@ -1344,3 +1372,67 @@ The one table a reviewer or a lawyer should read.
 
 Anything not in this table has not been designed yet, which is the honest state
 of a preparation tranche.
+
+## 10. The M5 gate as it stands (measured)
+
+Run: `xtask/m5-conformance.sh`. One suite, five targets, one verdict per target.
+
+| Target | Command | Cases | Status |
+| --- | --- | --- | --- |
+| native | `cargo run -p dxdb-wasi --bin dxdb-conformance -- --dir <tmp>` | 12 | pass |
+| wasmtime-wasip1 | `wasmtime run --dir <host>::/data <p1>.wasm --dir /data` | 12 | pass |
+| wasmtime-wasip2 | `wasmtime run --dir <host>::/data <p2>.wasm --dir /data` | 12 | pass |
+| node-wasi | `node xtask/m5-node-wasi.mjs <p1>.wasm /data <host>` | 12 | pass |
+| node-napi | `node xtask/m5-node-napi.mjs <addon>.node <host-dir>` | 12 | pass |
+
+Versions: rustc 1.95.0, Wasmtime 50.0.0, Node v22.23.3, wasm-tools 1.246.2.
+
+**Node flags.** None are strictly required. `node:wasi` is experimental in Node 22
+and prints an `ExperimentalWarning` on stderr; the harness does not suppress it,
+because suppressing it would hide that the API is experimental. Add
+`--no-warnings` only if the noise matters. The napi path needs no flags at all: a
+`.node` addon is a plain `require`.
+
+**No local cargo build in the gate.** The wasm targets and the napi addon are built
+on the shared box through `cargo remote-3000` (with the same route fallback the
+Makefile uses), then fetched with `scp`. The only local steps are `scp` and Node
+loading the fetched artifacts, because a native addon loads in a Node process and
+nowhere else.
+
+**What is NOT proven by this gate, stated so it is not read as more than it is.**
+
+1. **The component does not export the WIT world.** `dxdb-wasi` still describes
+   `storage`/`conformance` interfaces in `wit/dxdb.wit`, but nothing is generated
+   from it: `wasm32-wasip2` currently produces a component wrapping the *CLI*
+   (verified: `wasm-tools component wit` shows a `root` world with the WASI imports
+   and no `dxdb:` exports). So the gate proves "the suite runs inside a component
+   with a preopen" and does **not** yet prove "a host can call dxdb through the
+   component model". Wiring `wit-bindgen` generation is the next step for this
+   crate, and it is a separate deliverable from the gate passing.
+2. **These are storage-level cases, not the upstream corpus.** 12 cases, not the
+   4,115-line `rx-storage-implementations.test.ts` that `make gate-storage`
+   targets. That port lives in `dxdb-testkit`, which does not exist yet, and its
+   cases sit on the `RxStorageInstance` trait one layer up. Passing this gate says
+   the *target* works end to end; it does not say storage parity is done.
+3. **SQLite is not in the suite.** `dxdb-sqlite` builds for wasip1/wasip2 and
+   `wasm32-wasi-vfs` is wired, but the suite drives `dxdb-filesystem` only. Adding a
+   second driver would make the gate test two backends per target; that is worth
+   doing and is not done.
+4. **napi needs a `deny`, not `forbid`, on `unsafe_code`.** `#[napi]` emits
+   `#[allow(unsafe_code)]`, which Rust refuses to let override an outer `forbid`
+   (E0453). `dxdb-node` therefore uses `deny` with the invariant written at the
+   line: no `unsafe` is written by us, all of it is napi-derive's generated
+   boundary code, and `deny` still fails the build on anything we add. This is the
+   exception the lane brief allows; it is worth a reviewer's eye anyway.
+
+**Make target to add** (this lane does not edit the Makefile):
+
+```make
+.PHONY: gate-m5
+gate-m5:
+	@xtask/m5-conformance.sh
+```
+
+It must not be wrapped in `$(LOCKED)`: it shells out to `cargo remote-3000`
+itself, which takes the build lock per invocation, and the suite run is local
+afterwards. The `.PHONY` line in the Makefile will need `gate-m5` added to it.
