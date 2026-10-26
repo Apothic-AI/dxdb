@@ -40,6 +40,18 @@ if [ "$#" -eq 0 ]; then
     exit 2
 fi
 
+# The machine has a service-state watchdog that stops it when no *lease* is held, and
+# our lanes never take a lease. So a build can find the box stopped, which presents as
+# "connection timed out" -- indistinguishable from a network fault. Recover it before
+# taking the lock, so a stopped box costs one retry rather than a lane that gives up.
+# Skipped when an ancestor already holds the lock: it did this check already.
+if [ -z "${DXDB_BUILD_LOCKED:-}" ]; then
+    if ! timeout 8 ssh -o ConnectTimeout=5 -o BatchMode=yes fly-builder true >/dev/null 2>&1; then
+        echo "with-build-lock: box unreachable, running recovery before the build" >&2
+        "$(dirname "$0")/ensure-box.sh" >&2 || exit 1
+    fi
+fi
+
 if [ -n "${DXDB_BUILD_LOCKED:-}" ]; then
     # An ancestor already holds the lock. Do not take it again; that is the
     # deadlock this script exists to prevent.
