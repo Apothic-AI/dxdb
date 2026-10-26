@@ -116,6 +116,14 @@ fn storages_under_test() -> Vec<UnderTest> {
             }),
         },
         UnderTest {
+            name: "opfs",
+            make: Box::new(|| {
+                Box::new(dxdb_opfs::OpfsStorage::new(Rc::new(
+                    dxdb_opfs::MemoryFiles::default(),
+                ))) as Box<dyn StorageDriver>
+            }),
+        },
+        UnderTest {
             name: "filesystem",
             make: Box::new(|| {
                 // A fresh temp root per sequence, so one sequence's redb file cannot leak
