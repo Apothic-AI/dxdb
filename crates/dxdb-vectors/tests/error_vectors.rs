@@ -33,51 +33,35 @@ fn declared_codes(v: &error_vectors::Vectors) -> std::collections::BTreeSet<&str
     v.declared_codes.iter().map(|c| c.code.as_str()).collect()
 }
 
+/// Every code our crates can return must exist in upstream's declared vocabulary.
+///
+/// The list of codes is **read from the crates' source**, not maintained here. An
+/// earlier version of this test held a hand-written array of the codes we return, which
+/// meant it could only catch a code someone remembered to add to the array: the sixth
+/// invented code would have sailed past it. Worse, that array was already incomplete —
+/// it listed `dxdb-schema` and `dxdb-query` and missed `dxdb-core`'s nine codes
+/// entirely, because that crate spells them `=> Some("COL22")` rather than
+/// `Self::X => "COL22"`.
+///
+/// Both spellings are extracted, from every `crates/*/src/error.rs`, so a new code in
+/// any of those tables is checked without anyone updating this file. A code that is not
+/// in upstream's vocabulary is either a code upstream has under a different name or one
+/// we invented; either way it must be accounted for.
 #[test]
 fn every_code_our_crates_return_exists_upstream() {
     let v = load();
     let declared = declared_codes(&v);
 
-    // Codes our crates can return, with the crate that returns them. Kept as a literal
-    // list rather than derived, because the point is to catch a code being *added* to
-    // one of those enums without a corresponding upstream entry: deriving it would
-    // require this test to know how to enumerate every enum, and it would then agree
-    // with whatever we wrote.
-    let our_codes: &[(&str, &str)] = &[
-        ("SC1", "dxdb-schema"),
-        ("SC7", "dxdb-schema"),
-        ("SC8", "dxdb-schema"),
-        ("SC11", "dxdb-schema"),
-        ("SC18", "dxdb-schema"),
-        ("SC19", "dxdb-schema"),
-        ("SC20", "dxdb-schema"),
-        ("SC24", "dxdb-schema"),
-        ("SC29", "dxdb-schema"),
-        ("SC30", "dxdb-schema"),
-        ("SC32", "dxdb-schema"),
-        ("SC33", "dxdb-schema"),
-        ("SC39", "dxdb-schema"),
-        ("SC41", "dxdb-schema"),
-        ("DOC18", "dxdb-schema"),
-        ("DOC19", "dxdb-schema"),
-        ("CI1", "dxdb-schema, dxdb-query"),
-        ("CI2", "dxdb-schema, dxdb-query"),
-        ("QU12", "dxdb-query"),
-        ("QU13", "dxdb-query"),
-        ("QU16", "dxdb-query"),
-        ("QU19", "dxdb-query"),
-        ("QU20", "dxdb-query"),
-        ("SNH", "dxdb-query"),
-        ("VD1", "dxdb-schema, dxdb-query"),
-        // --- Divergent: returned by our crates, absent from upstream's table. ---
-        ("QU21", "dxdb-query"),
-        ("QU22", "dxdb-query"),
-        ("QU23", "dxdb-query"),
-        ("QU24", "dxdb-query"),
-        ("SC44", "dxdb-schema"),
-    ];
+    let codes = codes_declared_in_our_sources();
 
-    // The codes we have agreed to treat as a known divergence, with the reason. Listed
+    assert!(
+        codes.len() > 20,
+        "extracted only {} codes from the crates' source; the extractor is probably \
+         broken, which would make this test vacuous rather than strict",
+        codes.len()
+    );
+
+    // Codes we have agreed to treat as a known divergence, with the reason. Listed
     // explicitly so a *new* invented code fails this test instead of joining a crowd.
     let known_divergent: &[(&str, &str)] = &[
         (
@@ -107,17 +91,17 @@ fn every_code_our_crates_return_exists_upstream() {
     ];
 
     let mut unexpected = Vec::new();
-    for (code, crate_name) in our_codes {
-        if declared.contains(code) {
+    for (code, crate_name) in &codes {
+        if declared.contains(code.as_str()) {
             continue;
         }
         let known = known_divergent.iter().any(|(c, _)| c == code);
         if !known {
             unexpected.push(format!(
-                "{code} (returned by {crate_name}) is not in upstream's declared \
-                 vocabulary and is not a recorded divergence.\n  Either upstream has a \
-                 code for this and we should return it, or it is an invented code and \
-                 must be added to `known_divergent` with a reason."
+                "{code} (from {crate_name}) is not in upstream's declared vocabulary and \
+                 is not a recorded divergence.\n  Either upstream has a code for this and \
+                 we should return it, or it is an invented code and must be added to \
+                 `known_divergent` with a reason."
             ));
         }
     }
@@ -129,15 +113,117 @@ fn every_code_our_crates_return_exists_upstream() {
         unexpected.join("\n")
     );
 
-    // And the known-divergent list must not go stale: if upstream ever gains one of
-    // these codes, the divergence disappears and the entry should too.
+    // The known-divergent list must not go stale: if upstream ever gains one of these
+    // codes the divergence is gone and the entry should be too. Equally, an entry for a
+    // code we no longer return is dead weight.
     for (code, _) in known_divergent {
         assert!(
             !declared.contains(code),
-            "{code} is recorded as a divergence but HAS appeared in upstream's \
-             vocabulary at this pin. Update our crates to match upstream and remove the \
-             entry from `known_divergent`."
+            "{code} is recorded as a divergence but HAS appeared in upstream's vocabulary \
+             at this pin. Update our crates to match upstream and remove the entry."
         );
+        assert!(
+            codes.iter().any(|(c, _)| c == code),
+            "{code} is recorded as a known divergence but is no longer returned by any \
+             crate; remove the stale entry."
+        );
+    }
+}
+
+/// Extract the `(code, crate)` pairs from every crate's `src/error.rs`.
+///
+/// Two spellings exist in this workspace, and both are read deliberately:
+///
+/// - `Self::Variant => "SC39",` — a `match` returning the code string
+///   (`dxdb-schema`, `dxdb-query`).
+/// - `CoreError::Variant { .. } => Some("COL22"),` — the same thing wrapped in `Some`
+///   (`dxdb-core`).
+///
+/// A crate that grows a third spelling will silently escape this check, which is why the
+/// count assertion above guards against the extractor quietly finding nothing.
+fn codes_declared_in_our_sources() -> Vec<(String, String)> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..");
+
+    let mut found: Vec<(String, String)> = Vec::new();
+    let mut error_files: Vec<std::path::PathBuf> = Vec::new();
+    collect_error_files(&root.join("crates"), &mut error_files);
+
+    for path in error_files {
+        let Ok(src) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let crate_name = path
+            .components()
+            .rev()
+            .filter_map(|c| c.as_os_str().to_str())
+            .nth(2)
+            .unwrap_or("<unknown>")
+            .to_string();
+
+        for line in src.lines() {
+            let line = line.trim();
+            // Shape 1: `Self::Variant => "CODE",`
+            if let Some(rest) = line.strip_prefix("Self::") {
+                if let Some(after) = rest.split_once("=> \"").map(|(_, r)| r) {
+                    if let Some((code, _)) = after.split_once('"') {
+                        if is_error_code(code) {
+                            found.push((code.to_string(), crate_name.clone()));
+                        }
+                    }
+                }
+                continue;
+            }
+            // Shape 2: `Something::Variant { .. } => Some("CODE"),`
+            if let Some((_, after)) = line.split_once("=> Some(\"") {
+                if let Some((code, _)) = after.split_once('"') {
+                    if is_error_code(code) {
+                        found.push((code.to_string(), crate_name.clone()));
+                    }
+                }
+            }
+        }
+    }
+
+    found.sort();
+    found.dedup();
+    found
+}
+
+/// An upstream error code: uppercase letters, optionally followed by digits (`SC39`,
+/// `QU21`, `SNH`, and the bare-word codes `CONFLICT` and `FETCH`).
+///
+/// Deliberately narrow, so a stray string literal in a `match` is not mistaken for a
+/// code. Note that the bare-word forms are real upstream codes, not transport statuses:
+/// both appear in upstream's vocabulary, which is why the check passes for them rather
+/// than special-casing them out.
+fn is_error_code(candidate: &str) -> bool {
+    !candidate.is_empty()
+        && candidate.len() <= 12
+        && candidate
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+}
+
+/// Walk `crates/` for `src/error.rs` files, without a dependency on a glob crate.
+fn collect_error_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_error_files(&path, out);
+        } else if path.file_name().and_then(|n| n.to_str()) == Some("error.rs")
+            && path
+                .parent()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                == Some("src")
+        {
+            out.push(path);
+        }
     }
 }
 
