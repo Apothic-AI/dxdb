@@ -30,6 +30,21 @@ than aspirational. PLAN.md section 7.2 lists the vector families:
 
 Gate: `make vectors-check` regenerates them and fails on drift.
 
+**Read them through `dxdb-vectors`, not by hand.** `crates/dxdb-vectors` is the
+supported reader: it has a typed struct per family whose field names match the JSON
+exactly, exposes the provenance header (so a test can assert which upstream commit
+it ran against rather than assuming), and resolves `testdata/vectors/` from its own
+manifest directory. Every struct denies unknown fields, so a generator change fails
+there loudly instead of being ignored. Its `tests/case_counts.rs` holds a committed
+expected case count per family, so a truncated or replaced file cannot silently
+shrink the corpus a test runs against.
+
+Vectors are generated data, not code. Do not edit a file to make a test pass, and do
+not skip a case that looks wrong: report it with the family, case index and `why`
+label so the generator can be fixed and the file regenerated with `make vectors`.
+The rules are repeated in the crate's module docs, which is where a consumer will
+actually read them.
+
 ## Tier 3: ported upstream test suites
 
 Translated one-to-one where possible, using `dxdb-testkit` to mirror upstream's

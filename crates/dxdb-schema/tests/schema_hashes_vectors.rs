@@ -164,59 +164,29 @@ fn hashes_match_upstream_oracle() {
 /// same store. The counterpart matters just as much: a real semantic change must move
 /// the hash, or two different schemas would share one storage.
 ///
-/// The relation schemas are literals inside the generator
-/// (`xtask/vectors/families/schema-hashes.mjs:206`), not separate cases, so they are
-/// reproduced here rather than looked up. Each one is a one-line edit of the `plain`
-/// base, which is what makes the relation meaningful.
+/// Both sides of every relation are read from the vector's own `cases`: each endpoint
+/// names a case, and `relationEntry.input` is that case's input schema. This test used
+/// to keep its own copies of the schemas keyed by the names the relations used, which
+/// meant it reproduced the generator's literals by hand. That worked only while the
+/// relations pointed at names that were not cases; when the generator was fixed to
+/// reference real cases, the hand-written map and the vector disagreed and this test
+/// failed on an unresolvable name rather than on a hash. Reading the schemas from the
+/// file is both shorter and the only version that cannot drift.
 #[test]
 fn hash_relations_hold() {
     let vector = load();
     let relations = vector["relations"].as_array().expect("relations array");
     assert!(!relations.is_empty(), "relations must be present");
 
-    let plain = base_schema();
-    let variants = |name: &str| -> Value {
-        match name {
-            "plain" => plain.clone(),
-            // Same schema, keys in a different order.
-            "reordered" => serde_json::json!({
-                "required": ["id"],
-                "primaryKey": "id",
-                "properties": { "id": { "maxLength": 100, "type": "string" } },
-                "type": "object",
-                "version": 0
-            }),
-            // The index the defaults would add, written out.
-            "explicitIndex" => {
-                let mut schema = plain.as_object().cloned().expect("object");
-                schema.insert(
-                    "indexes".into(),
-                    serde_json::json!([["_deleted", "id"]]),
-                );
-                Value::Object(schema)
-            }
-            // A duplicate `required` entry, which de-duplication must absorb.
-            "redundantRequired" => {
-                let mut schema = plain.as_object().cloned().expect("object");
-                schema.insert("required".into(), serde_json::json!(["id", "id"]));
-                Value::Object(schema)
-            }
-            // A real semantic change: a shorter primary key.
-            "differentMaxLength" => serde_json::json!({
-                "version": 0,
-                "type": "object",
-                "primaryKey": "id",
-                "properties": { "id": { "type": "string", "maxLength": 99 } },
-                "required": ["id"]
-            }),
-            // Another real semantic change: a version bump.
-            "versionBump" => {
-                let mut schema = plain.as_object().cloned().expect("object");
-                schema.insert("version".into(), serde_json::json!(1));
-                Value::Object(schema)
-            }
-            other => panic!("relation names a variant this test does not model: {other}"),
-        }
+    let cases = vector["cases"].as_array().expect("cases array");
+    let input_of = |name: &str| -> Value {
+        cases
+            .iter()
+            .find(|case| case["name"].as_str() == Some(name))
+            .unwrap_or_else(|| {
+                panic!("relation names {name:?}, which is not a case in the vector")
+            })["input"]
+            .clone()
     };
 
     for relation in relations {
@@ -230,42 +200,41 @@ fn hash_relations_hold() {
                 .unwrap_or_else(|error| panic!("{why}: schema does not build: {error}"));
             schema.hash().to_string()
         };
-        let hash_a = hash_of(&variants(a_name));
-        let hash_b = hash_of(&variants(b_name));
-        let recorded = relation["hash"].as_str().expect("hash");
+        let hash_a = hash_of(&input_of(a_name));
+        let hash_b = hash_of(&input_of(b_name));
+
+        // The recorded per-endpoint hashes must be what this implementation produces,
+        // whichever way the relation is formed.
+        assert_eq!(
+            hash_a,
+            relation["hashA"].as_str().expect("hashA"),
+            "{why}: the hash of {a_name} is wrong"
+        );
+        assert_eq!(
+            hash_b,
+            relation["hashB"].as_str().expect("hashB"),
+            "{why}: the hash of {b_name} is wrong"
+        );
 
         if equal {
             assert_eq!(
                 hash_a, hash_b,
                 "{why}: {a_name} and {b_name} must hash the same"
             );
-            assert_eq!(hash_a, recorded, "{why}: recorded shared hash");
         } else {
             assert_ne!(
                 hash_a, hash_b,
                 "{why}: {a_name} and {b_name} must hash differently, or two distinct \
                  schemas would share one storage"
             );
-            // The recorded hash is the hash of the changed side, which is how the
-            // generator wrote it.
-            assert_eq!(
-                hash_b, recorded,
-                "{why}: the changed schema's hash ({b_name}) must be the recorded one"
-            );
         }
+        // The relation's own claim about itself, independent of this implementation.
+        assert_eq!(
+            equal,
+            relation["hashA"] == relation["hashB"],
+            "{why}: equal flag disagrees with the recorded hashes"
+        );
     }
-}
-
-/// The `plain` base schema the relations are edits of
-/// (`xtask/vectors/families/schema-hashes.mjs:206`).
-fn base_schema() -> Value {
-    serde_json::json!({
-        "version": 0,
-        "type": "object",
-        "primaryKey": "id",
-        "properties": { "id": { "type": "string", "maxLength": 100 } },
-        "required": ["id"]
-    })
 }
 
 /// `hashStringCases`: the hash primitive itself, on known inputs.

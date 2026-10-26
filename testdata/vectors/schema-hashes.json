@@ -10,7 +10,7 @@
     "dateNow": "frozen monotonic clock starting at 1700000000000, +1 ms per call"
   },
   "algorithm": "sha256 hex of JSON.stringify(defaultedSchema)",
-  "caseCount": 51,
+  "caseCount": 52,
   "failedSchemas": [],
   "cases": [
     {
@@ -5307,28 +5307,21 @@
       "name": "synthetic:key-order-swapped",
       "origin": "synthetic",
       "input": {
-        "version": 0,
-        "type": "object",
-        "primaryKey": "id",
+        "required": [
+          "id"
+        ],
         "properties": {
-          "age": {
-            "maximum": 150,
-            "minimum": 0,
-            "type": "integer",
-            "multipleOf": 1
-          },
           "id": {
             "maxLength": 100,
             "type": "string"
           }
         },
-        "required": [
-          "id"
-        ],
-        "title": "key order test"
+        "primaryKey": "id",
+        "type": "object",
+        "version": 0
       },
-      "hash": "5c97b533e84f5f3d719a2ba94e234322c9b69daee921bc9cb4770c168d39ae20",
-      "hashInputLength": 638,
+      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashInputLength": 547,
       "defaultedSchema": {
         "additionalProperties": false,
         "encrypted": [],
@@ -5370,12 +5363,6 @@
             "minLength": 1,
             "type": "string"
           },
-          "age": {
-            "maximum": 150,
-            "minimum": 0,
-            "multipleOf": 1,
-            "type": "integer"
-          },
           "id": {
             "maxLength": 100,
             "type": "string"
@@ -5388,7 +5375,82 @@
           "_meta",
           "_attachments"
         ],
-        "title": "key order test",
+        "type": "object",
+        "version": 0
+      }
+    },
+    {
+      "name": "synthetic:max-length-changed",
+      "origin": "synthetic",
+      "input": {
+        "version": 0,
+        "type": "object",
+        "primaryKey": "id",
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 99
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "hash": "db665022f1eff66df8054ff9d771b8c86d03384b33f735dd9e56c77c328eef48",
+      "hashInputLength": 546,
+      "defaultedSchema": {
+        "additionalProperties": false,
+        "encrypted": [],
+        "indexes": [
+          [
+            "_deleted",
+            "id"
+          ],
+          [
+            "_meta.lwt",
+            "id"
+          ]
+        ],
+        "keyCompression": false,
+        "primaryKey": "id",
+        "properties": {
+          "_attachments": {
+            "type": "object"
+          },
+          "_deleted": {
+            "type": "boolean"
+          },
+          "_meta": {
+            "additionalProperties": true,
+            "properties": {
+              "lwt": {
+                "maximum": 1000000000000000,
+                "minimum": 1,
+                "multipleOf": 0.01,
+                "type": "number"
+              }
+            },
+            "required": [
+              "lwt"
+            ],
+            "type": "object"
+          },
+          "_rev": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 99,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "_deleted",
+          "_rev",
+          "_meta",
+          "_attachments"
+        ],
         "type": "object",
         "version": 0
       }
@@ -5626,38 +5688,51 @@
   "relations": [
     {
       "why": "key-order-does-not-change-hash",
-      "a": "plain",
-      "b": "reordered",
+      "a": "synthetic:no-index-at-all",
+      "b": "synthetic:key-order-swapped",
       "equal": true,
-      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
+      "hashA": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashB": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
     },
     {
       "why": "explicit-default-index-equals-implicit-default",
-      "a": "plain",
-      "b": "explicitIndex",
+      "a": "synthetic:no-index-at-all",
+      "b": "synthetic:explicit-default-index",
       "equal": true,
-      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
+      "hashA": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashB": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
     },
     {
       "why": "redundant-required-does-not-change-hash",
-      "a": "plain",
-      "b": "redundantRequired",
+      "a": "synthetic:no-index-at-all",
+      "b": "synthetic:redundant-required",
       "equal": true,
-      "hash": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
+      "hashA": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashB": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed"
     },
     {
       "why": "max-length-change-changes-hash",
-      "a": "plain",
-      "b": "differentMaxLength",
+      "a": "synthetic:no-index-at-all",
+      "b": "synthetic:max-length-changed",
       "equal": false,
-      "hash": "db665022f1eff66df8054ff9d771b8c86d03384b33f735dd9e56c77c328eef48"
+      "hashA": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashB": "db665022f1eff66df8054ff9d771b8c86d03384b33f735dd9e56c77c328eef48"
     },
     {
       "why": "version-change-changes-hash",
-      "a": "plain",
-      "b": "versionBump",
+      "a": "synthetic:no-index-at-all",
+      "b": "synthetic:version-3",
       "equal": false,
-      "hash": "6231ccc985960e0de95aa6ee3302b404b5d0e83764917aed9f885e908d4a56d6"
+      "hashA": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashB": "4a0aa08118e860cdfbc43b945a925f500969086dc7d959ae25ff190c6e4939e3"
+    },
+    {
+      "why": "key-compression-change-changes-hash",
+      "a": "synthetic:no-index-at-all",
+      "b": "synthetic:key-compression-on",
+      "equal": false,
+      "hashA": "241df1b271f22cbb28957ffb3b78270eae063681d64e5a66d61af0916aad24ed",
+      "hashB": "fd430bf91c5282620ade73f8c7485af86bce9ad5a002fb227571d4db7af0b835"
     }
   ],
   "hashStringCases": [
