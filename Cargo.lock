@@ -297,6 +297,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-leader-election"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-local-documents"
 version = "0.0.0"
 dependencies = [
