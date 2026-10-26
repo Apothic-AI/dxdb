@@ -48,7 +48,7 @@ Integration tests in `crates/dxdb-query/tests/`:
 | `matcher_fuzz_differential.rs` | 4 | 240 selectors × 160 docs = 38,400 assertions |
 | `index_boundaries.rs` | 7 | 15 schemas × 189 boundary values + clamp/monotonicity |
 | `operator_interactions.rs` | 7 | 72 compound selectors × 23 docs = 1,656 assertions |
-| `sort_ties.rs` | 8 | **IN PROGRESS — see §2** |
+| `sort_ties.rs` | 8 | **UNVERIFIED — written, not yet seen green; see §2a** |
 
 `schema-hashes_vectors.rs` (5 tests) in `crates/dxdb-schema/tests/`. Unit modules:
 `dxdb-schema/src/tests.rs` (39), `dxdb-query/src/custom_index/tests.rs` (19),
@@ -58,7 +58,7 @@ Integration tests in `crates/dxdb-query/tests/`:
 
 ## 2. In progress right now
 
-### 2a. `crates/dxdb-query/tests/sort_ties.rs` — 7 of 8 passing
+### 2a. `crates/dxdb-query/tests/sort_ties.rs` — written, fix applied, UNVERIFIED
 
 Sort ties and stability (the leader's item 1). Supporting files, both uncommitted:
 `tests/support/sort-ties.mjs` (generator) and `tests/support/sort-ties.json` (17 cases,
@@ -77,15 +77,18 @@ Fix, in `sort.rs`:
 - the numeric/string fast path now `continue`s when it yields `Ordering::Equal` (covers `-0.0`
   vs `0.0` and equal-comparing string pairs) instead of returning `Equal`.
 
-**Remaining failure: `one_and_one_point_zero_are_tied`.** Assertion at
-`sort_ties.rs:342`-ish: `int-first: the primary key must break the tie identically either way`
-— got `["int","float"]`, expected `["float","int"]`. The `n`-only tie assertion now passes
-(both directions `Equal`), so `js_equal` works; the residual failure means the *normalised*
-`s`-only comparator is still not falling through to `id` for this pair. Suspect: `resolve_field`
-returns `Some(Value::Number(1))` vs `Some(Value::Number(1.0))` and `js_equal` is not reached
-before some other early return, or the corpus' `sortedIds` and the `id` values disagree.
-**Debug by asserting `n_only.compare` then `with_pk.compare` in isolation** — the test already
-does the former; add the latter. Do not weaken the assertion.
+**Verification state is uncertain — re-run the gates first.** The last *completed* test run
+(`/tmp/q-ties2.log`) was taken **before** the `js_equal` fix and failed on
+`one_and_one_point_zero_are_tied` with `left: Greater` at the `n`-only tie assertion — which is
+precisely the bug the fix targets. The run after the fix was killed by the build-box resize
+(`make test: Killed`, exit 2) and produced no output, so **there is no evidence yet that
+`sort_ties` passes**. The fix is present and committed in `c8380dd`; the test is unverified.
+
+So the first action is: `make check && make clippy && make test && make wasm` and read the
+`sort_ties` result. Expect 8/8. If `one_and_one_point_zero_are_tied` still fails, the residual
+is in the **normalised** comparator (the `n`-only path is fixed); debug by asserting
+`with_pk.compare(&int_document, &float_document)` directly — the test already asserts the
+`n`-only one. Do not weaken the assertion.
 
 Two other test-side errors were already fixed and are worth not re-introducing:
 - `every_normalized_sort_appends_the_primary_key_as_ascending` must allow a **caller-provided**
