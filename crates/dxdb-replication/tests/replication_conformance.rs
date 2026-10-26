@@ -25,7 +25,7 @@
 //! # Running
 //!
 //! ```text
-//! make test                                          # suite runs, cases report DEFERRED gaps
+//! make test                                          # the suite runs
 //! DXDB_RUN_CONFORMANCE=1 make test                   # of this crate: cases fail, protocol absent
 //! ```
 
@@ -36,7 +36,7 @@ mod common {
 use common::double::DoubleEndpoint;
 use dxdb_json::{Map, Value};
 use dxdb_replication::conformance::{
-    gate, human_data, human_primary_path, json_integer, Call, EndpointAdapter,
+    gate, human_data, human_primary_path, json_integer, Backing, Call, EndpointAdapter,
     ProtocolNotImplemented, ReplicationDriver, Suite, UPSTREAM_CASES,
 };
 
@@ -655,15 +655,17 @@ fn case_table_matches_upstream_and_every_case_has_a_test() {
     );
 
     // Every case names a test in this binary. `module::function` for the nested ones.
+    // Each case names `<file>::<function>`; the attachment cases live in
+    // `tests/attachment_cases.rs`, the rest here.
     let defined = [
         "live_replication::push_replication_to_client_server",
         "live_replication::two_collections",
         "conflict_handling::should_keep_the_master_state_as_default_conflict_handler",
-        "attachment_replication::attachment_inserted",
-        "attachment_replication::attachment_updated",
-        "attachment_replication::attachment_deleted",
-        "attachment_replication::attachment_master_state_on_conflict",
-        "attachment_disabled::attachment_disabled_binary_not_replicated",
+        "attachment_cases::attachment_inserted",
+        "attachment_cases::attachment_updated",
+        "attachment_cases::attachment_deleted",
+        "attachment_cases::attachment_master_state_on_conflict",
+        "attachment_cases::attachment_disabled_binary_not_replicated",
     ];
     assert_eq!(
         defined.len(),
@@ -672,13 +674,19 @@ fn case_table_matches_upstream_and_every_case_has_a_test() {
     );
     for case in UPSTREAM_CASES {
         assert!(
-            defined
-                .iter()
-                .any(|d| d.ends_with(&format!("::{}", case.rust_test))),
-            "upstream case {:?} ({}) maps to {} which is not defined in this file",
+            defined.contains(&case.rust_test),
+            "upstream case {:?} ({}) maps to {:?}, which is not in the expected set",
             case.name,
             case.span,
             case.rust_test
+        );
+        // Every case is real coverage now; a regression here means a case was quietly
+        // un-ported rather than that a gate is pending.
+        assert_eq!(
+            case.backing,
+            Backing::Ported,
+            "upstream case {:?} is not ported",
+            case.name
         );
     }
 
