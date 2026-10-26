@@ -177,8 +177,14 @@ pub fn shard_names(
     shard: u32,
 ) -> (String, String) {
     match mode {
-        ShardMode::Collection => (database_name.to_string(), format!("{collection_name}-shard{shard}")),
-        ShardMode::Database => (format!("{database_name}-shard{shard}"), collection_name.to_string()),
+        ShardMode::Collection => (
+            database_name.to_string(),
+            format!("{collection_name}-shard{shard}"),
+        ),
+        ShardMode::Database => (
+            format!("{database_name}-shard{shard}"),
+            collection_name.to_string(),
+        ),
     }
 }
 
@@ -199,7 +205,14 @@ mod tests {
     #[test]
     fn routing_is_a_pure_function_of_the_key_and_the_count() {
         for shards in [1u32, 2, 3, 7, 10, 64, 1000] {
-            for key in ["a", "doc-1", "", "😀", "_rxdb_internal", "z".repeat(200).as_str()] {
+            for key in [
+                "a",
+                "doc-1",
+                "",
+                "😀",
+                "_rxdb_internal",
+                "z".repeat(200).as_str(),
+            ] {
                 let first = shard_of(key, shards);
                 assert_eq!(first, shard_of(key, shards), "pure for {key:?}/{shards}");
                 assert!(first < shards, "in range for {key:?}/{shards}");
@@ -225,7 +238,10 @@ mod tests {
                 seen[shard_of(&format!("doc-{index}"), shards) as usize] += 1;
             }
             let occupied = seen.iter().filter(|count| **count > 0).count();
-            assert_eq!(occupied, shards as usize, "every shard got data at {shards}");
+            assert_eq!(
+                occupied, shards as usize,
+                "every shard got data at {shards}"
+            );
         }
     }
 
@@ -249,20 +265,32 @@ mod tests {
 
     #[test]
     fn a_missing_block_means_not_sharded() {
-        assert!(ShardingConfig::from_schema(&serde_json::json!({"primaryKey": "id"}))
-            .expect("valid")
-            .is_none());
-        assert!(ShardingConfig::from_schema(&serde_json::json!({"sharding": null}))
-            .expect("valid")
-            .is_none());
+        assert!(
+            ShardingConfig::from_schema(&serde_json::json!({"primaryKey": "id"}))
+                .expect("valid")
+                .is_none()
+        );
+        assert!(
+            ShardingConfig::from_schema(&serde_json::json!({"sharding": null}))
+                .expect("valid")
+                .is_none()
+        );
     }
 
     #[test]
     fn a_malformed_block_is_an_error_not_a_silent_skip() {
         assert!(ShardingConfig::from_schema(&serde_json::json!({"sharding": "yes"})).is_err());
-        assert!(ShardingConfig::from_schema(&serde_json::json!({"sharding": {"mode": "collection"}})).is_err());
-        assert!(ShardingConfig::from_schema(&serde_json::json!({"sharding": {"shards": 0, "mode": "collection"}})).is_err());
-        assert!(ShardingConfig::from_schema(&serde_json::json!({"sharding": {"shards": 2}})).is_err());
+        assert!(ShardingConfig::from_schema(
+            &serde_json::json!({"sharding": {"mode": "collection"}})
+        )
+        .is_err());
+        assert!(ShardingConfig::from_schema(
+            &serde_json::json!({"sharding": {"shards": 0, "mode": "collection"}})
+        )
+        .is_err());
+        assert!(
+            ShardingConfig::from_schema(&serde_json::json!({"sharding": {"shards": 2}})).is_err()
+        );
         assert!(ShardingConfig::from_schema(
             &serde_json::json!({"sharding": {"shards": 2, "mode": "bogus"}})
         )
@@ -277,8 +305,7 @@ mod tests {
 
     #[test]
     fn mode_decides_which_name_carries_the_suffix() {
-        let (database, collection) =
-            shard_names(ShardMode::Collection, "mydb", "humans", 3);
+        let (database, collection) = shard_names(ShardMode::Collection, "mydb", "humans", 3);
         assert_eq!(database, "mydb");
         assert_eq!(collection, "humans-shard3");
 

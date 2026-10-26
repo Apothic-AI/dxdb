@@ -154,7 +154,9 @@ fn corpus() -> Vec<Value> {
         ("rank-max", 9007199254740991.0),
         ("rank-min", -9007199254740991.0),
     ] {
-        documents.push(json!({"id": id, "name": format!("rank {id}"), "group": "numeric", "rank": rank}));
+        documents.push(
+            json!({"id": id, "name": format!("rank {id}"), "group": "numeric", "rank": rank}),
+        );
     }
     documents
 }
@@ -184,7 +186,14 @@ fn queries() -> Vec<Value> {
     // Windows: limit only, skip only, both, and the degenerate edges.
     for sort in [json!([{"name": "asc"}]), json!([{"rank": "asc"}])] {
         for skip in [0usize, 1, 3, 7, 20, 1000] {
-            for limit in [None, Some(0usize), Some(1), Some(5), Some(100), Some(10_000)] {
+            for limit in [
+                None,
+                Some(0usize),
+                Some(1),
+                Some(5),
+                Some(100),
+                Some(10_000),
+            ] {
                 let mut query = json!({"selector": {}, "sort": sort});
                 if skip > 0 {
                     query["skip"] = json!(skip);
@@ -210,7 +219,9 @@ fn queries() -> Vec<Value> {
         queries.push(json!({"selector": selector, "sort": json!([{"name": "asc"}])}));
         queries.push(json!({"selector": selector, "sort": json!([{"rank": "desc"}])}));
         queries.push(json!({"selector": selector, "sort": json!([{"name": "asc"}]), "limit": 3}));
-        queries.push(json!({"selector": selector, "sort": json!([{"name": "asc"}]), "skip": 2, "limit": 3}));
+        queries.push(
+            json!({"selector": selector, "sort": json!([{"name": "asc"}]), "skip": 2, "limit": 3}),
+        );
     }
     queries
 }
@@ -225,8 +236,7 @@ fn write_corpus(instance: &DynRxStorageInstance<'_>, documents: &[Value]) {
             object.insert("_rev".to_string(), json!("1-corpus"));
             object.insert("_meta".to_string(), json!({"lwt": 1000}));
             object.insert("_attachments".to_string(), json!({}));
-            let document =
-                DocumentData::from_value(Value::Object(object)).expect("valid document");
+            let document = DocumentData::from_value(Value::Object(object)).expect("valid document");
             BulkWriteRow::insert(DocumentWriteData::new(document))
         })
         .collect();
@@ -239,9 +249,14 @@ fn write_corpus(instance: &DynRxStorageInstance<'_>, documents: &[Value]) {
 }
 
 /// The outcome of one query against one storage.
-fn run_query(instance: &DynRxStorageInstance<'_>, prepared: &PreparedQuery) -> (Vec<DocumentData>, usize) {
+fn run_query(
+    instance: &DynRxStorageInstance<'_>,
+    prepared: &PreparedQuery,
+) -> (Vec<DocumentData>, usize) {
     let documents = block_on(instance.query(prepared.clone())).expect("query");
-    let count = block_on(instance.count(prepared.clone())).expect("count").count;
+    let count = block_on(instance.count(prepared.clone()))
+        .expect("count")
+        .count;
     (documents, count)
 }
 
@@ -311,10 +326,9 @@ fn inv_01_results_equal_unsharded() {
 
     // Build the reference once.
     let reference_storage = MemoryStorage::new();
-    let reference = block_on(reference_storage.create_storage_instance(params_for(
-        &schema_for(None),
-        "reference",
-    )))
+    let reference = block_on(
+        reference_storage.create_storage_instance(params_for(&schema_for(None), "reference")),
+    )
     .expect("reference instance");
     write_corpus(reference.as_ref(), &documents);
 
@@ -328,13 +342,12 @@ fn inv_01_results_equal_unsharded() {
             };
             let sharded_storage = ShardedStorage::new(MemoryStorage::new(), config);
             let collection_name = format!("sharded-{shards}-{}", mode.as_str());
-            let sharded = block_on(
-                sharded_storage.create_storage_instance(params_for(
+            let sharded =
+                block_on(sharded_storage.create_storage_instance(params_for(
                     &schema_for(Some(config)),
                     &collection_name,
-                )),
-            )
-            .expect("sharded instance");
+                )))
+                .expect("sharded instance");
             write_corpus(sharded.as_ref(), &documents);
 
             for query in queries() {
@@ -359,7 +372,10 @@ fn inv_01_results_equal_unsharded() {
         failures.join("\n\n")
     );
     // A guard against the corpus silently shrinking to nothing.
-    assert!(checked >= 300, "the corpus must stay substantial, was {checked}");
+    assert!(
+        checked >= 300,
+        "the corpus must stay substantial, was {checked}"
+    );
     eprintln!("INV-1: {checked} (config x query) combinations matched dxdb-memory exactly");
 }
 
@@ -374,10 +390,10 @@ fn inv_02_count_equals_query_length() {
         panic!("nonzero")
     };
     let sharded_storage = ShardedStorage::new(MemoryStorage::new(), config);
-    let instance = block_on(sharded_storage.create_storage_instance(params_for(
-        &schema_for(Some(config)),
-        "count-check",
-    )))
+    let instance = block_on(
+        sharded_storage
+            .create_storage_instance(params_for(&schema_for(Some(config)), "count-check")),
+    )
     .expect("instance");
     write_corpus(instance.as_ref(), &documents);
 
@@ -403,10 +419,9 @@ fn inv_03_each_document_lives_in_one_shard() {
         panic!("nonzero")
     };
     let sharded_storage = ShardedStorage::new(MemoryStorage::new(), config);
-    let instance = block_on(sharded_storage.create_storage_instance(params_for(
-        &schema_for(Some(config)),
-        "one-home",
-    )))
+    let instance = block_on(
+        sharded_storage.create_storage_instance(params_for(&schema_for(Some(config)), "one-home")),
+    )
     .expect("instance");
     write_corpus(instance.as_ref(), &documents);
 
@@ -418,7 +433,14 @@ fn inv_03_each_document_lives_in_one_shard() {
     assert_eq!(found.len(), ids.len(), "every id resolves exactly once");
     let mut returned: Vec<String> = found
         .iter()
-        .map(|document| document.get("id").expect("id").as_str().expect("string").to_string())
+        .map(|document| {
+            document
+                .get("id")
+                .expect("id")
+                .as_str()
+                .expect("string")
+                .to_string()
+        })
         .collect();
     returned.sort();
     returned.dedup();
@@ -426,12 +448,13 @@ fn inv_03_each_document_lives_in_one_shard() {
 
     // Routing is a pure function, so each id's shard is stable and the total across
     // shards is the document count.
-    let by_shard: Vec<usize> = ids
-        .iter()
-        .fold(vec![0usize; config.shards.get() as usize], |mut counts, id| {
+    let by_shard: Vec<usize> = ids.iter().fold(
+        vec![0usize; config.shards.get() as usize],
+        |mut counts, id| {
             counts[config.shard_of(id) as usize] += 1;
             counts
-        });
+        },
+    );
     assert_eq!(by_shard.iter().sum::<usize>(), ids.len());
 }
 
@@ -473,8 +496,14 @@ fn corpus_size_is_reported() {
         queries().len(),
         combinations
     );
-    assert!(queries().len() >= 30, "the query corpus must stay substantial");
-    assert!(corpus().len() >= 30, "the document corpus must stay substantial");
+    assert!(
+        queries().len() >= 30,
+        "the query corpus must stay substantial"
+    );
+    assert!(
+        corpus().len() >= 30,
+        "the document corpus must stay substantial"
+    );
 }
 
 /// `NonZeroU32` is part of the public config surface; `Cargo.toml` silence guard.
