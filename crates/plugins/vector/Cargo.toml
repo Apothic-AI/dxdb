@@ -1,0 +1,13 @@
+[package]
+name = "dxdb-plugin-vector"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: vector distance and similarity functions (RxDB src/plugins/vector)"
+
+[dependencies]
+dxdb-jsnum = { path = "../../dxdb-jsnum" }
+
+[dev-dependencies]

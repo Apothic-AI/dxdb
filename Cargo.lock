@@ -736,6 +736,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-vector"
+version = "0.0.0"
+dependencies = [
+ "dxdb-jsnum",
+]
+
+[[package]]
 name = "dxdb-query"
 version = "0.0.0"
 dependencies = [
