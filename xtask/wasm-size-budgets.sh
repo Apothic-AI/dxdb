@@ -94,8 +94,7 @@ echo "  out: $OUT"
 
 FAILED=0
 SEEN_STATUS=0
-: > "$OUT/results.json"
-printf '{\n  "bundles": [\n' >> "$OUT/results.json"
+ROWS=()
 
 for row in "${BUNDLES[@]}"; do
   IFS=: read -r label budget_kib feature <<< "$row"
@@ -140,13 +139,17 @@ for row in "${BUNDLES[@]}"; do
   json=$(cargo run --release -q --package dxdb-bench --features wasm-size --bin wasm-size -- \
            "$wasm" "$budget_bytes" "$label" 2>>"$log" | head -1)
   if [ "$attribution" = "1" ]; then
-    # Attribution fixtures have no budget: they exist to split a cost, not to pass.
+    # Attribution fixtures have no budget: they exist to split a cost, not to pass or
+    # fail. The `status` the measuring tool emits would read "EXCEEDED" against a zero
+    # budget, so it is rewritten here -- otherwise a CI diff of this file reports two
+    # permanent false failures and the real signal is lost in the noise.
     bytes=$(printf '%s' "$json" | sed 's/.*"brotli_q11_bytes":\([0-9]*\).*/\1/')
     printf '  %-18s (attribution, no budget): %s B brotli\n' "$label" "$bytes"
+    json=$(printf '%s' "$json" | sed 's/"status":"[A-Za-z]*"/"status":"attribution"/')
   else
     echo "  $line"
   fi
-  printf '    %s,\n' "$json" >> "$OUT/results.json"
+  ROWS+=("$json")
   if [ "$attribution" != "1" ]; then
     case "$json" in
       *'"status":"EXCEEDED"'*) FAILED=1 ;;
@@ -155,7 +158,18 @@ for row in "${BUNDLES[@]}"; do
   SEEN_STATUS=$((SEEN_STATUS + 1))
 done
 
-printf '  ]\n}\n' >> "$OUT/results.json"
+{
+  printf '{\n  "bundles": [\n'
+  last=$((${#ROWS[@]} - 1))
+  for i in "${!ROWS[@]}"; do
+    if [ "$i" -eq "$last" ]; then
+      printf '    %s\n' "${ROWS[$i]}"
+    else
+      printf '    %s,\n' "${ROWS[$i]}"
+    fi
+  done
+  printf '  ]\n}\n'
+} > "$OUT/results.json"
 
 echo
 if [ $SEEN_STATUS -eq 0 ]; then
