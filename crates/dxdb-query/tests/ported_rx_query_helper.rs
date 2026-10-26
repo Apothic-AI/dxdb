@@ -57,7 +57,9 @@ fn normalized_sort(sort: Value) -> dxdb_query::FilledMangoQuery {
 /// generator reproduces a failure and `Math.random` does not.
 fn document(index: usize) -> Value {
     // A small LCG, so the corpus is varied but fixed.
-    let mut state = (index as u64).wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+    let mut state = (index as u64)
+        .wrapping_mul(6_364_136_223_846_793_005)
+        .wrapping_add(1);
     let mut next = |modulus: u64| -> u64 {
         state = state
             .wrapping_mul(6_364_136_223_846_793_005)
@@ -172,10 +174,7 @@ fn sort_and_slice_matches_full_sort_for_fixed_cases() {
             skip as u64,
             limit.map(|value| value as u64),
         );
-        assert_eq!(
-            actual, expected,
-            "skip={skip} limit={limit:?}"
-        );
+        assert_eq!(actual, expected, "skip={skip} limit={limit:?}");
     }
 }
 
@@ -238,8 +237,11 @@ fn sort_and_slice_and_collector_match_full_sort_for_many_shapes() {
                 "sort#{sort_index} {sort} skip={skip} limit={limit:?}"
             );
 
-            let mut collector =
-                create_top_k_documents_collector(&comparator, *skip as u64, limit.map(|v| v as u64));
+            let mut collector = create_top_k_documents_collector(
+                &comparator,
+                *skip as u64,
+                limit.map(|v| v as u64),
+            );
             for document in &documents {
                 collector.push(document.clone());
             }
@@ -302,8 +304,7 @@ fn selection_is_exact_across_the_crossover() {
             }
             let subset = &documents[..n];
             let expected = expected_result(subset, &comparator, skip as usize, Some(k as usize));
-            let actual =
-                sort_and_slice_documents(subset.to_vec(), &comparator, skip, Some(k));
+            let actual = sort_and_slice_documents(subset.to_vec(), &comparator, skip, Some(k));
             assert_eq!(actual, expected, "n={n} skip={skip} k={k}");
         }
     }

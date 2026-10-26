@@ -58,6 +58,13 @@ fn selector(field: &str, operator: &str, operand: Value) -> Value {
     Value::Object(selector)
 }
 
+/// Builds `{operator: operand}` — the shape a field-level `$not` takes.
+fn operator_object(operator: &str, operand: Value) -> Value {
+    let mut object = serde_json::Map::new();
+    object.insert(operator.to_string(), operand);
+    Value::Object(object)
+}
+
 /// A generated document: a fixed schema-shaped object so selectors can address it.
 fn arb_document() -> impl Strategy<Value = Value> {
     (
@@ -80,18 +87,17 @@ fn arb_document() -> impl Strategy<Value = Value> {
 
 /// A comparison operator and its operand.
 fn arb_comparison() -> impl Strategy<Value = (&'static str, Value)> {
-    ("\\$eq|\\$ne|\\$gt|\\$gte|\\$lt|\\$lte", arb_scalar())
-        .prop_map(|(operator, operand)| {
-            let operator: &'static str = match operator.as_str() {
-                "$eq" => "$eq",
-                "$ne" => "$ne",
-                "$gt" => "$gt",
-                "$gte" => "$gte",
-                "$lt" => "$lt",
-                _ => "$lte",
-            };
-            (operator, operand)
-        })
+    ("\\$eq|\\$ne|\\$gt|\\$gte|\\$lt|\\$lte", arb_scalar()).prop_map(|(operator, operand)| {
+        let operator: &'static str = match operator.as_str() {
+            "$eq" => "$eq",
+            "$ne" => "$ne",
+            "$gt" => "$gt",
+            "$gte" => "$gte",
+            "$lt" => "$lt",
+            _ => "$lte",
+        };
+        (operator, operand)
+    })
 }
 
 /// A selector over the generated document shape.
@@ -321,6 +327,77 @@ proptest! {
             "$or must be the union of {} and {} on {}",
             left,
             right,
+            document
+        );
+    }
+
+    /// `$not` is an involution on a field selector: `$not` of `$not` is identity.
+    ///
+    /// Verified against upstream mingo 7.2.5 before being asserted. It is not obvious: a
+    /// field-level `$not` builds `criteria[field] = normalize(rhs)` and runs a sub-query
+    /// (`logical/not.js`), so the inner value is re-normalised rather than negated
+    /// structurally. That could have made double negation lossy — for instance by turning a
+    /// shorthand operand into `$eq` and then negating the wrapper — but the observed
+    /// behaviour is exactly identity, including for a *missing* field, which is the case a
+    /// naive implementation gets wrong.
+    #[test]
+    fn not_of_not_is_identity(
+        document in arb_document(),
+        operator in "\\$eq|\\$ne|\\$gt|\\$gte|\\$lt|\\$lte|\\$exists",
+        operand in arb_scalar(),
+        field in "num|text|_deleted",
+    ) {
+        // A field-level `$not` takes an *operator object* for the same field, not a nested
+        // `{field: ...}` selector: mingo's `logical/not.js` does
+        // `criteria[selector] = normalize(rhs)` and runs a sub-query, so `rhs` is what
+        // would sit beside `$eq` — `{$eq: 0}` — and wrapping it again in `{num: ...}` would
+        // name the field twice and test the field's *value* against a selector.
+        //
+        // The first version of this test made exactly that mistake and "found" a bug that
+        // was in the test. Checking the shape against upstream (mingo 7.2.5, via
+        // `getMingoQuery`) is what settled it: `{a: {$not: {$not: {$eq: 1}}}}` and
+        // `{a: {$eq: 1}}` agree on `[{a:1},{a:2},{a:null},{}, {a:'1'}]`.
+        let inner = operator_object(&operator, operand);
+        let once = selector(&field, "$not", inner.clone());
+        let twice = selector(&field, "$not", operator_object("$not", inner));
+        let once_matcher = Matcher::new(&once).expect("compiles");
+        let twice_matcher = Matcher::new(&twice).expect("compiles");
+        let negated = !once_matcher.matches(&document);
+        prop_assert_eq!(
+            twice_matcher.matches(&document),
+            negated,
+            "the inner selector must match where the single $not did not, for field {:?} \
+             with {}{}, in {}",
+            field,
+            operator,
+            " operand",
+            document
+        );
+    }
+
+    /// A field-level `$not` is the exact complement of its inner selector.
+    #[test]
+    fn not_complements_its_inner_selector(
+        document in arb_document(),
+        operand in arb_scalar(),
+        field in "num|text|_deleted",
+    ) {
+        // Both sides must be whole selectors (a field name at the top level), because
+        // `Matcher::new` takes a selector and rightly rejects a bare operator object as an
+        // unknown top-level operator.
+        let positive = selector(&field, "$eq", operand);
+        let negated = selector(&field, "$not", operator_object("$eq", {
+            // Clone the operand out of the already-built selector so both sides agree.
+            positive[&field]["$eq"].clone()
+        }));
+        let inner_matcher = Matcher::new(&positive).expect("compiles");
+        let negated_matcher = Matcher::new(&negated).expect("compiles");
+        prop_assert_ne!(
+            inner_matcher.matches(&document),
+            negated_matcher.matches(&document),
+            "$not must be the complement of {:?} for field {:?} in {}",
+            positive,
+            field,
             document
         );
     }

@@ -67,16 +67,16 @@ pub mod util;
 
 pub use decl::{Case, Coverage, Kind, PortStatus};
 pub use harness::{
-    build_correctness_query, build_prepared_query, fill_with_default_settings, Harness,
-    InstanceSpec, mango_query,
+    build_correctness_query, build_prepared_query, fill_with_default_settings, mango_query,
+    Harness, InstanceSpec,
 };
 pub use schemas::{
-    average_schema, hero_array, human, human_age_index, human_composite_primary,
-    human_minimal, human_with_all_index, nested_doc_schema, nested_human, no_index_human,
-    point, pseudo_schema_for_version, simple_array_hero, test_data_schema,
+    average_schema, hero_array, human, human_age_index, human_composite_primary, human_minimal,
+    human_with_all_index, nested_doc_schema, nested_human, no_index_human, point,
+    pseudo_schema_for_version, simple_array_hero, test_data_schema,
 };
 pub use util::{
     clone_value, current_seed, fast_or, is_fast_mode, next_tick, random_number, random_string,
-    random_string_with_special_chars, random_token, seed, wait, wait_until, NoSleep, Rng,
-    Sleeper, WaitUntilError, WaitUntilTimeout, YieldSleeper,
+    random_string_with_special_chars, random_token, seed, wait, wait_until, NoSleep, Rng, Sleeper,
+    WaitUntilError, WaitUntilTimeout, YieldSleeper,
 };

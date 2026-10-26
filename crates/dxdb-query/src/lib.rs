@@ -78,9 +78,10 @@ pub use normalize::{
     MangoQuery, PreparedQuery, SortDirection, SortPart,
 };
 pub use plan::{
-    get_in_query_range_opts, get_matcher_query_opts, get_query_plan, is_selector_satisfied_by_index,
-    promote_out_of_range_bound, rate_query_plan, PlanKey, QueryPlan, INDEX_MAX_STR,
-    LOGICAL_OPERATORS, LOWER_BOUND_LOGICAL_OPERATORS, UPPER_BOUND_LOGICAL_OPERATORS,
+    get_in_query_range_opts, get_matcher_query_opts, get_query_plan,
+    is_selector_satisfied_by_index, promote_out_of_range_bound, rate_query_plan, PlanKey,
+    QueryPlan, INDEX_MAX_STR, LOGICAL_OPERATORS, LOWER_BOUND_LOGICAL_OPERATORS,
+    UPPER_BOUND_LOGICAL_OPERATORS,
 };
 pub use sort::{get_sort_comparator, SortComparator};
 pub use top_k::{

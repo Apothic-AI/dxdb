@@ -31,15 +31,15 @@
 //! scaffold is lenient in places a real storage is not (it validates nothing). What the
 //! gate proves is that the *suite* executes, asserts, and can fail.
 
-use std::collections::BTreeMap;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use dxdb_storage::{
     BulkWriteResponse, BulkWriteRow, ChangeEvent, ChangedDocuments, Checkpoint, CountMode,
-    CountResult, DocumentData, DynRxStorageInstance,
-    EventBulk, FindAttachmentResult, InstanceCreationParams, Operation, PreparedQuery,
-    RxStorage, RxStorageInstance, SortDirection, StorageError, StorageSchema, WriteError,
+    CountResult, DocumentData, DynRxStorageInstance, EventBulk, FindAttachmentResult,
+    InstanceCreationParams, Operation, PreparedQuery, RxStorage, RxStorageInstance, SortDirection,
+    StorageError, StorageSchema, WriteError,
 };
 use serde_json::Value;
 
@@ -102,7 +102,6 @@ impl ReferenceStorage {
     pub fn new() -> Self {
         Self::default()
     }
-
 }
 
 impl RxStorage for ReferenceStorage {
@@ -257,7 +256,9 @@ impl RxStorageInstance for ReferenceInstance {
             }
 
             let operation = match (&stored, document.is_deleted()) {
-                (None, _) | (Some(_), false) if !stored.as_ref().is_some_and(|d| d.is_deleted()) => {
+                (None, _) | (Some(_), false)
+                    if !stored.as_ref().is_some_and(|d| d.is_deleted()) =>
+                {
                     Operation::Insert
                 }
                 (Some(existing), true) if !existing.is_deleted() => Operation::Delete,
@@ -304,10 +305,7 @@ impl RxStorageInstance for ReferenceInstance {
             .collect())
     }
 
-    async fn query(
-        &self,
-        prepared: PreparedQuery,
-    ) -> Result<Vec<DocumentData>, StorageError> {
+    async fn query(&self, prepared: PreparedQuery) -> Result<Vec<DocumentData>, StorageError> {
         self.ensure_usable()?;
         let state = self.state();
         let primary = self.primary().to_string();
@@ -544,107 +542,109 @@ pub fn matches_selector(document: &Value, selector: &Value) -> bool {
     let Some(selector) = selector.as_object() else {
         return true;
     };
-    selector.iter().all(|(key, condition)| {
-        match key.as_str() {
-            "$and" => condition
-                .as_array()
-                .expect("$and takes an array")
-                .iter()
-                .all(|sub| matches_selector(document, sub)),
-            "$or" => condition
-                .as_array()
-                .expect("$or takes an array")
-                .iter()
-                .any(|sub| matches_selector(document, sub)),
-            "$nor" => !condition
-                .as_array()
-                .expect("$nor takes an array")
-                .iter()
-                .any(|sub| matches_selector(document, sub)),
-            "$not" => !matches_selector(document, condition),
-            field => {
-                let value = dxdb_storage::get_object_path(document, field);
-                matches_condition(value, condition)
-            }
+    selector.iter().all(|(key, condition)| match key.as_str() {
+        "$and" => condition
+            .as_array()
+            .expect("$and takes an array")
+            .iter()
+            .all(|sub| matches_selector(document, sub)),
+        "$or" => condition
+            .as_array()
+            .expect("$or takes an array")
+            .iter()
+            .any(|sub| matches_selector(document, sub)),
+        "$nor" => !condition
+            .as_array()
+            .expect("$nor takes an array")
+            .iter()
+            .any(|sub| matches_selector(document, sub)),
+        "$not" => !matches_selector(document, condition),
+        field => {
+            let value = dxdb_storage::get_object_path(document, field);
+            matches_condition(value, condition)
         }
     })
 }
 
 fn matches_condition(value: Option<&Value>, condition: &Value) -> bool {
     // A bare value is `$eq`, which is what normalisation produces for `{a: 1}`.
-    let Some(operators) = condition.as_object().filter(|object| {
-        object.keys().any(|key| key.starts_with('$'))
-    }) else {
+    let Some(operators) = condition
+        .as_object()
+        .filter(|object| object.keys().any(|key| key.starts_with('$')))
+    else {
         return value_matches_eq(value, condition);
     };
 
-    operators.iter().all(|(operator, operand)| match operator.as_str() {
-        "$eq" => value_matches_eq(value, operand),
-        "$ne" => !value_matches_eq(value, operand),
-        "$gt" => compare(value, operand).is_some_and(|ordering| ordering.is_gt()),
-        "$gte" => compare(value, operand).is_some_and(|ordering| ordering.is_ge()),
-        "$lt" => compare(value, operand).is_some_and(|ordering| ordering.is_lt()),
-        "$lte" => compare(value, operand).is_some_and(|ordering| ordering.is_le()),
-        "$in" => {
-            let list = operand.as_array().expect("$in takes an array");
-            list.iter().any(|candidate| value_matches_eq(value, candidate))
-        }
-        "$nin" => {
-            let list = operand.as_array().expect("$nin takes an array");
-            !list.iter().any(|candidate| value_matches_eq(value, candidate))
-        }
-        "$exists" => {
-            let want = operand.as_bool().expect("$exists takes a bool");
-            want == value.is_some()
-        }
-        "$size" => {
-            let want = operand.as_u64().expect("$size takes a number") as usize;
-            value
-                .and_then(Value::as_array)
-                .map(|items| items.len() == want)
-                .unwrap_or(false)
-        }
-        "$elemMatch" => value
-            .and_then(Value::as_array)
-            .map(|items| {
-                items
+    operators
+        .iter()
+        .all(|(operator, operand)| match operator.as_str() {
+            "$eq" => value_matches_eq(value, operand),
+            "$ne" => !value_matches_eq(value, operand),
+            "$gt" => compare(value, operand).is_some_and(|ordering| ordering.is_gt()),
+            "$gte" => compare(value, operand).is_some_and(|ordering| ordering.is_ge()),
+            "$lt" => compare(value, operand).is_some_and(|ordering| ordering.is_lt()),
+            "$lte" => compare(value, operand).is_some_and(|ordering| ordering.is_le()),
+            "$in" => {
+                let list = operand.as_array().expect("$in takes an array");
+                list.iter()
+                    .any(|candidate| value_matches_eq(value, candidate))
+            }
+            "$nin" => {
+                let list = operand.as_array().expect("$nin takes an array");
+                !list
                     .iter()
-                    .any(|item| matches_element(item, operand))
-            })
-            .unwrap_or(false),
-        "$regex" => {
-            let pattern = operand.as_str().expect("$regex takes a string");
-            let options = operators
-                .get("$options")
-                .and_then(Value::as_str)
-                .unwrap_or("");
-            regex_matches(value, pattern, options)
-        }
-        // `$options` is consumed by `$regex`; seeing it alone is a no-op.
-        "$options" => true,
-        "$type" => match operand.as_str().expect("$type takes a string") {
-            "string" => value.map(Value::is_string).unwrap_or(false),
-            // `$type: "number"` in Mango means a JSON number written with a decimal
-            // point, not an integer. `serde_json` distinguishes them by backing type.
-            "number" => value.map(|v| v.is_f64() && !is_integral_float(v)).unwrap_or(false),
-            "integer" => value.map(|v| v.is_i64() || v.is_u64()).unwrap_or(false),
-            "boolean" => value.map(Value::is_boolean).unwrap_or(false),
-            "array" => value.map(Value::is_array).unwrap_or(false),
-            "object" => value.map(Value::is_object).unwrap_or(false),
-            "null" => value.map(Value::is_null).unwrap_or(false),
-            other => panic!("$type {other:?} is not in the supported set"),
-        },
-        "$mod" => {
-            let list = operand.as_array().expect("$mod takes [divisor, remainder]");
-            let divisor = list[0].as_f64().expect("divisor") as i64;
-            let remainder = list[1].as_f64().expect("remainder") as i64;
-            value
-                .and_then(Value::as_f64)
-                .map(|n| (n as i64) % divisor == remainder)
-                .unwrap_or(false)
-        }
-        other => panic!("selector operator {other:?} is not in the supported set"),
-    })
+                    .any(|candidate| value_matches_eq(value, candidate))
+            }
+            "$exists" => {
+                let want = operand.as_bool().expect("$exists takes a bool");
+                want == value.is_some()
+            }
+            "$size" => {
+                let want = operand.as_u64().expect("$size takes a number") as usize;
+                value
+                    .and_then(Value::as_array)
+                    .map(|items| items.len() == want)
+                    .unwrap_or(false)
+            }
+            "$elemMatch" => value
+                .and_then(Value::as_array)
+                .map(|items| items.iter().any(|item| matches_element(item, operand)))
+                .unwrap_or(false),
+            "$regex" => {
+                let pattern = operand.as_str().expect("$regex takes a string");
+                let options = operators
+                    .get("$options")
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                regex_matches(value, pattern, options)
+            }
+            // `$options` is consumed by `$regex`; seeing it alone is a no-op.
+            "$options" => true,
+            "$type" => match operand.as_str().expect("$type takes a string") {
+                "string" => value.map(Value::is_string).unwrap_or(false),
+                // `$type: "number"` in Mango means a JSON number written with a decimal
+                // point, not an integer. `serde_json` distinguishes them by backing type.
+                "number" => value
+                    .map(|v| v.is_f64() && !is_integral_float(v))
+                    .unwrap_or(false),
+                "integer" => value.map(|v| v.is_i64() || v.is_u64()).unwrap_or(false),
+                "boolean" => value.map(Value::is_boolean).unwrap_or(false),
+                "array" => value.map(Value::is_array).unwrap_or(false),
+                "object" => value.map(Value::is_object).unwrap_or(false),
+                "null" => value.map(Value::is_null).unwrap_or(false),
+                other => panic!("$type {other:?} is not in the supported set"),
+            },
+            "$mod" => {
+                let list = operand.as_array().expect("$mod takes [divisor, remainder]");
+                let divisor = list[0].as_f64().expect("divisor") as i64;
+                let remainder = list[1].as_f64().expect("remainder") as i64;
+                value
+                    .and_then(Value::as_f64)
+                    .map(|n| (n as i64) % divisor == remainder)
+                    .unwrap_or(false)
+            }
+            other => panic!("selector operator {other:?} is not in the supported set"),
+        })
 }
 
 /// `$type: "number"` in Mango means a JSON number that is not an integer, which is a
@@ -773,7 +773,10 @@ fn regex_matches(value: Option<&Value>, pattern: &str, options: &str) -> bool {
 /// One pattern atom: a literal character or a character class.
 enum Atom {
     Literal(char),
-    Class { negated: bool, ranges: Vec<(char, char)> },
+    Class {
+        negated: bool,
+        ranges: Vec<(char, char)>,
+    },
 }
 
 /// Parses the supported subset, panicking on anything else.
@@ -848,7 +851,11 @@ fn match_at(atoms: &[Atom], haystack: &[char], start: usize, anchored_end: bool)
 }
 
 /// Sorts documents by the query's sort, appended primary key included.
-fn sort_documents(documents: &mut [DocumentData], query: &dxdb_storage::MangoQuery, _primary: &str) {
+fn sort_documents(
+    documents: &mut [DocumentData],
+    query: &dxdb_storage::MangoQuery,
+    _primary: &str,
+) {
     documents.sort_by(|a, b| {
         for part in &query.sort {
             let a_value = a.get_object_path(&part.field);
@@ -904,6 +911,23 @@ fn compare_values(a: Option<&Value>, b: Option<&Value>) -> std::cmp::Ordering {
 /// splitting the support module in two for one constant.
 #[allow(dead_code)]
 pub const SUPPORTED_OPERATORS: &[&str] = &[
-    "$eq", "$gt", "$gte", "$lt", "$lte", "$ne", "$in", "$nin", "$exists", "$type", "$mod",
-    "$not", "$size", "$elemMatch", "$regex", "$options", "$and", "$or", "$nor",
+    "$eq",
+    "$gt",
+    "$gte",
+    "$lt",
+    "$lte",
+    "$ne",
+    "$in",
+    "$nin",
+    "$exists",
+    "$type",
+    "$mod",
+    "$not",
+    "$size",
+    "$elemMatch",
+    "$regex",
+    "$options",
+    "$and",
+    "$or",
+    "$nor",
 ];

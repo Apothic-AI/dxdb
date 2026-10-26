@@ -61,6 +61,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloc-no-stdlib"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc7bb162ec39d46ab1ca8c77bf72e890535becd1751bb45f64c597edb4c8c6b3"
+
+[[package]]
+name = "alloc-stdlib"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e76a019e91224d279006ff972f1e984179a6e9feb050adba6ce8274aef23195"
+dependencies = [
+ "alloc-no-stdlib",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -176,6 +191,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "brotli"
+version = "8.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cc91aac060a7a1e25823bdccbfb6af1875b88f17c6daac97894eed8207166b3"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
+ "brotli-decompressor",
+]
+
+[[package]]
+name = "brotli-decompressor"
+version = "5.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a32acac15fe1967bc3986b2a6347dffc965602354ea6f450ad07e8bfd253583"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
 ]
 
 [[package]]
@@ -351,6 +387,24 @@ name = "dxdb-attachments"
 version = "0.0.0"
 
 [[package]]
+name = "dxdb-bench"
+version = "0.0.0"
+dependencies = [
+ "brotli",
+ "dxdb-filesystem",
+ "dxdb-js",
+ "dxdb-memory",
+ "dxdb-schema",
+ "dxdb-sqlite",
+ "dxdb-storage",
+ "futures",
+ "redb",
+ "rusqlite",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "dxdb-core"
 version = "0.0.0"
 dependencies = [
@@ -387,11 +441,33 @@ name = "dxdb-filesystem"
 version = "0.0.0"
 dependencies = [
  "dxdb-json",
+ "dxdb-query",
  "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
  "redb",
  "serde_json",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "dxdb-indexeddb"
+version = "0.0.0"
+dependencies = [
+ "dxdb-json",
+ "dxdb-query",
+ "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
+ "futures-channel",
+ "js-sys",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -483,6 +559,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-cleanup"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-key-compression"
 version = "0.0.0"
 dependencies = [
@@ -490,6 +575,23 @@ dependencies = [
  "dxdb-jsstr",
  "dxdb-schema",
  "dxdb-storage",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-leader-election"
+version = "0.0.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-local-documents"
+version = "0.0.0"
+dependencies = [
+ "dxdb-schema",
  "serde_json",
  "thiserror",
 ]
@@ -514,6 +616,7 @@ dependencies = [
 name = "dxdb-plugin-query-builder"
 version = "0.0.0"
 dependencies = [
+ "dxdb-core",
  "dxdb-json",
  "dxdb-storage",
  "serde_json",
@@ -524,6 +627,7 @@ dependencies = [
 name = "dxdb-plugin-update"
 version = "0.0.0"
 dependencies = [
+ "dxdb-core",
  "dxdb-jsnum",
  "dxdb-json",
  "dxdb-jsstr",
@@ -541,6 +645,22 @@ dependencies = [
  "dxdb-schema",
  "proptest",
  "regress",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-reactivity"
+version = "0.0.0"
+dependencies = [
+ "dxdb-jsnum",
+ "dxdb-json",
+ "dxdb-jsstr",
+ "dxdb-query",
+ "dxdb-schema",
+ "dxdb-storage",
+ "futures",
+ "serde",
  "serde_json",
  "thiserror",
 ]
@@ -573,6 +693,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-sharding"
+version = "0.0.0"
+dependencies = [
+ "dxdb-jsstr",
+ "dxdb-memory",
+ "dxdb-query",
+ "dxdb-schema",
+ "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-sqlite"
 version = "0.0.0"
 dependencies = [
@@ -589,6 +724,7 @@ dependencies = [
  "dxdb-jsnum",
  "dxdb-json",
  "dxdb-jsstr",
+ "dxdb-vectors",
  "dynosaur",
  "futures",
  "serde",

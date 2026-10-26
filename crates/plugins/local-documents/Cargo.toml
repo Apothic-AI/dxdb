@@ -1,0 +1,16 @@
+[package]
+name = "dxdb-plugin-local-documents"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: per-instance documents that are never replicated (RxDB src/plugins/local-documents)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-schema = { path = "../../dxdb-schema" }
+
+[dev-dependencies]
+serde_json.workspace = true

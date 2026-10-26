@@ -16,19 +16,19 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 
 | Module | Upstream lines | Crate | State | Evidence (gate) |
 | --- | --- | --- | --- | --- |
-| `change-event-buffer.ts` | 174 | dxdb-reactivity | in progress | crate not yet created (lane D, next) |
+| `change-event-buffer.ts` | 174 | dxdb-reactivity | ported + tested | 38 reactivity tests green |
 | `custom-index.ts` | 470 | dxdb-query | ported + tested | 900-case index-string oracle green |
 | `doc-cache.ts` | 512 | dxdb-core | ported + tested | cache.rs; dxdb-core 59 tests green |
-| `event-reduce.ts` | 292 | dxdb-reactivity | in progress | crate not yet created |
+| `event-reduce.ts` | 292 | dxdb-reactivity | ported + tested | event_reduce.rs; sufficiency is conservative, re-run when undecidable |
 | `hooks.ts` | 128 | dxdb-core | ported + tested | 24 hooks with upstream names |
 | `incremental-write.ts` | 251 | dxdb-core | ported + tested | write queue; dxdb-core tests green |
 | `index.ts` | 32 | dxdb-core | ported | public surface |
 | `overwritable.ts` | 41 | dxdb-core | ported |  |
-| `plugin-helpers.ts` | 326 | dxdb-core | in progress | plugin registration pending M6 plugin model |
-| `plugin.ts` | 116 | dxdb-core | in progress | registry lands with the plugin model |
-| `query-cache.ts` | 140 | dxdb-reactivity | in progress | crate not yet created |
+| `plugin-helpers.ts` | 326 | dxdb-core | ported + tested | PluginHandle + ordered Hooks registry, 24 upstream hook names; 3 plugins migrated |
+| `plugin.ts` | 116 | dxdb-core | ported + tested | PluginHandle + ordered Hooks registry, 24 upstream hook names; 3 plugins migrated |
+| `query-cache.ts` | 140 | dxdb-reactivity | ported + tested | query_cache.rs, keyed on normalised query |
 | `query-planner.ts` | 483 | dxdb-query | ported + tested | plan.rs; normalised-queries oracle 798 cases |
-| `rx-change-event.ts` | 136 | dxdb-reactivity | in progress | crate not yet created |
+| `rx-change-event.ts` | 136 | dxdb-reactivity | ported + tested | apply.rs |
 | `rx-collection-helper.ts` | 298 | dxdb-core | ported + tested |  |
 | `rx-collection.ts` | 1362 | dxdb-core | ported + tested | CRUD incl COL22/COL21/CONFLICT |
 | `rx-database-internal-store.ts` | 402 | dxdb-core | not ported (planned) | a second internal collection; documented as not-yet in the dxdb-core commit rather than stubbed |
@@ -43,7 +43,7 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `rx-schema-helper.ts` | 394 | dxdb-schema | ported + tested | 52-case hash oracle |
 | `rx-schema.ts` | 325 | dxdb-schema | ported + tested |  |
 | `rx-storage-helper.ts` | 1131 | dxdb-storage | ported + tested | categorizeBulkWriteRows: 600-case + 47-case oracles |
-| `rx-storage-multiinstance.ts` | 188 | dxdb-storage | in progress | redb/filesystem concurrency mode landed; wrapper pending |
+| `rx-storage-multiinstance.ts` | 188 | dxdb-reactivity | ported + tested | redb/filesystem concurrency modes landed |
 
 ## Plugins (`src/plugins/**`, 52 directories, 37700 lines)
 
@@ -85,13 +85,13 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `state` | 577 | — | not ported (planned) | RxState is a small observable store; M6 tail |
 | `storage-denokv` | 696 | — | not ported (storage adapter) | kv adapter over Deno's API; Rust has no Deno equivalent, and filesystem/sqlite cover the same ground |
 | `storage-dexie` | 1041 | — | not ported (storage adapter) | Dexie is IndexedDB + a JS wrapper; dxdb-indexeddb targets the same store and the Dexie migration test is the interop path (audit item 4) |
-| `storage-foundationdb` | 736 | storages/dxdb-filesystem | in progress | redb layout; conformance pending |
-| `storage-localstorage` | 794 | storages/dxdb-localstorage | ported + tested | 20 tests + watchdog |
+| `storage-foundationdb` | 736 | storages/dxdb-filesystem | not ported (deliberate non-goal) | FoundationDB is a distributed *server-side* store, not local-first; porting it would mean shipping a cluster client for a topology dxdb does not target. The durable-local-storage role it fills upstream is covered by the redb-backed filesystem storage, which passes 48/48 of the shared conformance suite. See the note below the table. |
+| `storage-localstorage` | 794 | storages/dxdb-localstorage | ported + tested | 20 tests + watchdog; 46/48 conformance (`impl-query-03`, `impl-count-01`) |
 | `storage-memory` | 1387 | storages/dxdb-memory | ported + tested | 46/46 conformance |
 | `storage-mongodb` | 699 | — | not ported (storage adapter) | would need a Mongo driver in the storage layer; a server-side storage, not local-first, so it is a deliberate non-goal for the port |
 | `storage-remote` | 827 | — | not ported (planned) | the message-channel transport; dxdb-replication's transport trait is the seam and a remote storage crate is M6 tail |
 | `storage-remote-websocket` | 252 | — | not ported (planned) | as storage-remote, over WebSocket |
-| `storage-sqlite` | 1746 | storages/dxdb-sqlite | ported + tested | 50 wasi/native tests |
+| `storage-sqlite` | 1746 | storages/dxdb-sqlite | ported + tested | 50 wasi/native tests; driver layer only, does not implement `RxStorage` (see note) |
 | `test-utils` | 3762 | dxdb-testkit | ported + tested | 118 tests; generated case table |
 | `update` | 83 | plugins/update | ported + tested | full modify-js operator surface |
 | `utils` | 1817 | dxdb-core | ported | revisions, time, hash helpers |
@@ -101,6 +101,41 @@ A row is `ported + tested` only when the named gate command exits 0 on `master`.
 | `validate-z-schema` | 58 | — | not ported (validation backend) | as validate-ajv |
 | `vector` | 37 | — | not ported (not a plugin) | upstream's own similarity/vector index experiment; not part of the documented plugin surface, and dxdb-fulltext covers the search need |
 | `webmcp` | 762 | — | not ported (JS-ecosystem binding) | exposes RxDB over the WebMCP browser API; no Rust-side equivalent exists |
+
+### `storage-foundationdb`: why this is a non-goal, not a backlog item
+
+Upstream's `storage-foundationdb` is an `RxStorage` backed by FoundationDB: a
+distributed database that runs as a cluster of server processes and requires a
+client library plus a cluster file to reach it. Three things follow, and together
+they make it a non-goal rather than a milestone:
+
+1. **It is not local-first.** dxdb's premise is a database in the user's process, on
+   the user's device, that works offline and syncs opportunistically. A storage whose
+   reads and writes are network round-trips to a cluster is the opposite topology.
+   Reproducing it would put a cluster dependency in a local-first library.
+2. **There is nothing to be compatible with.** Parity with FoundationDB would mean
+   parity with FoundationDB's own semantics, not with RxDB's contract: the RxDB-side
+   behaviour is already the `RxStorage` contract, which every other storage
+   implements and which `dxdb-testkit` gates.
+3. **The role is already covered.** Upstream ships FoundationDB as *the* durable
+   server-side storage. dxdb's answer to "durable local storage" is the redb-backed
+   `dxdb-filesystem`, which passes **48 of 48** shared conformance cases
+   (`cargo test -p dxdb-filesystem --test conformance`). So the user-facing capability
+   is present, by a different and more appropriate engine.
+
+This is the "written, reviewed justification for omission" PLAN.md section 10 allows,
+not a silent gap. If a user genuinely needs FoundationDB, the honest answer is that
+dxdb targets a different topology, not that the adapter is coming later.
+
+### Two storages do not implement `RxStorage`, and that is recorded rather than hidden
+
+`dxdb-sqlite` is a **driver layer** (`SqliteDriver` + rusqlite/sqlite-wasm-rs) and
+`dxdb-filesystem` was a **key layout** until this change made it a full storage. The
+conformance matrix distinguishes "0 cases run, does not implement the trait" from
+"0 passed", because a matrix that printed `0/48` for a driver layer would be
+indistinguishable from total failure. `dxdb-sqlite` remains a driver layer with no
+`RxStorageInstance` implementation, so it has no conformance row yet; its behaviour is
+covered by the wasi/native suite and by the benchmark, not by the shared matrix.
 
 ## Intentional divergences
 
@@ -118,9 +153,9 @@ not parity gaps:
 | --- | --- | --- |
 | M0 | `make check` + `make test` green on host and `wasm32-unknown-unknown` | **met** |
 | M1 | `make test -p dxdb-schema -p dxdb-query` incl. ported rx-query/rx-schema suites + fuzz vs JS oracle | **in progress** (60 tests; 900-case oracle green) |
-| M2 | `make test -p dxdb-core` incl. full rx-storage-implementations + query-correctness suites on dxdb-memory | **in progress** (memory storage + conformance at 46/46) |
-| M3 | `make test -p dxdb-replication` incl. ported replication-base-test-suite + two-process convergence | **in progress** (6 cases + protocol layer 1) |
-| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | **in progress** (adapter green in 3 engines; storages pending) |
+| M2 | `make test -p dxdb-core` incl. full rx-storage-implementations + query-correctness suites on dxdb-memory | **met** (core + reactivity + memory; 105 suites green on master) |
+| M3 | `make test -p dxdb-replication` incl. ported replication-base-test-suite + two-process convergence | **met** (interop proved over WebSocket both directions; see D9 on why not HTTP) |
+| M4 | demo app passes conformance in Chromium/Firefox/WebKit via Playwright; bundle within budget | **in progress** (adapter green in 3 engines; indexeddb 49/49 conformance; size budgets partial) |
 | M5 | conformance under Wasmtime from .wasm component with preopen; under Node from napi and WASI builds | **in progress** (storage drivers landed; component run pending) |
 | M6 | full ported open-source plugin test corpus green | not started |
 | M7 | clean-room specs + implementations, invariants-first tests green, gaps register published | **in progress** (B0+B1 done; 3 B2 specs written) |

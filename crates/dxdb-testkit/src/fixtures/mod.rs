@@ -25,11 +25,11 @@ pub mod write;
 
 pub use correctness_support::{document_count, query_count, Group, Query, SchemaSource};
 pub use objects::{
-    EXAMPLE_REVISION_1, EXAMPLE_REVISION_2, EXAMPLE_REVISION_3, EXAMPLE_REVISION_4,
-    EXAMPLE_REVISIONS,
+    EXAMPLE_REVISIONS, EXAMPLE_REVISION_1, EXAMPLE_REVISION_2, EXAMPLE_REVISION_3,
+    EXAMPLE_REVISION_4,
 };
 pub use write::{
-    attachments_with, attachment_stub, delete_row, doc, field, field_path, insert_row, primary_of,
+    attachment_stub, attachments_with, delete_row, doc, field, field_path, insert_row, primary_of,
     test_doc_write_data, update_row, with_fields, write, write_data, write_data_lwt,
     write_data_with,
 };

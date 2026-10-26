@@ -51,10 +51,13 @@ use dxdb_json::{Map, Value};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Backing {
     /// Ported and executable against the suite's adapter.
+    ///
+    /// Every case in the upstream suite is at this level as of M3: the five opt-in
+    /// attachment cases were the last holdouts, and they now run in
+    /// `tests/attachment_cases.rs`. There is deliberately no `Deferred` variant left, so
+    /// adding a case that cannot run requires inventing one and justifying it rather than
+    /// quietly marking it.
     Ported,
-    /// Ported into the suite, but blocked on a capability that does not exist yet.
-    /// The string names the gate that unblocks it.
-    PortedDeferred(&'static str),
 }
 
 /// One case from the upstream suite, with the exact `it(...)` span so a reader can
@@ -89,7 +92,7 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "push replication to client-server",
         opt_in: false,
         backing: Backing::Ported,
-        rust_test: "push_replication_to_client_server",
+        rust_test: "live_replication::push_replication_to_client_server",
     },
     UpstreamCase {
         span: "src/plugins/test-utils/replication-base-test-suite.ts:156",
@@ -97,7 +100,7 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "two collections",
         opt_in: false,
         backing: Backing::Ported,
-        rust_test: "two_collections",
+        rust_test: "live_replication::two_collections",
     },
     UpstreamCase {
         span: "src/plugins/test-utils/replication-base-test-suite.ts:243",
@@ -105,80 +108,47 @@ pub const UPSTREAM_CASES: &[UpstreamCase] = &[
         name: "should keep the master state as default conflict handler",
         opt_in: false,
         backing: Backing::Ported,
-        rust_test: "should_keep_the_master_state_as_default_conflict_handler",
+        rust_test: "conflict_handling::should_keep_the_master_state_as_default_conflict_handler",
     },
     UpstreamCase {
         span: "src/plugins/test-utils/replication-base-test-suite.ts:276",
         block: "base test suite > attachment replication",
         name: "should replicate an inserted attachment",
         opt_in: true,
-        backing: Backing::PortedDeferred(
-            "THREE BLOCKERS, two of which already exist. (a) DONE: the digest, as \
-             Sha256HashFunction::hash. (b) DONE: a payload store that verifies the digest, as \
-             MemoryStorage::get_attachment_data; dxdb-memory is still a stub but the fixture \
-             proves the shape works. (c) MISSING: the protocol does not yet call \
-             fillWriteDataForAttachmentsChange at the three sites upstream does \
-             (upstream.ts:414, index.ts:208 and :242), so it never puts a payload on the wire. \
-             (d) MISSING and not in this crate: putAttachment/getAttachment are collection-layer \
-             (dxdb-core is empty), and the case body calls them directly. Unblocks when (c) is \
-             ported here AND dxdb-core has the document attachment API. This case also needs \
-             the PULL direction, which is not ported yet.",
-        ),
-        rust_test: "attachment_inserted",
+        backing: Backing::Ported,
+        rust_test: "attachment_cases::attachment_inserted",
     },
     UpstreamCase {
         span: "src/plugins/test-utils/replication-base-test-suite.ts:301",
         block: "base test suite > attachment replication",
         name: "should replicate an updated attachment",
         opt_in: true,
-        backing: Backing::PortedDeferred(
-            "same four blockers as attachment_inserted, plus one storage-side property the \
-             fixture already implements: re-writing an existing attachment id with a new \
-             digest replaces the payload rather than 510-ing. Nothing extra is needed from \
-             other lanes for this one beyond what that case lists.",
-        ),
-        rust_test: "attachment_updated",
+        backing: Backing::Ported,
+        rust_test: "attachment_cases::attachment_updated",
     },
     UpstreamCase {
         span: "src/plugins/test-utils/replication-base-test-suite.ts:336",
         block: "base test suite > attachment replication",
         name: "should replicate a deleted attachment",
         opt_in: true,
-        backing: Backing::PortedDeferred(
-            "same four blockers as attachment_inserted, plus stub removal: deleting the last \
-             attachment leaves `_attachments` as an empty object. No extra dependency beyond \
-             that case; the assertion is on the document shape.",
-        ),
-        rust_test: "attachment_deleted",
+        backing: Backing::Ported,
+        rust_test: "attachment_cases::attachment_deleted",
     },
     UpstreamCase {
         span: "src/plugins/test-utils/replication-base-test-suite.ts:369",
         block: "base test suite > attachment replication",
         name: "should keep the master attachment state on conflict",
         opt_in: true,
-        backing: Backing::PortedDeferred(
-            "the conflict half is DONE (the upstream pushes, resolves, and records \
-             isResolvedConflict, tested in upstream_push.rs). What remains is item (c) from \
-             attachment_inserted: the payload must ride the wire via a ported \
-             fillWriteDataForAttachmentsChange, so that after the master's stub wins the fork \
-             can fetch the payload for the winning digest. Also needs (d), the collection-layer \
-             putAttachment the body calls.",
-        ),
-        rust_test: "attachment_master_state_on_conflict",
+        backing: Backing::Ported,
+        rust_test: "attachment_cases::attachment_master_state_on_conflict",
     },
     UpstreamCase {
         span: "src/plugins/test-utils/replication-base-test-suite.ts:424",
         block: "base test suite > attachment replication disabled",
         name: "should not replicate attachment data when attachments are disabled",
         opt_in: true,
-        backing: Backing::PortedDeferred(
-            "needs a replication configured WITHOUT attachment transfer: hasAttachments false \
-             forces `_attachments: {}` on the write (convert.rs doc_state_to_write_doc already \
-             does this). So the protocol side is nearly ready; what is missing is (c)/(d) above \
-             plus the pull direction. The assertion is two-sided by design -- the document must \
-             arrive, the payload must not -- which needs both directions.",
-        ),
-        rust_test: "attachment_disabled_binary_not_replicated",
+        backing: Backing::Ported,
+        rust_test: "attachment_cases::attachment_disabled_binary_not_replicated",
     },
 ];
 

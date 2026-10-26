@@ -48,6 +48,7 @@ use dxdb_storage::{
     StorageError, WriteError,
 };
 
+use crate::attachments::fill_write_data_for_attachments_change;
 use crate::checkpoint::{last_checkpoint, set_checkpoint, Direction};
 use crate::conflict::{is_conflict_error, resolve_conflict_error, ConflictHandlerInput};
 use crate::convert::{strip_attachments_data_from_meta_write_rows, write_doc_to_doc_state};
@@ -491,10 +492,10 @@ impl<S: RxStorageInstance> Upstream<S> {
                 }
             }
 
-            to_push.push(WriteToMasterRow {
-                assumed_master_state: assumed_row.map(|row| row.doc_data.clone()),
-                new_document_state: doc_state,
-            });
+            to_push.push(WriteToMasterRow::new(
+                assumed_row.map(|row| row.doc_data.clone()),
+                doc_state,
+            ));
             meta_rows.insert(
                 id.clone(),
                 get_meta_write_row(
@@ -522,7 +523,27 @@ impl<S: RxStorageInstance> Upstream<S> {
         let mut conflict_states: BTreeMap<String, DocumentData> = BTreeMap::new();
 
         for chunk in to_push.chunks(batch_size) {
-            let chunk_rows: Vec<WriteToMasterRow> = chunk.to_vec();
+            let mut chunk_rows: Vec<WriteToMasterRow> = chunk.to_vec();
+
+            // Attach the payloads the master does not have before sending. `assumed_master_state`
+            // is the original: whatever the master is known to hold, so only new or changed
+            // attachments carry bytes. A `None` assumed state means the master holds nothing,
+            // so everything goes -- which is why a first push of an attachment-bearing document
+            // is the expensive one.
+            if self.state.has_attachments() {
+                for row in chunk_rows.iter_mut() {
+                    let filled = fill_write_data_for_attachments_change(
+                        self.state.fork(),
+                        self.state.primary_path(),
+                        &row.new_document_state,
+                        row.assumed_master_state.as_ref(),
+                    )
+                    .await?;
+                    // The payloads ride beside the document, never inside its JSON.
+                    row.attachment_payloads = filled.attachment_payloads().clone();
+                }
+            }
+
             self.last_push_batch = chunk_rows.clone();
             let reported = self.state.handler().master_write(chunk_rows).await?;
             for real_master_state in reported {

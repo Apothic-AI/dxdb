@@ -26,33 +26,35 @@ use crate::fixtures::correctness_support::{Group, Query, SchemaSource};
 /// Every group, in upstream order.
 pub fn groups() -> &'static [Group] {
     static GROUPS: OnceLock<Vec<Group>> = OnceLock::new();
-    GROUPS.get_or_init(|| vec![
-        group_01(),
-        group_02(),
-        group_03(),
-        group_04(),
-        group_05(),
-        group_06(),
-        group_07(),
-        group_08(),
-        group_09(),
-        group_10(),
-        group_11(),
-        group_12(),
-        group_13(),
-        group_14(),
-        group_15(),
-        group_16(),
-        group_17(),
-        group_18(),
-        group_19(),
-        group_20(),
-        group_21(),
-        group_22(),
-        group_23(),
-        group_24(),
-        group_25(),
-    ])
+    GROUPS.get_or_init(|| {
+        vec![
+            group_01(),
+            group_02(),
+            group_03(),
+            group_04(),
+            group_05(),
+            group_06(),
+            group_07(),
+            group_08(),
+            group_09(),
+            group_10(),
+            group_11(),
+            group_12(),
+            group_13(),
+            group_14(),
+            group_15(),
+            group_16(),
+            group_17(),
+            group_18(),
+            group_19(),
+            group_20(),
+            group_21(),
+            group_22(),
+            group_23(),
+            group_24(),
+            group_25(),
+        ]
+    })
 }
 
 /// `$gt/$gte`
@@ -456,10 +458,7 @@ fn group_07() -> Group {
             not_run_if_dexie: false,
             // The upstream calls that produced `data`, one per document,
             // or an empty string where upstream wrote the document literal out.
-            recipes: &[
-                "",
-                "",
-            ],
+            recipes: &["", ""],
         })
         .clone()
 }
@@ -999,7 +998,9 @@ fn group_18() -> Group {
             queries: vec![
                 Query {
                     info: r#"oneOptional is null"#,
-                    query: parse(r#"{"selector":{"oneOptional":null},"sort":[{"passportId":"asc"}]}"#),
+                    query: parse(
+                        r#"{"selector":{"oneOptional":null},"sort":[{"passportId":"asc"}]}"#,
+                    ),
                     expected_result_doc_ids: &[r#"not-there"#],
                     selector_satisfied_by_index: None,
                 },
@@ -1011,7 +1012,9 @@ fn group_18() -> Group {
                 },
                 Query {
                     info: r#"oneOptional is empty object"#,
-                    query: parse(r#"{"selector":{"oneOptional":{}},"sort":[{"passportId":"asc"}]}"#),
+                    query: parse(
+                        r#"{"selector":{"oneOptional":{}},"sort":[{"passportId":"asc"}]}"#,
+                    ),
                     expected_result_doc_ids: &[],
                     selector_satisfied_by_index: None,
                 },
@@ -1019,10 +1022,7 @@ fn group_18() -> Group {
             not_run_if_dexie: false,
             // The upstream calls that produced `data`, one per document,
             // or an empty string where upstream wrote the document literal out.
-            recipes: &[
-                "",
-                "",
-            ],
+            recipes: &["", ""],
         })
         .clone()
 }
@@ -1437,9 +1437,8 @@ fn group_25() -> Group {
 /// Parses one JSON literal from the generated data.
 #[track_caller]
 fn parse(text: &str) -> Value {
-    serde_json::from_str(text).unwrap_or_else(|err| {
-        panic!("generated JSON is malformed ({err}): {text}")
-    })
+    serde_json::from_str(text)
+        .unwrap_or_else(|err| panic!("generated JSON is malformed ({err}): {text}"))
 }
 
 /// Parses a list of JSON literals.

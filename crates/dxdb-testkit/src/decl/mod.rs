@@ -255,7 +255,8 @@ impl Case {
     /// the generator and [`Kind`] disagree — a build-time bug, not a data
     /// condition.
     pub fn kind_enum(&self) -> Kind {
-        Kind::parse(self.kind).unwrap_or_else(|| panic!("unknown kind {:?} in case {}", self.kind, self.id))
+        Kind::parse(self.kind)
+            .unwrap_or_else(|| panic!("unknown kind {:?} in case {}", self.kind, self.id))
     }
 
     /// `test/unit/….test.ts:376`, the citation form the lane brief requires.

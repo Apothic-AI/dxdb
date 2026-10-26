@@ -148,9 +148,12 @@ fn with_rng<T>(f: impl FnOnce(&Rng) -> T) -> T {
 
 /// Reseeds the process-wide generator, so a failing run can be replayed.
 pub fn seed(value: u64) {
-    *GLOBAL_RNG.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) =
-        Some(Rng::new(value));
-    *GLOBAL_SEED.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(value);
+    *GLOBAL_RNG
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(Rng::new(value));
+    *GLOBAL_SEED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(value);
 }
 
 /// The seed in use, printed by a failing run's panic message.

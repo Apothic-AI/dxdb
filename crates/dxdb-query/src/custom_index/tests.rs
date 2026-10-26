@@ -154,12 +154,8 @@ fn optional_field_encodes_as_spaces() {
         "indexes": [["id"], ["optional"]]
     }))
     .expect("fills");
-    let encoded = get_indexable_string(
-        &schema,
-        &index_of(&["optional"]),
-        &json!({"id": "foo"}),
-    )
-    .expect("encodes");
+    let encoded = get_indexable_string(&schema, &index_of(&["optional"]), &json!({"id": "foo"}))
+        .expect("encodes");
     assert!(!encoded.is_empty());
     assert!(
         encoded.chars().all(|c| c == ' '),
@@ -176,7 +172,8 @@ fn index_string_length_matches_encoded_length() {
     for fields in [vec!["num", "id"], vec!["bool", "num", "id"]] {
         let index = index_of(&fields);
         let length = get_index_string_length(&schema, &index).expect("length");
-        let encoded = get_indexable_string(&schema, &index, &doc("abc", 42.0, true)).expect("encodes");
+        let encoded =
+            get_indexable_string(&schema, &index, &doc("abc", 42.0, true)).expect("encodes");
         assert_eq!(encoded.chars().count(), length, "index {fields:?}");
     }
 }
@@ -293,9 +290,8 @@ fn upper_bound_excludes_above() {
 fn undefined_upper_bound_matches_everything() {
     let schema = index_test_schema();
     let index = index_of(&["id"]);
-    let upper =
-        get_start_index_string_from_upper_bound(&schema, &index, &[BoundValue::Missing])
-            .expect("builds");
+    let upper = get_start_index_string_from_upper_bound(&schema, &index, &[BoundValue::Missing])
+        .expect("builds");
     for id in ["", "a", "abc", "zzz", "\u{FFFF}"] {
         let encoded = get_indexable_string(&schema, &index, &doc(id, 10.0, true)).expect("encodes");
         assert!(
@@ -345,7 +341,10 @@ fn deleted_lwt_index_bounds() {
     let further = get_start_index_string_from_upper_bound(
         &schema,
         &index,
-        &[BoundValue::Bool(true), BoundValue::Number(1700000000000.0 + 100_000.0)],
+        &[
+            BoundValue::Bool(true),
+            BoundValue::Number(1700000000000.0 + 100_000.0),
+        ],
     )
     .expect("builds");
     assert!(dxdb_jsstr::gt(&further, &upper));
@@ -412,7 +411,8 @@ fn missing_number_encodes_as_the_minimum_when_clamped() {
     let schema = index_test_schema();
     let index = index_of(&["num"]);
     let missing = get_indexable_string(&schema, &index, &json!({})).expect("encodes");
-    let zero_clamped = get_indexable_string(&schema, &index, &doc("x", 0.0, true)).expect("encodes");
+    let zero_clamped =
+        get_indexable_string(&schema, &index, &doc("x", 0.0, true)).expect("encodes");
     assert_eq!(
         missing, zero_clamped,
         "undefined becomes 0 and then clamps to the schema minimum"
@@ -442,7 +442,8 @@ fn string_lower_bound_is_below_space_not_at_space() {
     );
     // A value containing characters below space must sort at or after the bound.
     for name in ["\u{0}", "\t", "\n", " a", "a"] {
-        let encoded = get_indexable_string(&schema, &index, &json!({"name": name})).expect("encodes");
+        let encoded =
+            get_indexable_string(&schema, &index, &json!({"name": name})).expect("encodes");
         assert!(
             dxdb_jsstr::ge(&encoded, &lower),
             "name {name:?} must not be excluded by the lower bound"
@@ -466,7 +467,7 @@ fn index_string_length_of_index_number_matches_upstream_fixture() {
     let length = get_index_string_length(&schema, &index_of(&["num"])).expect("length");
     // span = 90 -> "90" is two characters; decimals = 2.
     assert_eq!(length, 4);
-    let encoded = get_indexable_string(&schema, &index_of(&["num"]), &doc("x", 42.0, true))
-        .expect("encodes");
+    let encoded =
+        get_indexable_string(&schema, &index_of(&["num"]), &doc("x", 42.0, true)).expect("encodes");
     assert_eq!(encoded, "3200");
 }

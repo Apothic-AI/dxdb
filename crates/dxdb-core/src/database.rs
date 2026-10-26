@@ -31,6 +31,7 @@ use serde_json::Value;
 use crate::collection::Collection;
 use crate::error::{CoreError, CoreResult};
 use crate::hooks::{HookName, HookOutcome, HookPayload, Hooks};
+use crate::plugin::{Plugin, PluginError, PluginHandle, PluginSet};
 
 /// Characters a database name may contain.
 ///
@@ -92,6 +93,7 @@ pub struct Database {
     storage: Box<dxdb_storage::DynRxStorage<'static>>,
     collections: RefCell<BTreeMap<String, std::rc::Rc<Collection>>>,
     hooks: RefCell<Hooks>,
+    plugins: RefCell<PluginSet>,
     closed: std::cell::Cell<bool>,
 }
 
@@ -116,6 +118,7 @@ impl Database {
             storage,
             collections: RefCell::new(BTreeMap::new()),
             hooks: RefCell::new(Hooks::new()),
+            plugins: RefCell::new(PluginSet::new()),
             closed: std::cell::Cell::new(false),
         };
 
@@ -163,6 +166,34 @@ impl Database {
     /// The database-level hook registry.
     pub fn hooks(&self) -> &RefCell<Hooks> {
         &self.hooks
+    }
+
+    /// Installs a plugin on this database, resolving its declared dependencies.
+    ///
+    /// The plugin set is per-database, so two databases in one process can run different
+    /// plugins — upstream's module-global `ADDED_PLUGINS` cannot express that, and it is
+    /// the reason `Hooks` is owned rather than global.
+    ///
+    /// The returned [`PluginHandle`] owns the teardown; dropping it removes exactly that
+    /// plugin's handlers. Adding an already-installed plugin is a no-op that returns an
+    /// unarmed handle ([`PluginHandle::is_armed`] is false).
+    pub fn add_plugin<P>(&self, plugin: P) -> Result<PluginHandle, PluginError>
+    where
+        P: Plugin,
+    {
+        let mut hooks = self.hooks.borrow_mut();
+        let mut plugins = self.plugins.borrow_mut();
+        plugins.add(plugin, &mut hooks)
+    }
+
+    /// The installed plugin names, in install order.
+    pub fn plugin_names(&self) -> Vec<&'static str> {
+        self.plugins.borrow().names()
+    }
+
+    /// The settings installed plugins have changed.
+    pub fn overwritables(&self) -> crate::plugin::Overwritables {
+        self.plugins.borrow().overwritables().clone()
     }
 
     /// `addCollections` (`src/rx-database.ts`): opens each collection's storage instance.

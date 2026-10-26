@@ -24,7 +24,9 @@
 
 use serde_json::Value;
 
-use dxdb_schema::{create_rx_schema, fill_with_default_settings, normalize_rx_json_schema, sha256_hex};
+use dxdb_schema::{
+    create_rx_schema, fill_with_default_settings, normalize_rx_json_schema, sha256_hex,
+};
 
 fn load() -> Value {
     let path = concat!(
@@ -183,9 +185,8 @@ fn hash_relations_hold() {
         cases
             .iter()
             .find(|case| case["name"].as_str() == Some(name))
-            .unwrap_or_else(|| {
-                panic!("relation names {name:?}, which is not a case in the vector")
-            })["input"]
+            .unwrap_or_else(|| panic!("relation names {name:?}, which is not a case in the vector"))
+            ["input"]
             .clone()
     };
 

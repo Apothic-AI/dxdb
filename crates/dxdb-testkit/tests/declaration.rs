@@ -37,10 +37,10 @@ fn upstream_root() -> Option<std::path::PathBuf> {
         std::env::var_os("RXDB_UPSTREAM").map(std::path::PathBuf::from),
         Some(Path::new(&std::env::var("HOME").unwrap_or_default()).join("Code/rxdb")),
     ];
-    candidates
-        .into_iter()
-        .flatten()
-        .find(|path| path.join("test/unit/rx-storage-implementations.test.ts").exists())
+    candidates.into_iter().flatten().find(|path| {
+        path.join("test/unit/rx-storage-implementations.test.ts")
+            .exists()
+    })
 }
 
 /// Every declared line must exist in the upstream file it names.
@@ -82,7 +82,11 @@ fn every_declared_line_exists_upstream() {
         if !line.contains(expected_marker) {
             problems.push(format!(
                 "{}: {}:{} does not contain {:?}; it reads {:?}",
-                case.id, case.upstream_file, case.upstream_line, expected_marker, line.trim()
+                case.id,
+                case.upstream_file,
+                case.upstream_line,
+                expected_marker,
+                line.trim()
             ));
         }
     }
@@ -244,7 +248,10 @@ fn statuses_in_use_are_a_subset_of_the_vocabulary() {
         .map(|status| status.as_str())
         .collect();
     for status in &used {
-        assert!(known.contains(status), "unknown status in the table: {status}");
+        assert!(
+            known.contains(status),
+            "unknown status in the table: {status}"
+        );
     }
     // And at least one case must be exercised, or the crate does nothing.
     assert!(
@@ -473,10 +480,7 @@ fn group_schemas_are_storage_schemas() {
                 if storage_schema.primary_path != group.primary_path {
                     problems.push(format!(
                         "group {} ({}): declared primary path {:?} but the schema says {:?}",
-                        group.index,
-                        group.title,
-                        group.primary_path,
-                        storage_schema.primary_path
+                        group.index, group.title, group.primary_path, storage_schema.primary_path
                     ));
                 }
             }
@@ -769,10 +773,8 @@ fn fast_mode_reads_node_env() {
     // The suite runs with a fixed environment, so assert the function's shape rather
     // than mutating `NODE_ENV`, which would race other tests in this binary.
     let value = util::is_fast_mode();
-    let expected = matches!(
-        std::env::var("NODE_ENV").as_deref(),
-        Ok("fast")
-    ) || std::env::var_os("DXDB_FAST_TEST_MODE").is_some();
+    let expected = matches!(std::env::var("NODE_ENV").as_deref(), Ok("fast"))
+        || std::env::var_os("DXDB_FAST_TEST_MODE").is_some();
     assert_eq!(value, expected);
     // And `fast_or` must pick consistently with it.
     assert_eq!(
@@ -895,9 +897,10 @@ fn fixture_schema_declares_the_meta_lwt_its_indexes_reference() {
 
         // 2. The storage projection must accept the schema. This is the exact call that
         //    produced "CI1: index field `_meta.lwt` is not in the schema".
-        let storage_schema = dxdb_storage::StorageSchema::from_value(&filled).unwrap_or_else(|err| {
-            panic!("{name} ({upstream}): filled schema is not a storage schema: {err}")
-        });
+        let storage_schema =
+            dxdb_storage::StorageSchema::from_value(&filled).unwrap_or_else(|err| {
+                panic!("{name} ({upstream}): filled schema is not a storage schema: {err}")
+            });
 
         // 3. And the change-feed index must be resolvable through that projection.
         assert!(
@@ -1109,10 +1112,8 @@ fn write_data_overrides_win() {
 /// order, so the append is the reason they can be asserted at all.
 #[test]
 fn mango_query_appends_primary_key_to_sort() {
-    let query = dxdb_testkit::harness::mango_query(
-        &serde_json::json!({ "selector": {} }),
-        "passportId",
-    );
+    let query =
+        dxdb_testkit::harness::mango_query(&serde_json::json!({ "selector": {} }), "passportId");
     assert_eq!(query.sort.len(), 1, "the primary key must be appended");
     assert_eq!(query.sort[0].field, "passportId");
     assert_eq!(query.skip, 0, "skip must default to 0");
@@ -1125,7 +1126,11 @@ fn mango_query_appends_primary_key_to_sort() {
         }),
         "passportId",
     );
-    assert_eq!(query.sort.len(), 2, "the primary key must not be duplicated");
+    assert_eq!(
+        query.sort.len(),
+        2,
+        "the primary key must not be duplicated"
+    );
     assert_eq!(query.sort[0].field, "age");
 }
 

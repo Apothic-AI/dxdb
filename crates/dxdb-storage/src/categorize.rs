@@ -210,7 +210,11 @@ impl CategorizeBulkWriteRowsOutput {
     ///
     /// Returning `None` rather than an empty bulk is what makes the "no empty
     /// eventBulk" rule impossible to break by forgetting a check.
-    pub fn event_bulk(&self, id: impl Into<String>, context: impl Into<String>) -> Option<EventBulk> {
+    pub fn event_bulk(
+        &self,
+        id: impl Into<String>,
+        context: impl Into<String>,
+    ) -> Option<EventBulk> {
         if self.events.is_empty() {
             return None;
         }
@@ -412,15 +416,18 @@ impl Rules<'_> {
     }
 
     /// A new attachment with no payload is a 510.
-    fn insert_attachment_error(&self, write_row: &BulkWriteRow, doc_id: &str) -> Option<WriteError> {
+    fn insert_attachment_error(
+        &self,
+        write_row: &BulkWriteRow,
+        doc_id: &str,
+    ) -> Option<WriteError> {
         if !self.has_attachments {
             return None;
         }
         let attachments = write_row.document.document().attachments()?;
         attachments.keys().find_map(|attachment_id| {
-            (!write_row.document.has_attachment_payload(attachment_id)).then(|| {
-                self.attachment_error(write_row, doc_id, attachment_id, None)
-            })
+            (!write_row.document.has_attachment_payload(attachment_id))
+                .then(|| self.attachment_error(write_row, doc_id, attachment_id, None))
         })
     }
 
@@ -721,13 +728,8 @@ mod tests {
     #[test]
     fn absent_row_is_an_insert_with_an_insert_event() {
         let doc = document("a", "1-t", false, 1.01);
-        let out = categorize_bulk_write_rows(
-            "id",
-            &db(&[]),
-            &[write_row(doc.clone())],
-            CONTEXT,
-            false,
-        );
+        let out =
+            categorize_bulk_write_rows("id", &db(&[]), &[write_row(doc.clone())], CONTEXT, false);
         assert_eq!(out.error, vec![]);
         assert_eq!(out.bulk_insert_docs.len(), 1);
         assert_eq!(out.events.len(), 1);
@@ -755,16 +757,22 @@ mod tests {
     fn a_write_without_previous_conflicts_against_a_live_document() {
         let stored = document("a", "1-t", false, 1.01);
         let incoming = document("a", "1-t", false, 1.02);
-        let out =
-            categorize_bulk_write_rows("id", &db(&[("a", stored)]), &[write_row(incoming)], CONTEXT, false);
+        let out = categorize_bulk_write_rows(
+            "id",
+            &db(&[("a", stored)]),
+            &[write_row(incoming)],
+            CONTEXT,
+            false,
+        );
         assert_eq!(out.bulk_insert_docs.len(), 0);
         assert_eq!(out.bulk_update_docs.len(), 0);
         assert_eq!(out.error.len(), 1);
         assert_eq!(out.error[0].status(), CONFLICT_STATUS);
         match &out.error[0] {
-            WriteError::Conflict {
-                document_in_db, ..
-            } => assert_eq!(document_in_db.as_ref(), Some(&document("a", "1-t", false, 1.01))),
+            WriteError::Conflict { document_in_db, .. } => assert_eq!(
+                document_in_db.as_ref(),
+                Some(&document("a", "1-t", false, 1.01))
+            ),
             other => panic!("expected conflict, got {other:?}"),
         }
         assert!(out.events.is_empty());
@@ -777,8 +785,13 @@ mod tests {
         // still a conflict without `previous`.
         let stored = document("a", "2-t", true, 2.02);
         let incoming = document("a", "3-t", false, 3.03);
-        let out =
-            categorize_bulk_write_rows("id", &db(&[("a", stored)]), &[write_row(incoming)], CONTEXT, false);
+        let out = categorize_bulk_write_rows(
+            "id",
+            &db(&[("a", stored)]),
+            &[write_row(incoming)],
+            CONTEXT,
+            false,
+        );
         assert_eq!(out.error.len(), 1);
         assert_eq!(out.error[0].status(), CONFLICT_STATUS);
     }
@@ -862,10 +875,7 @@ mod tests {
             // conflict (previous missing)
             write_row(document("a", "2-t", false, 2.01)),
             // update (previous matches)
-            update_row(
-                stored_b.clone(),
-                document("b", "2-t", false, 2.02),
-            ),
+            update_row(stored_b.clone(), document("b", "2-t", false, 2.02)),
         ];
         let out = categorize_bulk_write_rows(
             "id",
@@ -895,8 +905,13 @@ mod tests {
     #[test]
     fn a_write_of_only_errors_produces_no_event_bulk() {
         let stored = document("a", "1-t", false, 1.01);
-        let out =
-            categorize_bulk_write_rows("id", &db(&[("a", stored)]), &[write_row(document("a", "2-t", false, 2.0))], CONTEXT, false);
+        let out = categorize_bulk_write_rows(
+            "id",
+            &db(&[("a", stored)]),
+            &[write_row(document("a", "2-t", false, 2.0))],
+            CONTEXT,
+            false,
+        );
         assert!(!out.wrote_anything());
         assert!(out.events.is_empty());
         assert!(out.event_bulk("bulk", CONTEXT).is_none());
@@ -908,10 +923,12 @@ mod tests {
         let stored = document("a", "1-t", false, 1.01);
         let rows = vec![
             update_row(stored.clone(), document("a", "2-t", false, 2.02)),
-            update_row(document("a", "2-t", false, 2.02), document("a", "3-t", false, 3.03)),
+            update_row(
+                document("a", "2-t", false, 2.02),
+                document("a", "3-t", false, 3.03),
+            ),
         ];
-        let out =
-            categorize_bulk_write_rows("id", &db(&[("a", stored)]), &rows, CONTEXT, false);
+        let out = categorize_bulk_write_rows("id", &db(&[("a", stored)]), &rows, CONTEXT, false);
         // The first row is a valid update; the second's `previous` (2-t) is not
         // what the snapshot holds (1-t), so it conflicts.
         assert_eq!(out.bulk_update_docs.len(), 1);

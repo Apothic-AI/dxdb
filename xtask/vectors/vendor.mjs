@@ -69,6 +69,56 @@ function log(msg) {
   process.stderr.write(`[vendor] ${msg}\n`);
 }
 
+/**
+ * The pin above is only meaningful if it is the same pin the project documents.
+ *
+ * `NOTICE.md` is the root of truth: it is the statement of which upstream this work
+ * derives from, and it is the thing a human reads. `PIN` here is what the generator
+ * actually fetches. If those two disagree, every vector in the tree silently describes
+ * a commit nobody wrote down, and consumers keep passing against an oracle that moved.
+ *
+ * Checked at provisioning time rather than only in CI, because the generator is where
+ * a new pin would be introduced. `crates/dxdb-vectors/tests/provenance_pin.rs` checks
+ * the same NOTICE text against the crate constant and the committed files, so all
+ * three legs of the triangle are covered and none of them can be updated alone.
+ */
+export function noticePin(noticePath = join(here, '..', '..', 'NOTICE')) {
+  let text;
+  try {
+    text = readFileSync(noticePath, 'utf8');
+  } catch (err) {
+    throw new Error(
+      `cannot read ${noticePath}: ${err.message}\n` +
+        'NOTICE.md documents the upstream pin; the generator cannot verify what it fetches without it.'
+    );
+  }
+  const commit = text
+    .split(/\s+/)
+    .find((word) => word.length === 40 && /^[0-9a-f]+$/.test(word));
+  const versionMatch = text.match(/version\s+(\d+\.\d+\.\d+)/);
+  if (!commit || !versionMatch) {
+    throw new Error(
+      `could not parse the upstream pin out of ${noticePath}; ` +
+        'the provenance checks read this file and need updating if its wording changed'
+    );
+  }
+  return { commit, version: versionMatch[1] };
+}
+
+export function assertPinMatchesNotice() {
+  const documented = noticePin();
+  if (documented.commit !== PIN.commit || documented.version !== PIN.version) {
+    throw new Error(
+      `the generator pin does not match NOTICE.md:\n` +
+        `  vendor.mjs PIN : ${PIN.commit} (${PIN.version})\n` +
+        `  NOTICE.md      : ${documented.commit} (${documented.version})\n` +
+        'Update NOTICE.md, PIN here, and Provenance::EXPECTED_RXDB_COMMIT in ' +
+        'crates/dxdb-vectors in the same commit, then regenerate with `make vectors`.'
+    );
+  }
+  return documented;
+}
+
 function run(cmd, args, cwd) {
   return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
@@ -196,6 +246,8 @@ export async function loadOracle() {
   if (cached) {
     return cached;
   }
+  // Verify the pin we are about to fetch is the one the project documents.
+  assertPinMatchesNotice();
   const installed = ensureNodeModules();
   const { dir, fetched } = ensureCheckout();
   const { bundlePath, built } = await bundleOracle(dir);

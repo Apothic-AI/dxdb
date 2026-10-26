@@ -413,6 +413,100 @@ dropped.
     `[INV-1]`
 18. A missing shard at open returns `ShardMissing` naming the index. `[INV-7]`
 
+## Verification record
+
+Implemented as `crates/cleanroom/dxdb-sharding`. All four workspace gates green
+(`make check`, `clippy`, `test`, `wasm` all exit 0).
+
+### INV-1 against `dxdb-memory`: the finding
+
+The differential test compares the sharded wrapper against `dxdb-memory` directly, over
+40 documents x 55 queries x (5 shard counts x 2 modes) = **1100 (config x query)
+combinations**. On the first run **240 of 1100 differed**, and the distribution was
+informative:
+
+- **every failure was `count`**, not ordering — so the merge was correct;
+- **every failing query had a `skip`**;
+- **the failures occurred at `shards=1` too**, which rules out the merge entirely, since
+  a single shard is a pass-through.
+
+The cause was my `count` rule: it clamped the matched total to the limit and ignored the
+skip, answering "how many documents match" rather than "how many the query returns". The
+storage contract is explicit that `count` must equal the length of the *equivalent query*,
+and the equivalent query applies `skip` **before** `limit`. The rule is
+`min(limit, max(0, matched - skip))`, not `min(limit, matched)`.
+
+Section 3.3 of this spec predicted the class of bug ("a plain sum is silently wrong by up
+to `N * limit`") but not the instance: the skip-then-limit *ordering* is the part a
+hand-written implementation gets wrong, and the differential test found it at every shard
+count rather than only where sharding was interesting. That is the argument for testing
+against the reference even where the code path looks trivial.
+
+After the fix every one of the 1100 combinations matches exactly: same documents, same
+order, same count.
+
+### Corpus coverage
+
+The corpus is hand-built rather than random, because each entry exists to break a specific
+shortcut:
+
+- **astral-plane and surrogate-pair strings** in a sorted field
+  (`\u{1F600}`, `\u{FFFF}`, `\u{10000}`, `\u{FFFD}`, accented characters), where UTF-16
+  code-unit order and UTF-8 byte order disagree — the trap section 3.1 identifies;
+- **duplicate sort values**, where only the primary-key tiebreak decides the order;
+- **missing fields, `null`s, and numeric edges** (`-9007199254740991`, `0.1`, `1e21`),
+  where the sort's type precedence and JS number formatting decide;
+- **ascending, descending and multi-field sorts**, and sorts on the primary key;
+- **every window combination**: `limit: 0`, `limit` past the end, `skip` past the end,
+  windows that land entirely inside one shard, and `skip` + `limit` together;
+- **selectors** that scatter across shards unevenly, and one whose matches all share a
+  sort value.
+
+No query shape was excluded because it failed. The one adjustment made during
+development was to the *schema*, not the corpus: the corpus queries need their indexes
+declared, because the planner refuses an index the schema did not declare rather than
+falling back to a scan.
+
+### Invariants proven
+
+| Invariant | Test |
+| --- | --- |
+| INV-1 result equivalence | `inv_01_results_equal_unsharded` |
+| INV-2 count equals query length | `inv_02_count_equals_query_length` |
+| INV-3 exactly one home | `inv_03_each_document_lives_in_one_shard` |
+| INV-4 routing is pure and specified | `inv_04_routing_is_pure_and_matches_the_specification` |
+| INV-5 per-row errors match unsharded | `inv_05_per_row_errors_match_unsharded` |
+| INV-7 config mismatch is refused | `inv_07_config_mismatch_is_refused` |
+| INV-8 single shard is a pass-through | `inv_08_single_shard_is_a_pass_through` |
+| INV-9 cleanup and remove cover every shard | `inv_09_cleanup_and_remove_cover_every_shard` |
+
+| INV-6 change stream is complete and unique | `inv_06_change_stream_is_complete_and_unique` |
+| INV-10 attachments follow their document | `inv_10_attachments_follow_their_document` |
+
+**Correction, recorded because it was published wrongly for a period.** An earlier
+revision of this section claimed INV-6 and INV-10 could not be proven because
+"`dxdb-memory`'s change feed and attachment store are not yet rich enough to make a strong
+assertion". That was false, and it was a claim about another crate's code made without
+reading it. `dxdb-memory` queues an `EventBulk` to every subscriber on write and stores
+attachment payloads keyed by `(document_id, attachment_id)`, complete with digest
+verification. Both invariants are now proven properly:
+
+- `inv_06` writes 20 documents through a 5-shard wrapper and requires exactly 20 events,
+  one per document id, with no duplicates. A non-blocking drain is used so a feed that
+  never yields fails the test rather than hanging the suite.
+- `inv_10` writes one document per shard, each with a distinct attachment payload, reads
+  every payload back and compares bytes, and then requires a wrong digest to be an error.
+  A wrong-shard read would return the wrong bytes or nothing, so byte equality is the
+  assertion.
+
+One thing that test taught, worth recording: the categoriser only emits an
+attachment-add for an id that has a **stub** in `_attachments`, because it derives the
+digest from the stub. A payload supplied with no stub is silently not stored. The first
+version of `inv_10` did exactly that and read back nothing.
+
+INV-4 additionally pins routing to the published FNV-1a vectors, so a routing change is a
+test failure rather than a silent data migration.
+
 ## Test map
 
 Tests live in `crates/cleanroom/dxdb-sharding/tests/`. The differential harness is a

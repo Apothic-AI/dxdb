@@ -298,7 +298,6 @@ impl Matcher {
             None => false,
         }
     }
-
 }
 
 /// A selector after normalisation, with `$regex` patterns compiled.
@@ -436,10 +435,7 @@ fn is_operator(key: &str) -> bool {
         return false;
     }
     let rest: Vec<char> = chars.collect();
-    !rest.is_empty()
-        && rest
-            .iter()
-            .all(|c| c.is_ascii_alphanumeric() || *c == '_')
+    !rest.is_empty() && rest.iter().all(|c| c.is_ascii_alphanumeric() || *c == '_')
 }
 
 /// `util.normalize`: a scalar becomes `{$eq: scalar}`, and an object with no
@@ -908,9 +904,7 @@ fn elem_match_matches(value: Option<&Value>, elem_match: &CompiledElemMatch) -> 
         CompiledElemMatch::AsValue(field) => items
             .iter()
             .any(|item| field.test(Some(item), MINGO_DEFAULT_DEPTH)),
-        CompiledElemMatch::AsSelector(selector) => {
-            items.iter().any(|item| selector.test(item))
-        }
+        CompiledElemMatch::AsSelector(selector) => items.iter().any(|item| selector.test(item)),
     }
 }
 
@@ -1124,8 +1118,11 @@ pub fn is_equal(a: &Value, b: &Value) -> bool {
         }
         (Value::Object(x), Value::Object(y)) => {
             x.len() == y.len()
-                && x.iter()
-                    .all(|(key, value)| y.get(key).map(|other| is_equal(value, other)).unwrap_or(false))
+                && x.iter().all(|(key, value)| {
+                    y.get(key)
+                        .map(|other| is_equal(value, other))
+                        .unwrap_or(false)
+                })
         }
         _ => false,
     }
@@ -1341,4 +1338,3 @@ fn resolve_path_from(value: &Value, path: &str, depth: &mut usize) -> Option<Val
         }
     }
 }
-

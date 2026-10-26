@@ -1020,5 +1020,7 @@ pub const QUERY_CORRECTNESS_CASES: &[Case] = &[
 
 /// Every declared case, both suites.
 pub fn all_cases() -> impl Iterator<Item = &'static Case> {
-    IMPLEMENTATIONS_CASES.iter().chain(QUERY_CORRECTNESS_CASES.iter())
+    IMPLEMENTATIONS_CASES
+        .iter()
+        .chain(QUERY_CORRECTNESS_CASES.iter())
 }

@@ -41,10 +41,15 @@
 //! let provenance: Provenance = family.provenance();
 //! assert!(provenance.matches_documented_pin());
 //!
-//! for case in &family.cases {
-//!     assert_eq!(case.hash.len(), 64, "sha256 hex");
+//! // `hash` is optional: a schema upstream refused to create has `rejected` instead.
+//! for case in family.cases.iter().filter(|c| !c.was_rejected()) {
+//!     let hash = case.hash.as_deref().expect("a non-rejected case hashed");
+//!     assert_eq!(hash.len(), 64, "sha256 hex");
 //! }
 //! ```
+//!
+//! See `crates/dxdb-vectors/README.md` for the copyable version of this and the
+//! accessors that replace the hand-rolled schema lookups consumers used to keep.
 //!
 //! `discover()` resolves `testdata/vectors/` from this crate's own manifest
 //! directory, so it works from any consumer crate at any nesting depth.
@@ -87,7 +92,7 @@ pub const EXPECTED_CASE_COUNTS: &[(VectorFamily, usize)] = &[
     (VectorFamily::Jsnum, 304),
     // 900 total = 896 produced + 4 upstream refusals (see `index_strings::Case`).
     (VectorFamily::IndexStrings, 900),
-    (VectorFamily::SchemaHashes, 52),
+    (VectorFamily::SchemaHashes, 53),
     (VectorFamily::NormalisedQueries, 798),
     (VectorFamily::BulkWriteCategorization, 47),
     // 63 = 60 matching + 3 upstream refusals.

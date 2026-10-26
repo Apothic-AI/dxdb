@@ -236,3 +236,37 @@ that the reason it is what it is stays recorded next to it.
    `-Infinity`, because `JSON.stringify` turns it into `null`.
 3. A test asserts that a plan survives `to_js_json` -> parse -> compare with its bounds
    intact, since surviving JSON round-trip is the entire point of the value.
+
+---
+
+## D9: Interop is proved over WebSocket, because upstream has no HTTP replication client
+
+**Decided:** 2026-10-26. **Raised by:** lane E, while building the interop test.
+
+PLAN.md section 10 asks for "dxdb client <-> upstream RxDB client through the same HTTP
+endpoint converges". Building that test found the premise is wrong: **upstream has no HTTP
+replication client.** The only transport for which upstream ships both a client and a server
+is WebSocket, and that frame format is upstream's own.
+
+Consequences:
+
+1. Interop is **proved over WebSocket**, against upstream's own client and against upstream's
+   `startWebsocketServer`. That is a stronger test than the HTTP one would have been, because
+   both sides are real upstream code rather than our shape twice.
+2. **The HTTP two-process test is not interop evidence.** It proves internal convergence --
+   dxdb to dxdb -- which is worth having, but it says nothing about upstream. It must not be
+   cited as interop, and the parity matrix must not treat it as satisfying the section 10 item.
+3. A dxdb HTTP replication *adapter* remains possible and is on the adapter list, but it is an
+   adapter to a protocol we define, not compatibility with one upstream defines. If someone
+   later wants real HTTP interop they will need a server implementation upstream can talk to,
+   and that means implementing a shape upstream ships -- which today means WebSocket.
+
+**Why this is recorded as a decision rather than a note:** the plan's section 10 checklist is
+the project's definition of done, and one of its items was written with a false premise. Left
+unrecorded, a future reader would find a green WebSocket interop test, a green HTTP
+two-process test, and no way to tell which one satisfies the checklist. Now the answer is on
+the record: the WebSocket test does, and the HTTP test is a different thing.
+
+**Verified evidence:** checkpoint equality is byte-identical including the `lwt` (both sides
+persisted `{id:"from-upstream",lwt:102}`), and a restart on either side produces zero
+`masterWrite` frames afterwards -- observed, not inferred.

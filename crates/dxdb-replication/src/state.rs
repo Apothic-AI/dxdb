@@ -184,11 +184,52 @@ pub struct DocumentsWithCheckpoint {
 /// `{ assumedMasterState?, newDocumentState }`, one row in a push.
 #[derive(Clone, Debug, PartialEq)]
 pub struct WriteToMasterRow {
-    /// The master state the fork believes it is writing on top of. `None` means "the
-    /// fork believes this document is new".
+    /// The master state the fork believes it is writing on top of. `None` means "the fork
+    /// believes this document is new".
     pub assumed_master_state: Option<DocumentData>,
     /// The state to write.
     pub new_document_state: DocumentData,
+    /// Payloads for the attachments in `new_document_state` that the receiver does not have,
+    /// keyed by attachment id.
+    ///
+    /// Upstream embeds these as `Blob`s in `_attachments[id].data`; a Rust document is ordered
+    /// JSON and cannot hold bytes, so they travel beside it. A transport puts them on the wire
+    /// in its own encoding and repopulates `_attachments[id].data` on the receiving side; the
+    /// protocol never inspects them. Empty when the collection has no attachments or nothing
+    /// changed.
+    pub attachment_payloads: std::collections::BTreeMap<String, Vec<u8>>,
+}
+
+impl WriteToMasterRow {
+    /// A row with no attachment payloads.
+    pub fn new(
+        assumed_master_state: Option<DocumentData>,
+        new_document_state: DocumentData,
+    ) -> Self {
+        WriteToMasterRow {
+            assumed_master_state,
+            new_document_state,
+            attachment_payloads: std::collections::BTreeMap::new(),
+        }
+    }
+
+    /// A row with payloads attached.
+    pub fn with_payloads(
+        assumed_master_state: Option<DocumentData>,
+        new_document_state: DocumentData,
+        attachment_payloads: std::collections::BTreeMap<String, Vec<u8>>,
+    ) -> Self {
+        WriteToMasterRow {
+            assumed_master_state,
+            new_document_state,
+            attachment_payloads,
+        }
+    }
+
+    /// True when this row carries bytes the receiver needs.
+    pub fn has_payloads(&self) -> bool {
+        !self.attachment_payloads.is_empty()
+    }
 }
 
 /// What a pull stream emits.
@@ -854,10 +895,33 @@ impl<S: RxStorageInstance> ReplicationState<S> {
         self.inner.input.conflict_handler.as_ref()
     }
 
-    /// The checkpoint key: the revision token of every meta row and the tag written
-    /// into replicated fork documents' `_meta`.
+    /// The checkpoint key: the revision token of every meta row.
+    ///
+    /// `hash(identifier || databaseName || collectionName)`, prefixed
+    /// `rx_storage_replication_` (`checkpoint.ts:145`). It names persisted revisions.
     pub fn checkpoint_key(&self) -> &str {
         &self.inner.checkpoint_key
+    }
+
+    /// The raw replication identifier, which is also a `_meta` key on replicated documents.
+    ///
+    /// Upstream writes `_meta[state.input.identifier] = <next revision height>`
+    /// (`downstream.ts:445`), so the key is the identifier string itself, not a hash.
+    pub fn identifier_value(&self) -> &str {
+        &self.inner.input.identifier
+    }
+
+    /// `hash(identifier)` — **not** the checkpoint key.
+    ///
+    /// The pull tags its own writes with this in `_meta.o.hash` (`downstream.ts:67`), and the
+    /// push compares against it. It differs from [`Self::checkpoint_key`], which folds in the
+    /// database and collection names; using one where the other belongs silently changes
+    /// which writes look self-authored.
+    pub fn identifier_hash(&self) -> String {
+        self.inner
+            .input
+            .hash_function
+            .hash(&self.inner.input.identifier)
     }
 
     /// The `context` string a downstream write uses.

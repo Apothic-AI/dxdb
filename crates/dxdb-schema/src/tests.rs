@@ -266,7 +266,10 @@ fn previous_versions_empty_for_zero() {
 // rx-schema.test.ts:874 `get valid array when current==5`
 #[test]
 fn previous_versions_five() {
-    assert_eq!(previous_versions(&json!({"version": 5})), vec![0, 1, 2, 3, 4]);
+    assert_eq!(
+        previous_versions(&json!({"version": 5})),
+        vec![0, 1, 2, 3, 4]
+    );
 }
 
 // --- rx-schema.test.ts:998 `.getSchemaByObjectPath()` --------------------------
@@ -539,7 +542,11 @@ fn no_indexes_gets_default_index() {
     .expect("fills");
     let indexes = get_string_indexes(&filled).expect("indexes");
     assert_eq!(indexes[0], vec!["_deleted".to_string(), "id".to_string()]);
-    assert_eq!(indexes.len(), 2, "default index plus _meta.lwt: {indexes:?}");
+    assert_eq!(
+        indexes.len(),
+        2,
+        "default index plus _meta.lwt: {indexes:?}"
+    );
 }
 
 // src/rx-schema-helper.ts:243 — required order.

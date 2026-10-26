@@ -103,7 +103,11 @@ fn to_json_preserves_the_selector_and_adds_the_primary_key_sort() {
         as_json["selector"],
         json!({"firstName": {"$ne": "Alice"}, "age": {"$gt": 18, "$lt": 67}})
     );
-    assert_eq!(as_json["limit"], json!(10), "an explicit limit is preserved");
+    assert_eq!(
+        as_json["limit"],
+        json!(10),
+        "an explicit limit is preserved"
+    );
     assert_eq!(as_json["skip"], json!(0));
     assert_eq!(
         as_json["sort"],
@@ -328,10 +332,7 @@ fn bracket_notation_in_a_sort_field_is_detectable() {
     assert_eq!(filled.sort[0].field, "foo.bar[3]");
     let comparator = get_sort_comparator(&filled);
     // Both documents lack the path, so the part ties and the primary key decides.
-    let order = comparator.compare(
-        &json!({"passportId": "a"}),
-        &json!({"passportId": "b"}),
-    );
+    let order = comparator.compare(&json!({"passportId": "a"}), &json!({"passportId": "b"}));
     assert_eq!(order, std::cmp::Ordering::Less);
 }
 
@@ -493,7 +494,11 @@ fn sort_survives_a_null_parent_object() {
     documents.sort_by(|a, b| comparator.compare(a, b));
     let cities: Vec<Option<&Value>> = documents
         .iter()
-        .filter_map(|document| document["address"].as_object().map(|object| object.get("city")))
+        .filter_map(|document| {
+            document["address"]
+                .as_object()
+                .map(|object| object.get("city"))
+        })
         .collect();
     assert_eq!(
         cities,
@@ -599,7 +604,8 @@ fn prepared_query_filters_deleted_documents() {
 // rx-query.test.ts:2110 `#4552 $elemMatch query not working when there are many documents`
 #[test]
 fn elem_match_works_against_many_documents() {
-    let matcher = Matcher::new(&json!({"tags": {"$elemMatch": {"$eq": "target"}}})).expect("compiles");
+    let matcher =
+        Matcher::new(&json!({"tags": {"$elemMatch": {"$eq": "target"}}})).expect("compiles");
     let mut matched = 0;
     for index in 0..1000 {
         let document = json!({
@@ -647,7 +653,10 @@ fn a_primary_key_named_constructor_is_an_ordinary_value() {
     assert!(matcher.matches(&json!({"passportId": "constructor"})));
     assert!(!matcher.matches(&json!({"passportId": "toString"})));
     let filled = normalized(json!({"selector": {"passportId": "constructor"}}));
-    assert_eq!(filled.selector, json!({"passportId": {"$eq": "constructor"}}));
+    assert_eq!(
+        filled.selector,
+        json!({"passportId": {"$eq": "constructor"}})
+    );
 }
 
 // --- index-string interaction with a query -----------------------------------
