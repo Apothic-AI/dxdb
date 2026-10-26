@@ -1,0 +1,45 @@
+[package]
+name = "dxdb-js"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb wasm-bindgen surface: Observable bridge and the JS/TS boundary"
+
+# `cdylib` is the wasm artifact (`wasm32-unknown-unknown`); `rlib` keeps the crate
+# usable from a host build and from `make check --all-targets`, which is how the
+# size-budget floor below stays honest on both targets.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Pinned with `=`: the `wasm-bindgen` CLI that post-processes the
+# `wasm32-unknown-unknown` cdylib must match this crate's version exactly, or the
+# generated glue and the emitted custom sections disagree and the module traps at
+# instantiation with "it looks like the Rust project used to create this wasm
+# file was built using a newer version of wasm-bindgen". See
+# docs/lanes/m4-browser-plan.md, "Baseline measurement".
+wasm-bindgen = "=0.2.129"
+# 0.4.79 is the release whose manifest requires `wasm-bindgen =0.2.129`; an
+# older patch release would pull a second, mismatched `wasm-bindgen`.
+wasm-bindgen-futures = "0.4.79"
+
+# The stream half of the Observable adapter (PLAN.md 3.3: `futures::Stream` in
+# Rust, adapted to `Observable` at the JS boundary, no RxJS). A workspace
+# dependency already, and it links on the host, which is what lets the delivery
+# policy be unit-tested without a browser.
+futures = { workspace = true }
+
+# `js_sys::Function` is how the adapter holds JS callbacks. `wasm-bindgen` pulls
+# `js-sys` transitively but relying on that is how a version skew appears.
+js-sys = "0.3.106"
+
+# Tests only: the checkpoint-contract tests assert the trait surface's encoding
+# against the ordered-JSON writer, which is exactly the pairing a storage has to
+# get right. Lane D's crate is consumed, never edited.
+[dev-dependencies]
+dxdb-storage = { path = "../dxdb-storage" }
+dxdb-json = { path = "../dxdb-json" }
+dxdb-jsnum = { path = "../dxdb-jsnum" }
+serde_json = { workspace = true }

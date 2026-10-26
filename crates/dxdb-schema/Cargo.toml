@@ -1,0 +1,24 @@
+[package]
+name = "dxdb-schema"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb schema: meta injection, index builder, schema hash, draft-07 validation"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+# PLAN.md section 9: draft-07 is RxDB's draft, and section 8 verified the crate
+# builds for wasm32-unknown-unknown on the pinned 1.95.0.
+jsonschema = { version = "0.60.1", default-features = false }
+# WebCrypto-compatible SHA-256, the upstream schema-hash default.
+sha2.workspace = true
+hex.workspace = true
+dxdb-json = { path = "../dxdb-json" }
+dxdb-jsnum = { path = "../dxdb-jsnum" }
+dxdb-jsstr = { path = "../dxdb-jsstr" }
+
+[dev-dependencies]
+proptest.workspace = true

@@ -3,14 +3,36 @@
 A Rust port of [RxDB](https://github.com/pubkey/rxdb)'s open-source core, with first-class
 WebAssembly targets, plus independently specified replacements for RxDB's paid features.
 
-Planning documents:
+Status: in progress. Nineteen crates exist and all four CI targets build; the parity matrix
+in [docs/STATUS.md](docs/STATUS.md) records per upstream module what is ported, in progress,
+or not started.
 
-- [docs/PLAN.md](docs/PLAN.md): the port (scope, architecture, WASM strategy, milestones,
-  verification, build discipline).
-- [docs/CLEANROOM.md](docs/CLEANROOM.md): the clean-room program for the paid and closed-source
-  features.
+`make audit` checks PLAN.md section 10's definition of done against real artifacts. It
+currently reports the checklist **unmet** and names what remains, which is the point: the
+checklist exists so "port complete" cannot be claimed by rounding up.
 
-Status: planning. No implementation code yet.
+Verification lives in three places, and none of them is a claim in prose:
+
+- **Oracle vectors** (`testdata/vectors/`, 2,176 cases) are expected output produced by
+  running upstream RxDB in Node, pinned to the commit in [NOTICE](NOTICE). `make
+  vectors-check` fails on drift.
+- **Ported upstream tests** name the upstream file and line they came from, so a
+  reviewer can check a test against the original.
+- **Conformance suites** from upstream's own `rx-storage-implementations` and
+  `rx-storage-query-correctness` define the storage contract every storage is measured
+  against.
+
+Documents:
+
+- [docs/PLAN.md](docs/PLAN.md): the port (scope, architecture, WASM strategy, milestones, verification, build discipline).
+- [docs/CLEANROOM.md](docs/CLEANROOM.md): the clean-room program for the paid and closed-source features.
+- [docs/DECISIONS.md](docs/DECISIONS.md): the cross-lane decisions, with the rejected
+  alternative and the reason for each.
+- [docs/GATES.md](docs/GATES.md): the acceptance oracles, and the exact commands.
+- [docs/BENCHMARKS.md](docs/BENCHMARKS.md): measured numbers, including where dxdb is
+  expected to lose to the JavaScript implementation.
+- [docs/WORKTREES.md](docs/WORKTREES.md): how parallel work is separated.
+- [docs/TOOLCHAIN.md](docs/TOOLCHAIN.md): why the compiler pin lives in flags.
 
 ## Provenance
 

@@ -1,0 +1,33 @@
+[package]
+name = "dxdb-filesystem"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb filesystem storage: redb on native (clean-room, no upstream source read)"
+
+[dependencies]
+thiserror.workspace = true
+
+# `experimental-multiprocess` is not optional here, and the name is a warning
+# rather than decoration. redb's DEFAULT is `ConcurrencyMode::ExclusiveWriter`,
+# which locks the whole file to one process: a second process's `open` fails with
+# "Database already open. Cannot acquire lock." That cannot satisfy
+# `multiInstance: true` at all, so `MultiWriter` is a requirement, not a tuning
+# knob. The cost, measured: the feature pulls in `experimental-api-5`, which
+# changes redb's read-only table API (`range` -> `range_owned(KeyRange)`). Our
+# access goes through the `ReadableTable` trait and write transactions, which are
+# unaffected. See `src/layout.rs` and `docs/lanes/m5-port-plan.md` 2.6.
+redb = { version = "4.4.0", features = ["experimental-multiprocess"] }
+
+# Only for the key-order tests: `tempfile` gives a directory that is cleaned up,
+# which is the difference between a test suite and a pile of stray .redb files.
+[dev-dependencies]
+tempfile = "3"
+
+# Contract checks against the published dxdb-storage surface. Dev-only: the
+# storage implementation itself takes these types from its dependent, not here.
+dxdb-storage = { path = "../../dxdb-storage" }
+dxdb-json = { path = "../../dxdb-json" }
+serde_json.workspace = true

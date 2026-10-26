@@ -1,0 +1,148 @@
+// dxdb WASI world (component model, WASI 0.2).
+//
+// Design rationale: docs/lanes/m5-port-plan.md section 3.
+//
+// Two things are deliberate and easy to "fix" wrongly:
+//
+//   1. Documents cross the boundary as `list<u8>` ordered JSON, not as typed
+//      records. Key order is semantically load-bearing (PLAN.md 3.1: schema
+//      hashes and `_meta` depend on it), and there must be exactly one
+//      implementation of that encoding, in `dxdb-json`. A typed record would
+//      force every host to reimplement it.
+//
+//   2. There is no change-stream export. A streaming export needs either the
+//      0.3 async model (nightly, not shipped) or a poll protocol we would be
+//      inventing. `changed-since` carries the same information as a function.
+//
+// `storage::preopens` is exported so a caller can see the capability it was
+// given instead of discovering its absence through an unrelated ENOENT later.
+
+package dxdb:wasi@0.1.0;
+
+interface types {
+    /// A document is opaque ordered JSON plus the identity the storage contract
+    /// needs to index and order it. The component does not interpret fields.
+    record document {
+        id: string,
+        rev: string,
+        deleted: bool,
+        lwt: u64,
+        json: list<u8>,
+    }
+
+    record write-row {
+        doc: document,
+        /// The state the writer believes was there. `none` means "I believe
+        /// this document does not exist"; the storage decides whether that is
+        /// an insert, a conflict, or a same-state fork.
+        previous: option<document>,
+    }
+
+    variant write-error {
+        /// The document in the storage is not the one the write was based on.
+        conflict,
+        /// The write would put the document in the state it is already in.
+        same-state,
+        /// The host refused the write for a reason this variant does not model.
+        host(string),
+    }
+
+    record write-result {
+        written: list<string>,
+        /// Parallel to the attempted rows, in the same order: `none` means the
+        /// row succeeded. Parallel arrays rather than a map keyed on id,
+        /// because one batch may legally contain the same id twice.
+        errors: list<option<write-error>>,
+    }
+
+    record query-request {
+        /// Ordered JSON of the prepared query, as produced by dxdb-query.
+        prepared: list<u8>,
+    }
+
+    record checkpoint {
+        id: string,
+        lwt: u64,
+    }
+
+    /// Journal policy is a driver capability, not a user preference. Kept as an
+    /// enum so an unsupported mode is a type-level impossibility rather than a
+    /// silently ignored string.
+    enum journal-mode { wal, wal2, delete, truncate, persist, memory, off, untouched }
+
+    enum driver { filesystem, sqlite, memory }
+}
+
+interface storage {
+    use types.{
+        document, write-row, write-result, query-request, checkpoint, driver,
+    };
+
+    /// The guest-side paths this component was given. An empty list means the
+    /// host gave no preopened directory at all; for a persistent driver that is
+    /// a startup error, not a degraded mode.
+    preopens: func() -> list<string>;
+
+    /// `dir` is a guest-side path inside a preopen, never a host path.
+    open: func(
+        db: string,
+        collection: string,
+        schema-version: u32,
+        driver: driver,
+        dir: string,
+    ) -> result<_, string>;
+
+    close: func() -> result<_, string>;
+
+    bulk-write: func(rows: list<write-row>) -> result<write-result, string>;
+    find-by-id: func(ids: list<string>, with-deleted: bool) -> result<list<document>, string>;
+    query: func(req: query-request) -> result<list<document>, string>;
+    count: func(req: query-request) -> result<u64, string>;
+
+    /// `false` means "more tombstones remain, call again" (PLAN.md 4.2). The
+    /// tri-state is part of the contract and must not be flattened to "done".
+    cleanup: func(minimum-deleted-ms: u64) -> result<bool, string>;
+
+    /// Ascending by `(lwt, id)`, `from` exclusive. Same information as a change
+    /// stream, without an async surface this platform cannot express yet.
+    changed-since: func(limit: u32, from: option<checkpoint>)
+        -> result<list<document>, string>;
+
+    /// Make prior writes durable before the caller asserts on the host side.
+    flush: func() -> result<_, string>;
+}
+
+/// The CLI surface the conformance runner drives. Separate from `storage` so a
+/// host that embeds the component does not have to provide a directory or know
+/// about the suite at all.
+interface conformance {
+    use types.{driver};
+
+    /// Runs the ported suite against `dir` and returns machine-readable
+    /// results. `failed` is the gate: non-zero means the suite is red.
+    run: func(
+        suite: string,
+        dir: string,
+        driver: driver,
+        filter: option<string>,
+    ) -> result<report, string>;
+
+    record report {
+        passed: u32,
+        failed: u32,
+        /// `case-id: message`, one per failure.
+        failures: list<string>,
+    }
+}
+
+world dxdb-wasi {
+    /// The only capabilities the gate assumes. `wasi:filesystem` comes with the
+    /// preopens import, which is why a `--dir` mapping is the whole storage
+    /// story on this target.
+    import wasi:cli/environment@0.2.6;
+    import wasi:cli/exit@0.2.6;
+    import wasi:filesystem/preopens@0.2.6;
+
+    export storage;
+    export conformance;
+}

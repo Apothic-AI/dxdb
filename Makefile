@@ -12,7 +12,20 @@
 # is not ours, do not stop a busy machine.
 
 TOOLCHAIN := 1.95.0
-CARGO     := cargo remote-3000 -r fly -d $(TOOLCHAIN)
+
+# Route selection: the primary path is the WireGuard 6PN address (remote "fly" in
+# ~/.config/cargo-remote-3000/cargo-remote-3000.toml). When that route is broken
+# from this machine -- which happens, with "No route to host", even though the box
+# is healthy -- xtask/remote-route.sh prints a fallback route over Fly's API proxy.
+# Lanes keep calling `make check` and never need to know which route is up.
+#
+# Set DXDB_FORCE_ROUTE=fly to skip detection and pin the primary.
+ROUTE := $(shell DXDB_FORCE_ROUTE=$(DXDB_FORCE_ROUTE) xtask/remote-route.sh 2>/dev/null)
+ifeq ($(findstring proxy,$(ROUTE)),proxy)
+CARGO := cargo remote-3000 -H fly-builder-proxy -p $(subst proxy:,,$(ROUTE)) -d $(TOOLCHAIN)
+else
+CARGO := cargo remote-3000 -r fly -d $(TOOLCHAIN)
+endif
 MACHINE   := 87477e0cd01748
 APP       := open-surrealdb-ds-builder
 
@@ -38,10 +51,10 @@ LOCK := /tmp/dxdb-remote-build.lock
 # full reasoning.
 LOCKED := xtask/with-build-lock.sh
 
-.PHONY: help check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size audit
+.PHONY: help check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status remote-repair prune-ours gate-storage gate-query-correctness size audit
 
 help:
-	@echo "check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status prune-ours gate-storage gate-query-correctness size audit"
+	@echo "check clippy test wasm fmt fmt-check vectors vectors-check status busy headroom lock remote-up remote-status remote-repair prune-ours gate-storage gate-query-correctness size audit"
 
 check:
 	@$(LOCKED) $(CARGO) check --workspace --all-targets
@@ -79,6 +92,20 @@ remote-up:
 
 remote-status:
 	flyctl machine list -a $(APP)
+
+# Repair the shared build box after a machine restart. See docs/TOOLCHAIN.md.
+#
+# The machine's entrypoint is `sleep infinity` and there is no systemd (pid1 is
+# Fly's init), so nothing starts our sshd on port 2222 after a restart. The
+# platform sshd on 22 comes up and rejects our key, so the only way in is
+# `flyctl machine exec`, which is what this runs. It also restores the
+# /root/.cargo and /root/.rustup symlinks, which live on the ephemeral rootfs
+# and vanish on every restart even though the toolchains survive on the volume.
+#
+# Symptom it fixes: all remote builds fail with "connection refused" on 2222, or
+# later with "cargo: command not found".
+remote-repair:
+	flyctl machine exec -a $(APP) --no-container $(MACHINE) /data/bin/ensure-ready
 
 # Prune only build trees that are provably ours (Cargo.toml mentions dxdb).
 # Never touch another project's tree, and never clean /data/cargo or /data/rustup.
