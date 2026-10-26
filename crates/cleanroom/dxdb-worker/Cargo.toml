@@ -1,0 +1,20 @@
+[package]
+name = "dxdb-worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb clean-room worker storage: a storage behind a message-passing isolate boundary"
+
+[dependencies]
+dxdb-storage = { path = "../../dxdb-storage" }
+futures.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# Every supervision case runs against a fake transport in-process on stable, so no
+# browser and no Node is needed: a test that required a real worker could not
+# deterministically simulate a mid-write death.
+dxdb-memory = { path = "../../storages/dxdb-memory" }

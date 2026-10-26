@@ -408,6 +408,76 @@ The expectation, recorded before measuring so it cannot be retrofitted: for a *f
 storage the worker wrapper is a net loss, and for a *slow* one it is a net gain on
 perceived latency. `docs/BENCHMARKS.md` must show which, and the doc must say which.
 
+## 8a. Verification record (partial — read the scope note first)
+
+### Scope: what is built and what is not
+
+This tranche lands **the protocol, the supervision state machine, and the transport seam**
+— the parts that hold every testable failure mode. It does **not** land the
+`RxStorageInstance` wrapper or the platform adapters. That split is stated rather than left
+to be discovered:
+
+| Piece | Status |
+| --- | --- |
+| `protocol` — `RequestKind`, `ToWorker`, `FromWorker`, version negotiation | **built, tested** |
+| `supervision` — liveness, correlation, four-way failure split, counters | **built, tested** |
+| `WorkerTransport` trait + fake transport | **built, tested** |
+| `RxStorageInstance` wrapper over the transport | **not built** |
+| Browser `Worker` / `SharedWorker` adapter | **not built** |
+| Node `worker_threads` adapter | **not built** |
+
+The wrapper is not a formality: it is where INV-1's full claim becomes assertable against
+`dxdb-memory`. What `inv_01_transparency_over_transport` proves today is the weaker but real
+statement that the *protocol* does not alter an operation — every `RequestKind` reaches the
+worker intact with the caller's values, and the worker's answer is what the caller receives.
+**Do not report INV-1 as fully proven until the wrapper exists and the in-process comparison
+runs.**
+
+All four workspace gates green (`check`, `clippy`, `test`, `wasm` all exit 0).
+
+### Invariants proven
+
+| Invariant | Test | Status |
+| --- | --- | --- |
+| INV-1 transparency | `inv_01_transparency_over_transport` | **partial** — protocol-level only |
+| INV-2 handshake negotiates an intersection | `inv_02_handshake_negotiates_an_intersection` | proven, over a grid of ranges |
+| INV-3 correlation by id, not order | `inv_03_responses_pair_by_id_under_reordering` | proven |
+| INV-4 queue bounded, nothing dropped | `inv_04_backpressure_blocks_and_never_drops` | proven |
+| INV-5 dead worker fails fast | `inv_05_dead_worker_fails_every_call` | proven |
+| INV-6 unresponsive worker detected | `inv_06_unresponsive_worker_is_detected` | proven |
+| INV-7 a hung call does not kill the instance | `inv_07_a_hung_call_does_not_kill_the_instance` | proven |
+| INV-8 a write is never retried after death | `inv_08_write_is_never_retried_after_death` | proven |
+| INV-9 events neither lost nor duplicated | `inv_09_change_events_are_delivered_once` | proven |
+| INV-10 reconnect reports a new instance token | `inv_10_reconnect_reports_a_new_instance_token` | proven |
+| INV-11 queues stay bounded | `inv_11_queues_stay_bounded_under_sustained_load` | proven |
+
+Plus three supporting tests: the reserved id is never allocated, an unknown response is
+counted rather than guessed at, and a remote error leaves the instance alive.
+
+### The design bug the invariants caught
+
+**The default settings were self-contradictory, and it mattered.** Section 3.4 specified a
+15 s heartbeat timeout and a 30 s per-call deadline. With those numbers a call overrunning
+its deadline had *already* tripped the heartbeat first, so `CallTimeout` was unreachable and
+every slow call would have been reported as a dead worker — tearing down a healthy
+instance, which is exactly the failure the four-way split exists to prevent. `inv_07`
+caught it by asserting the relationship between the two values.
+
+Fixed in both directions:
+
+- the **evaluation order** in the state machine now checks per-call deadlines *before* the
+  liveness check, so a call that overran is attributed to the call;
+- the **defaults** now have `heartbeat_timeout_ms (45 s) > call_timeout_ms (30 s)`, giving a
+  slow call its full deadline before the connection is suspect.
+
+The values remain acknowledged guesses (G-050). What is no longer a guess is the **ordering
+relationship**, which is now an invariant with a test.
+
+`inv_06` then failed for the *right* reason: with ordering fixed, the unresponsive-worker
+test tripped its per-call deadline first, because its one in-flight call had the shorter
+deadline. The test is isolated by giving that call a deadline longer than the heartbeat
+window, separating the two branches; the shipped relationship is asserted separately.
+
 ## 9. Open questions this spec does not settle
 
 1. **Which JS adapter lands first.** The Rust transport can be built and tested against

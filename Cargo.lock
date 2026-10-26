@@ -547,6 +547,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-meta-cache"
+version = "0.0.0"
+dependencies = [
+ "dxdb-localstorage",
+ "dxdb-storage",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-node"
 version = "0.0.0"
 dependencies = [
@@ -803,6 +813,17 @@ dependencies = [
  "futures",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "dxdb-worker"
+version = "0.0.0"
+dependencies = [
+ "dxdb-memory",
+ "dxdb-storage",
+ "futures",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

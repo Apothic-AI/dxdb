@@ -969,6 +969,34 @@ failure legible.
 **Would resolve it.** A published protocol specification from the vendor, obtained
 properly.
 
+### G-054: `dxdb-core` has no internal store, so the metadata cache defines the ledger
+
+**Question.** `specs/meta-cache.md` section 3.1 assumed RxDB's internal store
+(`_rxdb_internal`, one document per collection plus a storage token) would exist in the
+port, so the cache could sit in front of it. Does it?
+
+**Public evidence.** The internal store is real upstream: `INTERNAL_STORAGE_NAME =
+'_rxdb_internal'` (`src/rx-storage-helper.ts:51`), one collection document per collection
+carrying `name`, `schema`, `schemaHash`, `version`, `connectedStorages`, and a
+storage-token document carrying `passwordHash`
+(`src/rx-database-internal-store.ts:152`, `src/types/rx-database-internal-store.d.ts:6,28`).
+On the dxdb side, `dxdb-core::Database::create` takes a storage and `add_collections`
+builds collections directly from it; `_rxdb_internal` appears nowhere in the workspace
+outside this lane's own constants.
+
+**Decision.** `dxdb-meta-cache` declares a `MetadataLedger` trait — list the metadata
+documents, replace them, read and write a generation document, mint an incarnation
+identity — and proves its invariants against a faithful implementation. When `dxdb-core`
+grows an internal store it implements this trait and the proof carries over unchanged.
+Recorded rather than silently substituted, for the same reason as G-020: the clean-room
+crate states the contract it needs instead of blocking on a crate it does not own.
+
+**Risk if wrong.** The trait is a shape the port might not adopt verbatim, in which case an
+adapter is needed. That is a page of delegation, and the alternative — waiting on another
+lane — blocks B4 indefinitely on work with no publish date.
+
+**Would resolve it.** `dxdb-core` gaining an internal store.
+
 ## Closed by fact, not by decision
 
 ### G-027: which upstream modules are in the Apache-2.0 tree (recorded, not decided)
