@@ -1,0 +1,42 @@
+[package]
+name = "dxdb-localstorage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb localStorage / generic-KV storage"
+
+# Native consumers (tests, the filesystem-adjacent tooling) get the pure-Rust
+# core; the browser build adds the `web-sys` binding. Both compile to the same
+# contract, which is the point of the `Kv` abstraction: nothing about the storage
+# logic is platform-specific, so the browser test and the host test exercise the
+# same code path rather than two similar ones.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json.workspace = true
+thiserror.workspace = true
+futures = { workspace = true }
+# One-shot channels for the change feed. `futures` is the workspace dependency;
+# `futures-channel` is its crate for `mpsc`, pulled explicitly rather than via a
+# facade re-export so the intent is visible.
+futures-channel = "0.3.34"
+
+dxdb-storage = { path = "../../dxdb-storage" }
+dxdb-query = { path = "../../dxdb-query" }
+dxdb-jsnum = { path = "../../dxdb-jsnum" }
+dxdb-json = { path = "../../dxdb-json" }
+
+# Browser-only: `localStorage` is a `web_sys` global.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.129"
+js-sys = "0.3.106"
+web-sys = { version = "0.3.106", features = ["Storage", "Window"] }
+
+[dev-dependencies]
+# The in-process KV used by the contract tests. Deliberately *not* a dependency
+# of the crate: a `HashMap` backend shipping in the bundle would be dead weight,
+# and the tests that use it are the ones that must run on the host.
