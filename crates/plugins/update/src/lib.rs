@@ -951,3 +951,81 @@ mod tests {
         assert_eq!(civil_from_days(11_017), (2000, 3, 1));
     }
 }
+
+// ---------------------------------------------------------------------------
+// The plugin, on the core registry
+// ---------------------------------------------------------------------------
+
+/// The hook this plugin registers on, if any.
+///
+/// `update` registers **none**, and that is the finding rather than an omission:
+/// upstream's `RxDBUpdatePlugin` is a pure prototype plugin
+/// (`src/plugins/update/index.ts:45-56`) — three `proto.update = ..` assignments and no
+/// `hooks` block. Its whole surface is `doc.update`, `doc.incrementalUpdate` and
+/// `query.update`, which in Rust are methods on [`UpdateDocument`] rather than anything
+/// the registry could dispatch.
+///
+/// The plugin still implements [`dxdb_core::Plugin`] so that a database can say "the
+/// update plugin is installed", which is what a ported test and a startup log want, and
+/// so that the declaration is uniform with the plugins that do register handlers.
+pub const HOOKS: &[dxdb_core::HookName] = &[];
+
+/// The `RxDBUpdatePlugin` equivalent.
+///
+/// Install it with `database.add_plugin(UpdatePlugin)?`. Because [`HOOKS`] is empty the
+/// install has nothing to register; the plugin's behaviour arrives through
+/// [`UpdateDocument`], which is the Rust spelling of upstream's prototype mutation.
+///
+/// This is the ergonomic cost the plugin model documents: upstream's
+/// `addRxPlugin(RxDBUpdatePlugin)` makes `doc.update(..)` available everywhere, while
+/// here a caller writes `use dxdb_plugin_update::UpdateDocument;`. Reported as a
+/// divergence, not hidden.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct UpdatePlugin;
+
+impl dxdb_core::Plugin for UpdatePlugin {
+    fn name(&self) -> &'static str {
+        // The upstream plugin's `name` field (`src/plugins/update/index.ts:46`).
+        "update"
+    }
+
+    fn install(
+        &self,
+        _registrations: &mut dxdb_core::Registrations,
+        _overwritables: &mut dxdb_core::Overwritables,
+    ) -> std::result::Result<(), dxdb_core::PluginError> {
+        // Nothing to register: see `HOOKS`.
+        Ok(())
+    }
+}
+
+/// The document methods the plugin adds, as a trait.
+///
+/// Upstream adds these to `RxDocument.prototype`; here they are an extension trait over
+/// the document data a caller already has. `update` writes directly, `incremental_update`
+/// takes the previous state so a caller can retry, mirroring upstream's
+/// `incrementalModify` wrapper (`src/plugins/update/index.ts:15-23`).
+pub trait UpdateDocument {
+    /// `doc.update(updateObj)` (`index.ts:25-32`): apply the modifiers and return the new
+    /// document data.
+    fn update(&self, update: &serde_json::Value) -> Result<serde_json::Value>;
+
+    /// `doc.incrementalUpdate(updateObj)` (`index.ts:15-23`): the same transformation,
+    /// named separately because a caller that wants a retry loop drives it from the
+    /// returned value.
+    ///
+    /// Upstream's version runs inside `incrementalModify` so a concurrent write is
+    /// retried against the newer revision. That retry loop is `dxdb-core`'s
+    /// `WriteQueue`; this method is the pure transformation it would call.
+    fn incremental_update(&self, update: &serde_json::Value) -> Result<serde_json::Value>;
+}
+
+impl UpdateDocument for serde_json::Value {
+    fn update(&self, update: &serde_json::Value) -> Result<serde_json::Value> {
+        apply_update(self, update)
+    }
+
+    fn incremental_update(&self, update: &serde_json::Value) -> Result<serde_json::Value> {
+        apply_update(self, update)
+    }
+}

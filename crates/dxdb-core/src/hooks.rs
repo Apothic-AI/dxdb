@@ -178,6 +178,73 @@ pub enum HookOutcome {
     Stop,
 }
 
+/// Where in a hook's chain a handler runs.
+///
+/// Upstream expresses this with two booleans (`before`/`after`) applied as `unshift` and
+/// `push` (`src/plugin.ts:103-114`), which makes the ordering rule depend on *when* a
+/// plugin was added: `before` handlers run newest-first, `after` handlers oldest-first.
+/// Two plugins that both say "before" therefore run in an order nobody wrote down, and
+/// re-running the app with a different plugin registration order changes behaviour.
+///
+/// This enum keeps upstream's two named positions and adds the two that were missing,
+/// so the ordering is a **total** function of `(tier, registration sequence)`:
+///
+/// | Tier | Position |
+/// | --- | --- |
+/// | [`Order::First`] | before every other tier, including other `First` handlers |
+/// | [`Order::Before`] | before `Normal` handlers, after `First` |
+/// | [`Order::Normal`] | the default; plain registration order |
+/// | [`Order::After`] | after `Normal` handlers |
+/// | [`Order::Last`] | after everything, including other `Last` handlers |
+///
+/// `First` and `Last` exist because upstream had no way to say them: a plugin that must
+/// run before other plugins' `before` handlers (or after their `after` handlers) could
+/// only be added earlier or later and hope. Adding two variants removes that class of
+/// ordering bug at the cost of one `u8` in the registry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Order {
+    /// Run before every other handler for this hook.
+    First,
+    /// Run before the default handlers.
+    Before,
+    /// The default: plain registration order within this tier.
+    Normal,
+    /// Run after the default handlers.
+    After,
+    /// Run after every other handler for this hook.
+    Last,
+}
+
+impl Order {
+    /// The sort key. Lower runs earlier.
+    ///
+    /// The values are `u8` so a registration's sort key is `(key, sequence)` where
+    /// `sequence` is the registration counter — a pair of integers, which is a total
+    /// order with no ties. That is what "explicit ordering" has to mean: no two handlers
+    /// are ever ambiguous, so the same plugin set produces the same behaviour on every
+    /// run.
+    pub fn key(self) -> u8 {
+        match self {
+            Order::First => 0,
+            Order::Before => 1,
+            Order::Normal => 2,
+            Order::After => 3,
+            Order::Last => 4,
+        }
+    }
+
+    /// The upstream word this tier corresponds to, for a diagnostic.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Order::First => "first",
+            Order::Before => "before",
+            Order::Normal => "normal",
+            Order::After => "after",
+            Order::Last => "last",
+        }
+    }
+}
+
 /// A registered handler.
 ///
 /// `FnMut` because a plugin may keep state (a counter, a captured buffer) between
@@ -316,7 +383,18 @@ impl HookPayload {
 /// One registered handler, with the identity needed to remove it again.
 struct Registration {
     id: HookId,
+    /// Tier, then registration sequence: the total order.
+    order: Order,
+    sequence: u64,
     handler: HookHandler,
+}
+
+impl Registration {
+    /// The sort key. `(tier, sequence)` is unique per hook by construction, because
+    /// `sequence` is the registry's monotonic counter.
+    fn sort_key(&self) -> (u8, u64) {
+        (self.order.key(), self.sequence)
+    }
 }
 
 /// A hook registry owned by one database.
@@ -343,14 +421,33 @@ impl Hooks {
         Hooks::default()
     }
 
-    /// Registers a handler for `hook`, running after any already registered.
+    /// Registers a handler for `hook` at [`Order::Normal`], running after any already
+    /// registered handler in the same tier.
     ///
-    /// Returns `Err` when the handler's payload shape does not belong to this hook, so a
-    /// wiring mistake is a startup failure rather than a runtime surprise.
+    /// Shorthand for [`Hooks::register_ordered`] with the default tier, which is what
+    /// most plugins want.
     pub fn register(
         &mut self,
         hook: HookName,
         payload: &HookPayload,
+        handler: HookHandler,
+    ) -> Result<HookId, HookRegistrationError> {
+        self.register_ordered(hook, payload, Order::Normal, handler)
+    }
+
+    /// Registers a handler at an explicit position in the chain.
+    ///
+    /// Returns `Err` when the handler's payload shape does not belong to this hook, so a
+    /// wiring mistake is a startup failure rather than a runtime surprise.
+    ///
+    /// The list stays sorted by `(tier, sequence)` on every insert, so [`Hooks::fire`]
+    /// walks it without sorting and the order is stable across runs — see [`Order`] for
+    /// why that is not how upstream does it.
+    pub fn register_ordered(
+        &mut self,
+        hook: HookName,
+        payload: &HookPayload,
+        order: Order,
         handler: HookHandler,
     ) -> Result<HookId, HookRegistrationError> {
         if !payload.valid_for().contains(&hook) {
@@ -360,12 +457,40 @@ impl Hooks {
             });
         }
         let id = HookId(self.next_id);
+        let sequence = self.next_id;
         self.next_id += 1;
-        self.registrations
-            .entry(hook)
-            .or_default()
-            .push(Registration { id, handler });
+        let list = self.registrations.entry(hook).or_default();
+        list.push(Registration {
+            id,
+            order,
+            sequence,
+            handler,
+        });
+        // Insertion sort: the list is tiny (handlers per hook, not per plugin) and it is
+        // already sorted, so this is one pass.
+        list.sort_by_key(Registration::sort_key);
         Ok(id)
+    }
+
+    /// The order handlers for `hook` will run in, as their registration ids.
+    ///
+    /// Exposed because ordering is observable behaviour and a test — or someone
+    /// debugging why their hook sees a half-built collection — needs to see it without
+    /// instrumenting the handlers.
+    pub fn order_of(&self, hook: HookName) -> Vec<HookId> {
+        self.registrations
+            .get(&hook)
+            .map(|list| list.iter().map(|registration| registration.id).collect())
+            .unwrap_or_default()
+    }
+
+    /// The tier a handler was registered at, if it is still registered.
+    pub fn order_of_id(&self, hook: HookName, id: HookId) -> Option<Order> {
+        self.registrations.get(&hook).and_then(|list| {
+            list.iter()
+                .find(|registration| registration.id == id)
+                .map(|registration| registration.order)
+        })
     }
 
     /// Removes one handler by id. Returns whether it was registered.
@@ -396,7 +521,7 @@ impl Hooks {
         self.registrations.values().map(Vec::len).sum()
     }
 
-    /// Runs every handler for `hook`, in registration order.
+    /// Runs every handler for `hook`, in `(tier, registration sequence)` order.
     ///
     /// Stops at the first [`HookOutcome::Stop`], which is upstream's "a hook threw"
     /// case. Returns the outcome so the caller decides what to do: a `preCreate*` hook
