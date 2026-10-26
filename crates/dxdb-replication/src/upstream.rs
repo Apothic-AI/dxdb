@@ -76,6 +76,20 @@ impl PumpOutcome {
     }
 }
 
+/// What one [`Upstream::push_batch`] call did, plus where its batch ended.
+///
+/// Not part of [`PumpOutcome`] because the batch end is protocol plumbing rather than
+/// something a caller reports on, and because a `Checkpoint` is not `Copy` — keeping the
+/// public summary `Copy` is worth one internal type.
+struct PushedBatch {
+    /// The counters this batch contributed.
+    outcome: PumpOutcome,
+    /// The protocol checkpoint at the end of the batch, when the batch carried documents.
+    /// The caller advances the persisted checkpoint from this, so `push_batch` has no
+    /// write to the checkpoint row itself.
+    batch_end: Option<crate::checkpoint::Checkpoint>,
+}
+
 /// The upstream: everything the push direction owns.
 ///
 /// Holds the fork's change stream between pumps, because a stream is stateful: dropping it
@@ -94,6 +108,18 @@ pub struct Upstream<S: RxStorageInstance> {
     /// from the batch we actually pushed is the only way it stays truthful while writes are
     /// arriving.
     last_pushed_checkpoint: Option<crate::checkpoint::Checkpoint>,
+    /// Monotonic task counter, upstream's `timer` (`upstream.ts:78-80`).
+    timer: u64,
+    /// The timer value at the start of the most recent initial-sync fetch.
+    ///
+    /// Upstream's `initialSyncStartTime` (`upstream.ts:82`). A change-stream bulk stamped
+    /// *before* this was already covered by that fetch, so processing it again would push the
+    /// same document twice — harmless on the master, but it doubles the conflict events and
+    /// makes `persistToMaster` counters meaningless. Dropping such tasks is upstream's
+    /// `if (taskWithTime.time < initialSyncStartTime) continue`
+    /// (`upstream.ts:236-243`), and it is the ordering rule the port plan flagged as the
+    /// easiest part of the push to lose.
+    initial_sync_start_time: u64,
     /// Telemetry: what the last `master_write` batch looked like.
     last_push_batch: Vec<WriteToMasterRow>,
     last_conflicts: Vec<DocumentData>,
@@ -112,6 +138,8 @@ impl<S: RxStorageInstance> Upstream<S> {
             fork_stream,
             last_checkpoint: None,
             last_pushed_checkpoint: None,
+            timer: 0,
+            initial_sync_start_time: 0,
             last_push_batch: Vec::new(),
             last_conflicts: Vec::new(),
         }
@@ -163,10 +191,26 @@ impl<S: RxStorageInstance> Upstream<S> {
         let primary_path = self.state.primary_path().to_string();
         let own_flag = self.state.downstream_bulk_write_flag().to_string();
 
-        for bulk in crate::drain_change_stream(&mut self.fork_stream) {
+        // Stamp every bulk as it is drained, then drop the ones the last initial-sync fetch
+        // already covered. The stamp is taken *before* the fetch's own timestamp is
+        // considered, which is what makes the comparison meaningful: a bulk that arrived
+        // earlier is older than the fetch that superseded it.
+        let collected: Vec<(u64, EventBulk)> = crate::drain_change_stream(&mut self.fork_stream)
+            .into_iter()
+            .map(|bulk| {
+                self.timer += 1;
+                (self.timer, bulk)
+            })
+            .collect();
+
+        for (arrived_at, bulk) in collected {
             self.state
                 .update_up_stats(|stats| stats.fork_change_stream_emit += 1);
             resync = resync || self.bulk_requests_resync(&bulk);
+            if arrived_at < self.initial_sync_start_time {
+                // Already covered by that fetch; pushing it again would be a duplicate.
+                continue;
+            }
             if bulk.context == own_flag {
                 // Written by our own pull. Pushing it would send the master its own data,
                 // and the assumed-master state already records it.
@@ -210,22 +254,39 @@ impl<S: RxStorageInstance> Upstream<S> {
             self.state.update_up_stats(|stats| stats.process_tasks += 1);
             let docs: Vec<DocumentData> = pending.into_values().collect();
             let result = self.push_batch(docs).await?;
-            outcome.pushed += result.pushed;
-            outcome.conflicts += result.conflicts;
-            outcome.conflict_writes += result.conflict_writes;
+            outcome.pushed += result.outcome.pushed;
+            outcome.conflicts += result.outcome.conflicts;
+            outcome.conflict_writes += result.outcome.conflict_writes;
+            if let Some(batch_end) = result.batch_end.clone() {
+                // A batch that reported no end was abandoned by a pause or cancel; its
+                // position must not be recorded.
+                if !self.state.is_stopped_or_paused() {
+                    set_checkpoint(&self.state, Direction::Up, Some(&batch_end)).await?;
+                    self.state.checkpoint_queue().drain();
+                    self.last_pushed_checkpoint = Some(batch_end);
+                }
+            }
         }
 
         // The initial sync is what establishes `first_sync_done`, and it re-runs while it
         // produces conflict writes. Running it after the change-stream drain means a live
         // write that arrived during the previous pump is included in this pass's
         // checkpoint iteration, which is why it is not duplicated.
-        if !self.state.events().first_sync_done(Direction::Up) {
-            let ran = self.initial_sync().await?;
-            outcome.pushed += ran.pushed;
-            outcome.conflicts += ran.conflicts;
-            outcome.conflict_writes += ran.conflict_writes;
-            outcome.first_sync_completed = ran.first_sync_completed;
-        }
+        //
+        // It runs on **every** pump, not only until the first sync completes. Upstream runs
+        // `upstreamInitialSync()` unconditionally when the replication starts
+        // (`upstream.ts:71-75`) because the fork's change stream only covers what happens
+        // while the replication is running: anything written while it was stopped is
+        // discoverable solely by iterating from the persisted checkpoint. Gating this on
+        // `first_sync_done` makes a restarted upstream silently skip every document written
+        // while it was down. The loop is cheap when there is nothing to do (one empty
+        // `get_changed_documents_since`), so the cost of always running it is one read per
+        // pump in exchange for never losing a backlog.
+        let ran = self.initial_sync().await?;
+        outcome.pushed += ran.pushed;
+        outcome.conflicts += ran.conflicts;
+        outcome.conflict_writes += ran.conflict_writes;
+        outcome.first_sync_completed = ran.first_sync_completed;
 
         Ok(outcome)
     }
@@ -256,6 +317,12 @@ impl<S: RxStorageInstance> Upstream<S> {
         self.last_checkpoint = checkpoint.clone();
 
         let batch_size = self.state.push_batch_size();
+
+        // Everything drained from the change stream before this point is now covered by the
+        // fetch below, so mark the boundary before reading.
+        self.timer += 1;
+        self.initial_sync_start_time = self.timer;
+
         let mut passes = 0usize;
 
         loop {
@@ -279,15 +346,24 @@ impl<S: RxStorageInstance> Upstream<S> {
             checkpoint = Some(changed.checkpoint.clone());
 
             let result = self.push_batch(changed.documents).await?;
-            outcome.pushed += result.pushed;
-            outcome.conflicts += result.conflicts;
-            outcome.conflict_writes += result.conflict_writes;
+            outcome.pushed += result.outcome.pushed;
+            outcome.conflicts += result.outcome.conflicts;
+            outcome.conflict_writes += result.outcome.conflict_writes;
+            if let Some(batch_end) = result.batch_end.clone() {
+                // A batch that reported no end was abandoned by a pause or cancel; its
+                // position must not be recorded.
+                if !self.state.is_stopped_or_paused() {
+                    set_checkpoint(&self.state, Direction::Up, Some(&batch_end)).await?;
+                    self.state.checkpoint_queue().drain();
+                    self.last_pushed_checkpoint = Some(batch_end);
+                }
+            }
 
             // Re-run the pass when a conflict was resolved, because the resolution is a new
             // fork revision the checkpoint has already passed. Bounded so a pathological
             // handler cannot spin: each additional pass is real work, and 8 is far beyond
             // the two a single conflict needs.
-            if result.conflict_writes > 0 {
+            if result.outcome.conflict_writes > 0 {
                 passes += 1;
                 if passes >= MAX_INITIAL_SYNC_PASSES {
                     return Err(StorageError::Unsupported(format!(
@@ -333,7 +409,7 @@ impl<S: RxStorageInstance> Upstream<S> {
     async fn push_batch(
         &mut self,
         documents: Vec<DocumentData>,
-    ) -> Result<PumpOutcome, StorageError> {
+    ) -> Result<PushedBatch, StorageError> {
         let mut outcome = PumpOutcome::default();
         let primary_path = self.state.primary_path().to_string();
         self.state
@@ -349,14 +425,17 @@ impl<S: RxStorageInstance> Upstream<S> {
             })
             .collect();
         if doc_ids.is_empty() {
-            return Ok(outcome);
+            return Ok(PushedBatch {
+                outcome,
+                batch_end: None,
+            });
         }
 
-        // Record where this batch ends, in the storage's order, before any early return:
-        // the checkpoint must advance even if every row turns out to be already-replicated
-        // or if the batch is abandoned by a pause, because those documents were read and
-        // are not going to be read again.
-        self.last_pushed_checkpoint = documents
+        // Where this batch ends, in the storage's order. Reported to the caller rather than
+        // stored here: two writers to one checkpoint field is how an initial sync ends up
+        // resuming from a position the change-stream path already moved past. The caller
+        // owns advancement.
+        let batch_end = documents
             .iter()
             .filter_map(|document| {
                 let lwt = document.lwt()?;
@@ -432,7 +511,8 @@ impl<S: RxStorageInstance> Upstream<S> {
         }
 
         if to_push.is_empty() {
-            return Ok(outcome);
+            // Nothing to send, but the batch was consumed, so the position advances.
+            return Ok(PushedBatch { outcome, batch_end });
         }
 
         // `master_write` must never see more than `push_batch_size` rows
@@ -461,7 +541,9 @@ impl<S: RxStorageInstance> Upstream<S> {
         // instance would be updated, causing the documents to never be retried on resume."
         //   -- upstream.ts:435-441
         if self.state.is_stopped_or_paused() {
-            return Ok(outcome);
+            // Keep the batch end: these documents were read and will not be read again,
+            // so the checkpoint must still advance past them.
+            return Ok(PushedBatch { outcome, batch_end });
         }
 
         // Meta for the rows the master accepted. A conflict's row is written later, with
@@ -616,24 +698,49 @@ impl<S: RxStorageInstance> Upstream<S> {
 
         self.last_conflicts = conflict_states.into_values().collect();
 
-        // --- checkpoint ---------------------------------------------------------------
-        //
-        // Advance to the position of the *last document this push handled*, which is what
-        // a resumed run must continue after. Deriving it from a fresh
-        // `get_changed_documents_since` call would be wrong twice over: the argument is a
-        // document limit (so a limit of zero returns nothing), and re-reading would report
-        // the fork's current end rather than the position this batch actually reached --
-        // skipping anything written while the push was in flight.
-        //
-        // Stored even when nothing was pushed, so a run that only pulled still advances and
-        // does not re-read the same documents after a restart (`upstream.ts:402-417`).
-        let checkpoint = self.last_pushed_checkpoint.clone();
-        if let Some(checkpoint) = checkpoint {
-            set_checkpoint(&self.state, Direction::Up, Some(&checkpoint)).await?;
-            self.last_checkpoint = checkpoint.as_storage_checkpoint();
-        }
-        self.state.checkpoint_queue().drain();
+        Ok(PushedBatch { outcome, batch_end })
+    }
 
+    /// Marks the current position as "already synced", so the next
+    /// [`Self::pump_live_only`] treats everything in the fork as backlog it may skip.
+    ///
+    /// Upstream's initial sync and its change-stream processing are separate modes joined by
+    /// the `initialSyncStartTime` rule. This exposes that boundary so a test can exercise the
+    /// live path on its own, which is the only path where the own-write filter can apply.
+    pub fn begin_live_session(&mut self) {
+        self.timer += 1;
+        self.initial_sync_start_time = self.timer;
+    }
+
+    /// Pumps the change stream only, without running an initial sync.
+    ///
+    /// The live half of upstream's push: `processTasks()` with no checkpoint iteration
+    /// (`upstream.ts:220-268`). Kept separate from [`Self::pump`] because the two have
+    /// different rules — the initial sync cannot filter by context and drops nothing, the live
+    /// path filters own-writes and drops pre-fetch tasks — and a test that wants to observe
+    /// one of those rules must not have the other run over the same documents first.
+    pub async fn pump_live_only(&mut self) -> Result<PumpOutcome, StorageError> {
+        if self.state.is_stopped_or_paused() {
+            return Ok(PumpOutcome::default());
+        }
+        let mut outcome = PumpOutcome::default();
+        let (pending, _resync) = self.collect_changes();
+        if pending.is_empty() {
+            return Ok(outcome);
+        }
+        self.state.update_up_stats(|stats| stats.process_tasks += 1);
+        let docs: Vec<DocumentData> = pending.into_values().collect();
+        let result = self.push_batch(docs).await?;
+        outcome.pushed += result.outcome.pushed;
+        outcome.conflicts += result.outcome.conflicts;
+        outcome.conflict_writes += result.outcome.conflict_writes;
+        if let Some(batch_end) = result.batch_end {
+            if !self.state.is_stopped_or_paused() {
+                set_checkpoint(&self.state, Direction::Up, Some(&batch_end)).await?;
+                self.state.checkpoint_queue().drain();
+                self.last_pushed_checkpoint = Some(batch_end);
+            }
+        }
         Ok(outcome)
     }
 

@@ -88,6 +88,17 @@ struct StoreState {
     /// The revision token this instance mints. A real storage uses the database
     /// instance token; a fixture uses a fixed string so a test can predict it.
     revision_token: String,
+    /// Millisecond component of the last-write clock.
+    ///
+    /// A storage owns `_meta.lwt`; a document's own value is not trusted. Every write takes
+    /// the next tick, so the `(_meta.lwt, primary)` order is total and a checkpoint is a
+    /// real position. A fixture that reused the incoming `lwt` would give every document the
+    /// same timestamp, and then a change feed ordered by `(lwt, primary)` can report
+    /// "nothing after the checkpoint" while a document with a larger primary still sorts
+    /// after it -- which is a data-loss bug wearing a passing test's clothes.
+    lwt_ms: u64,
+    /// Sub-millisecond component, 1..=99, matching upstream's `now()` shape (D4).
+    lwt_sub: u8,
     /// Counts of calls, so a test can assert which path ran.
     writes: u64,
 }
@@ -115,6 +126,10 @@ impl MemoryStorage {
         let schema = StorageSchema::from_value(&schema).expect("the fixture schema is valid");
         let inner = StoreState {
             revision_token: revision_token.to_string(),
+            // A fixed epoch keeps a test replayable; the increasing ticks matter, the
+            // absolute value does not.
+            lwt_ms: 1_700_000_000_000,
+            lwt_sub: 0,
             ..Default::default()
         };
         MemoryStorage {
@@ -183,11 +198,13 @@ impl MemoryStorage {
         &self.schema.primary_path
     }
 
-    fn revision_for(&self, previous: Option<&DocumentData>) -> String {
-        dxdb_storage::create_revision(
-            &self.inner.borrow().revision_token,
-            previous.and_then(DocumentData::rev),
-        )
+    /// The next revision, given a borrow the caller already holds.
+    ///
+    /// Takes `token` rather than reading `self.inner` because `bulk_write` holds a mutable
+    /// borrow of that cell for the whole write loop; a second `borrow()` inside it would
+    /// panic at runtime. Passing the token keeps one borrow per scope.
+    fn revision_for(token: &str, previous: Option<&DocumentData>) -> String {
+        dxdb_storage::create_revision(token, previous.and_then(DocumentData::rev))
     }
 
     fn emit(&self, bulk: EventBulk) {
@@ -349,12 +366,19 @@ impl RxStorageInstance for MemoryStorage {
                     }
                 }
 
-                // Assign the revision and the last-write time, as a storage must.
-                let revision = self.revision_for(existing.as_ref());
+                // Assign the revision and the last-write time, as a storage must. The
+                // incoming lwt is ignored: it belongs to whichever instance wrote the
+                // document before, and this instance's clock is the one its own change feed
+                // is ordered by.
+                let revision = Self::revision_for(&state.revision_token, existing.as_ref());
                 stored.set("_rev", Value::String(revision));
-                if stored.lwt().is_none() {
-                    stored.set_lwt(1.0)?;
+                state.lwt_sub += 1;
+                if state.lwt_sub >= 100 {
+                    state.lwt_ms += 1;
+                    state.lwt_sub = 1;
                 }
+                let lwt = state.lwt_ms as f64 + state.lwt_sub as f64 * 0.01;
+                stored.set_lwt(lwt)?;
 
                 let operation = match &existing {
                     None => Operation::Insert,

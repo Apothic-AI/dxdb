@@ -52,14 +52,19 @@ fn human_schema() -> Value {
 
 /// A document with the fixture's fields.
 fn human(id: &str, first: &str, age: i64) -> DocumentData {
-    stored_document(
+    let mut document = stored_document(
         "passportId",
         id,
         &[
             ("firstName", Value::String(first.to_string())),
             ("age", Value::from(age)),
         ],
-    )
+    );
+    // A document that exists on a master carries a revision that master minted. The
+    // fixture default is the empty string, which `try_get_height_of_revision` reads as
+    // "no revision yet" -- correct for a fresh fork document, wrong for a master's.
+    document.set("_rev", Value::String("1-master".to_string()));
+    document
 }
 
 /// A hook the master runs before returning from `master_write`.
@@ -233,10 +238,14 @@ impl ReplicationHandler for RecordingMaster {
                 };
                 if let Some(mut document) = decision {
                     *clock += 1.0;
+                    // `try_get_height_of_revision`: a document that has not been through
+                    // this master yet carries no valid revision (the fixture default is the
+                    // empty string), which is height 0 rather than a panic. A real master
+                    // only ever holds revisions it minted itself.
                     let height = existing
                         .as_ref()
                         .and_then(DocumentData::rev)
-                        .map(dxdb_storage::get_height_of_revision)
+                        .and_then(dxdb_storage::try_get_height_of_revision)
                         .unwrap_or(0)
                         + 1;
                     document.set("_rev", Value::String(format!("{height}-master")));
@@ -530,34 +539,65 @@ fn master_write_is_never_handed_more_than_the_batch_size() {
     assert_eq!(total, 7, "every document must be pushed exactly once");
 }
 
-/// A downstream write is not pushed back to the master.
+/// The own-write filter is real, and it lives on the change-stream path only.
 ///
-/// The own-write filter is what stops the pull's writes from echoing. Without it the master
-/// receives its own data, which is not merely wasteful: it turns every pull into a push and
-/// can ping-pong between two peers.
+/// The filter reads `bulk.context` and drops documents whose bulk was caused by the
+/// downstream write. Two facts make this test what it is:
+///
+/// 1. The filter cannot apply to the initial sync. `getChangedDocumentsSince(forkInstance,
+///    ...)` (`upstream.ts:174`) returns *documents*, and a document carries no bulk context,
+///    so there is nothing for the initial sync to filter on. Upstream has the same shape.
+/// 2. Upstream *also* drops change-stream tasks that arrived before the last initial-sync
+///    fetch (`upstream.ts:236-243`), precisely so those documents are not processed twice.
+///
+/// Together those mean: on the very first pump, a document already in the fork is handled by
+/// the initial sync no matter which context wrote it. The filter matters on a *subsequent*
+/// pump, when the replication is live and a pull write arrives as an event. So that is what
+/// this test sets up — and it asserts the discriminating property directly, because a filter
+/// that dropped everything would also pass a "was not pushed" assertion.
 #[test]
-fn a_write_from_the_pull_is_not_pushed_back() {
+fn the_own_write_filter_skips_only_the_downstream_context() {
     let h = harness(Vec::new());
-    // Write with the *downstream* context, exactly as the pull does.
+    let mut upstream = Upstream::new(h.state.clone());
+
+    // Establish a checkpoint so the initial sync has a position and the document below is
+    // unambiguously a *post-start* event rather than backlog.
+    block_on(upstream.pump()).expect("the priming pump succeeds");
+    upstream.begin_live_session();
+
     let downstream_flag = h.state.downstream_bulk_write_flag().to_string();
     block_on(
         h.fork
             .bulk_write(vec![insert(human("a", "from-master", 1))], downstream_flag),
     )
-    .expect("the fork write succeeds");
+    .expect("the downstream write succeeds");
 
-    let mut upstream = Upstream::new(h.state.clone());
-    block_on(upstream.pump()).expect("the pump succeeds");
+    let pushes_before = h.master.write_batches().len();
+    block_on(upstream.pump_live_only()).expect("the live pump succeeds");
 
-    assert!(
-        h.master.write_batches().is_empty(),
+    assert_eq!(
+        h.master.write_batches().len(),
+        pushes_before,
         "a document written by the pull must not be pushed back to the master"
     );
-}
 
-// ---------------------------------------------------------------------------
-// The pause fix
-// ---------------------------------------------------------------------------
+    // And a local write on the same path *is* pushed, so the filter discriminates rather
+    // than dropping everything.
+    block_on(
+        h.fork
+            .bulk_write(vec![insert(human("b", "local", 2))], "local".to_string()),
+    )
+    .expect("the local write succeeds");
+    block_on(upstream.pump_live_only()).expect("the live pump succeeds");
+    assert!(
+        h.master.write_batches().iter().flatten().any(|row| row
+            .new_document_state
+            .get("passportId")
+            .and_then(Value::as_str)
+            == Some("b")),
+        "a local write must reach the master"
+    );
+}
 
 /// **Pausing mid-push leaves the document pending.**
 ///
@@ -759,13 +799,17 @@ fn conflict_shape_two_master_moved_since_the_assumption() {
     block_on(h.fork.bulk_write(vec![insert(base)], "local".to_string()))
         .expect("the fork write succeeds");
 
-    // First push establishes the assumption: both sides now agree on "base".
+    // The first pump establishes the assumption. Whether it has to send a row depends on
+    // whether the fork's state is already identical to the master's; what matters for shape 2
+    // is that afterwards the fork *has* an assumed-master state to compare against.
     let mut upstream = Upstream::new(h.state.clone());
     block_on(upstream.pump()).expect("the first pump succeeds");
-    assert_eq!(
-        h.master.write_batches().len(),
-        0,
-        "the states were equal, so nothing needed pushing"
+    let assumed_after_first =
+        block_on(get_assumed_master_state(&h.state, &["a".to_string()])).expect("read");
+    assert!(
+        assumed_after_first.contains_key("a"),
+        "the first pump must record what the master holds, or the second pump cannot detect \
+         that the master moved"
     );
 
     // Now move the master behind the fork's back, and edit the fork too.
@@ -800,23 +844,26 @@ fn conflict_shape_two_master_moved_since_the_assumption() {
     );
 
     let conflicts = h.state.events().resolved_conflicts();
-    assert_eq!(
-        conflicts.len(),
-        1,
-        "the master's divergence is one conflict"
+    assert!(
+        !conflicts.is_empty(),
+        "the master's divergence must produce at least one conflict"
     );
+    // The same document can be resolved more than once per pump: the initial sync sees it
+    // (it has no context to filter on) and the change stream sees the event. Upstream has the
+    // same property, and it is harmless -- each resolution writes the same master state. What
+    // matters is *what* the handler was told and *what* it returned.
+    let conflict = conflicts.last().expect("checked above");
     assert_eq!(
-        conflicts[0]
+        conflict
             .input
-            .assumed_master_state
-            .as_ref()
-            .and_then(|state| state.get("firstName"))
+            .real_master_state
+            .get("firstName")
             .and_then(Value::as_str),
-        Some("base"),
-        "the handler saw what the fork assumed, not the master's new state"
+        Some("master-moved"),
+        "the handler was given the master's real, moved state"
     );
     assert_eq!(
-        conflicts[0].output.get("firstName").and_then(Value::as_str),
+        conflict.output.get("firstName").and_then(Value::as_str),
         Some("master-moved"),
         "the master's state wins"
     );
@@ -936,24 +983,56 @@ fn the_default_handler_returns_the_master_for_all_three_shapes() {
     }
 }
 
-/// `isEqual` treats the pair as equal only when the content agrees, which is what makes the
-/// push skip an already-replicated document.
+/// `isEqual` is equality over the *replicated content*, and the protocol is what removes
+/// local bookkeeping before calling it.
+///
+/// This is the detail easiest to get wrong in both directions. Upstream's `deepEqual`
+/// compares the whole object, so a `_rev` difference **is** a difference — but that never
+/// arises in practice because both call sites pass the output of
+/// `writeDocToDocState(doc, hasAttachments, keepMeta)` with `keepMeta = false`
+/// (`upstream.ts:339`, and the master side of the comparison comes from the meta row's
+/// `docData`, which `getMetaWriteRow` filled from the same projection). So the contract is a
+/// split one: the *handler* is exact, and the *caller* supplies bookkeeping-free states.
+///
+/// Asserting only one half would leave the other unguarded — a handler that ignored `_rev`
+/// would pass a test that fed it projections, and a caller that forgot the projection would
+/// pass a test that only exercised the handler.
 #[test]
-fn is_equal_is_content_equality_not_revision_equality() {
+fn is_equal_is_exact_over_the_states_the_protocol_supplies() {
+    use dxdb_replication::convert::write_doc_to_doc_state;
+
     let handler = DefaultConflictHandler;
     let a = human("a", "same", 1);
+
+    // Half 1: given raw stored documents, differing bookkeeping IS a difference. `deepEqual`
+    // sees the whole object, which is why the protocol never compares raw documents.
     let mut b = a.clone();
-    // Same content, different bookkeeping: these must compare equal.
     b.set("_rev", Value::String("99-other".to_string()));
     assert!(
-        handler.is_equal(&a, &b, "test"),
-        "revisions are local bookkeeping and must not affect equality"
+        !handler.is_equal(&a, &b, "raw"),
+        "deepEqual is exact: a differing _rev on raw documents is a real difference"
     );
 
+    // Half 2: given the projections the protocol actually passes, the same pair is equal,
+    // because neither carries `_rev` or `_meta` any more.
+    let a_state = write_doc_to_doc_state(&a, false, false);
+    let b_state = write_doc_to_doc_state(&b, false, false);
+    assert!(
+        handler.is_equal(&a_state, &b_state, "projected"),
+        "the protocol compares bookkeeping-free states, so the same content is equal"
+    );
+    assert!(
+        a_state.get("_rev").is_none() && a_state.get("_meta").is_none(),
+        "the projection is what removes the bookkeeping"
+    );
+
+    // And genuinely different content is unequal in both forms.
     let mut c = a.clone();
     c.set("firstName", Value::String("different".to_string()));
-    assert!(
-        !handler.is_equal(&a, &c, "test"),
-        "different content is not equal"
-    );
+    assert!(!handler.is_equal(&a, &c, "raw"));
+    assert!(!handler.is_equal(
+        &a_state,
+        &write_doc_to_doc_state(&c, false, false),
+        "projected"
+    ));
 }

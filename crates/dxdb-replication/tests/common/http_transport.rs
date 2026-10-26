@@ -480,9 +480,19 @@ fn json_error(message: &str) -> Value {
 pub struct HttpHandler {
     base_url: String,
     /// Counts, so the test can assert the protocol actually made requests.
+    ///
+    /// Shared through an `Rc` because the protocol holds its own handle (the adapter may
+    /// clone it, and a transport clone must observe the same traffic). Per-instance `Cell`s
+    /// would make a caller read the count of a handle nobody used, which is a silent
+    /// zero rather than a wrong number.
+    counters: std::rc::Rc<Counters>,
+}
+
+/// Traffic counters, shared by every clone of a handler.
+#[derive(Default)]
+pub struct Counters {
     changes_since_calls: std::cell::Cell<u64>,
     write_calls: std::cell::Cell<u64>,
-    /// Every response body received, in order.
     responses: std::cell::RefCell<Vec<Value>>,
 }
 
@@ -491,29 +501,47 @@ impl HttpHandler {
     pub fn new(base_url: impl Into<String>) -> Self {
         HttpHandler {
             base_url: base_url.into(),
-            changes_since_calls: std::cell::Cell::new(0),
-            write_calls: std::cell::Cell::new(0),
-            responses: std::cell::RefCell::new(Vec::new()),
+            counters: std::rc::Rc::new(Counters::default()),
+        }
+    }
+
+    /// A second handle onto the same counters and the same URL.
+    pub fn clone_handle(&self) -> Self {
+        HttpHandler {
+            base_url: self.base_url.clone(),
+            counters: self.counters.clone(),
         }
     }
 
     /// How many `changes-since` requests were made.
     pub fn changes_since_calls(&self) -> u64 {
-        self.changes_since_calls.get()
+        self.counters.changes_since_calls.get()
     }
 
     /// How many `write` requests were made.
     pub fn write_calls(&self) -> u64 {
-        self.write_calls.get()
+        self.counters.write_calls.get()
     }
 
     /// The parsed response bodies, in order.
     pub fn responses(&self) -> Vec<Value> {
-        self.responses.borrow().clone()
+        self.counters.responses.borrow().clone()
     }
 
     /// Sends one POST and returns the parsed response body.
     pub fn post(&self, path: &str, body: Value) -> Result<Value, String> {
+        // Count before sending, so a request that fails to parse still shows as attempted.
+        match path {
+            "/changes-since" => self
+                .counters
+                .changes_since_calls
+                .set(self.counters.changes_since_calls.get() + 1),
+            "/write" => self
+                .counters
+                .write_calls
+                .set(self.counters.write_calls.get() + 1),
+            _ => {}
+        }
         let url = format!("{}{}", self.base_url, path);
         let (status, response_body) = http_post(&url, &dxdb_json::to_js_json(&body))?;
         if status != 200 {
@@ -521,7 +549,13 @@ impl HttpHandler {
         }
         let parsed = dxdb_json::parse(&response_body)
             .map_err(|error| format!("{path} returned invalid JSON: {error}"))?;
-        self.responses.borrow_mut().push(parsed.clone());
+        // A body-level error is an error even on 200: the test server reports an unknown
+        // route that way, and a caller that ignored it would treat a routing bug as an
+        // empty successful response.
+        if let Some(message) = parsed.get("error").and_then(Value::as_str) {
+            return Err(format!("{path}: {message}"));
+        }
+        self.counters.responses.borrow_mut().push(parsed.clone());
         Ok(parsed)
     }
 }

@@ -128,7 +128,7 @@ fn client_for(server: &TestServer, identifier: &str) -> Client {
         identifier: identifier.to_string(),
         pull_batch_size: BatchSize::new(100),
         push_batch_size: BatchSize::new(100),
-        handler: Box::new(HttpAdapter(handler.clone())),
+        handler: Box::new(HttpAdapter(Rc::new(handler.clone_handle()))),
         conflict_handler: Box::new(DefaultConflictHandler),
         fork: fork.instance(),
         meta: meta.instance(),
@@ -275,7 +275,12 @@ fn two_process_convergence_and_checkpoint_equality() {
 
     assert!(
         client.handler.write_calls() >= 1,
-        "the protocol must have made at least one HTTP write"
+        "the protocol must have made at least one HTTP write (writes={}, changes_since={},          fork docs={}, server docs={}, server requests={:?})",
+        client.handler.write_calls(),
+        client.handler.changes_since_calls(),
+        client.fork.all_documents().len(),
+        server.documents().len(),
+        server.requests().iter().map(|r| r.path.clone()).collect::<Vec<_>>()
     );
 
     // --- convergence -------------------------------------------------------------
@@ -290,9 +295,14 @@ fn two_process_convergence_and_checkpoint_equality() {
 
     let server_by_id = by_primary(&server_docs);
     let fork_by_id = by_primary(&fork_docs);
+    // A set comparison: `by_primary` returns a HashMap, whose iteration order is not a
+    // promise. Comparing the key vectors would fail on a legitimate reordering.
+    let mut server_ids: Vec<&String> = server_by_id.keys().collect();
+    let mut fork_ids: Vec<&String> = fork_by_id.keys().collect();
+    server_ids.sort();
+    fork_ids.sort();
     assert_eq!(
-        server_by_id.keys().collect::<Vec<_>>(),
-        fork_by_id.keys().collect::<Vec<_>>(),
+        server_ids, fork_ids,
         "the two sides hold the same document ids"
     );
     for (id, server_doc) in &server_by_id {
@@ -357,25 +367,40 @@ fn two_process_convergence_and_checkpoint_equality() {
 
     // --- re-running from the checkpoint yields nothing ----------------------------
     //
-    // This is the half that proves the checkpoint is *correct* rather than merely present.
-    // A checkpoint that looks right but resumes one document early re-delivers that
-    // document forever, and only the re-run detects it.
-    let replayed = block_on(
+    // **The two directions resume different feeds, and pairing them wrongly is a real bug
+    // class.** Upstream's upstream pulls from the *fork*:
+    //
+    //     const upResult = await getChangedDocumentsSince(state.input.forkInstance, ...)
+    //         -- upstream.ts:174, with the reason at :157
+    //
+    // and the downstream pulls from the *master*. So an `up` checkpoint is a position in
+    // the fork's change feed, and a `down` checkpoint is a position in the master's. A
+    // checkpoint that looks correct but resumes one document early re-delivers that
+    // document forever, and only a re-run detects it -- which is why this asserts on the
+    // feed the checkpoint actually belongs to.
+    let replayed_fork = block_on(
         client
-            .state
-            .handler()
-            .master_changes_since(Some(&stored), 100),
+            .fork
+            .get_changed_documents_since(100, stored.as_storage_checkpoint()),
     )
-    .expect("the changes-since request succeeds");
+    .expect("the fork change feed is readable");
     assert!(
-        replayed.documents.is_empty(),
-        "resuming from the persisted checkpoint must report no documents, got {:?}",
-        replayed
+        replayed_fork.documents.is_empty(),
+        "the `up` checkpoint is a position in the FORK feed, so resuming it must report no \
+         fork documents; got {:?}",
+        replayed_fork
             .documents
             .iter()
             .filter_map(|document| document.get("passportId").cloned())
             .collect::<Vec<_>>()
     );
+
+    // Whether the same checkpoint is also a valid *master* position depends entirely on
+    // whether the two clocks agree, which is not a promise the protocol makes. In this test
+    // both sides stamp `lwt` from the same fixed epoch, so it happens to resume cleanly
+    // there too -- asserting that would be asserting a coincidence of the fixture. What the
+    // protocol does promise is only about each feed separately, which is what the assertion
+    // above covers.
 
     // --- a second round, to prove it is not a one-shot ----------------------------
     block_on(client.fork.bulk_write(
@@ -383,13 +408,38 @@ fn two_process_convergence_and_checkpoint_equality() {
         "local".to_string(),
     ))
     .expect("the fork write succeeds");
+    let fork_before = client.fork.all_documents().len();
+    let writes_before = client.handler.write_calls();
     let mut upstream = Upstream::new(client.state.clone());
-    block_on(upstream.pump()).expect("the second push succeeds");
+    let outcome = block_on(upstream.pump()).expect("the second push succeeds");
 
     assert_eq!(
         server.documents().len(),
         6,
-        "the second round reached the master"
+        "the second round reached the master (fork docs={fork_before}, pump={:?}, \
+         writes before/after={writes_before}/{}, up checkpoint={:?}, \
+         fork changed since up checkpoint={:?})",
+        outcome,
+        client.handler.write_calls(),
+        block_on(last_checkpoint(&client.state, Direction::Up))
+            .ok()
+            .flatten()
+            .map(|checkpoint| checkpoint.to_js_json()),
+        block_on(
+            client.fork.get_changed_documents_since(
+                100,
+                block_on(last_checkpoint(&client.state, Direction::Up))
+                    .ok()
+                    .flatten()
+                    .and_then(|checkpoint| checkpoint.as_storage_checkpoint())
+            )
+        )
+        .ok()
+        .map(|changed| changed
+            .documents
+            .iter()
+            .filter_map(|document| document.get("passportId").cloned())
+            .collect::<Vec<_>>())
     );
     let second_checkpoint = block_on(last_checkpoint(&client.state, Direction::Up))
         .expect("the read succeeds")
@@ -401,14 +451,13 @@ fn two_process_convergence_and_checkpoint_equality() {
     );
     let replayed_again = block_on(
         client
-            .state
-            .handler()
-            .master_changes_since(Some(&second_checkpoint), 100),
+            .fork
+            .get_changed_documents_since(100, second_checkpoint.as_storage_checkpoint()),
     )
     .expect("the read succeeds");
     assert!(
         replayed_again.documents.is_empty(),
-        "the advanced checkpoint must also resume cleanly"
+        "the advanced `up` checkpoint must also resume the fork feed cleanly"
     );
 
     // --- a pull converges the other way ------------------------------------------
@@ -450,12 +499,29 @@ fn two_process_convergence_and_checkpoint_equality() {
     drop(server);
 }
 
-/// The content of a document, ignoring the fields each side generates locally.
+/// The replicated content of a document: everything a peer is expected to agree on.
+///
+/// Excludes `_rev` and `_meta`, which are each side's local bookkeeping by design, and an
+/// **empty** `_attachments` object, which is a storage-shape artefact rather than content:
+/// a document written by the client before any attachment existed has no `_attachments`
+/// key, while the master's storage normalises it to `{}`. Upstream's own conflict handler
+/// treats those as equal for exactly this reason (`addAttachmentsIfNotExists`,
+/// `default-conflict-handler.ts:37-43`), so a convergence assertion that distinguished them
+/// would be stricter than the protocol.
+///
+/// A *non-empty* `_attachments` is content and is compared.
 fn content_of(document: &DocumentData) -> Value {
     let mut map = dxdb_json::Map::new();
     for (key, value) in document.as_object() {
         if matches!(key.as_str(), "_rev" | "_meta") {
             continue;
+        }
+        if key == "_attachments" {
+            if let Some(attachments) = value.as_object() {
+                if attachments.is_empty() {
+                    continue;
+                }
+            }
         }
         map.insert(key.clone(), value.clone());
     }
