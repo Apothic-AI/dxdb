@@ -141,6 +141,25 @@ impl Kind {
 pub enum PortStatus {
     /// Runs in this crate against a `RxStorage` and would fail on a regression.
     Exercised,
+    /// **Part** of the upstream case runs and part of it cannot, and the split is
+    /// recorded rather than rounded to whichever answer flatters the lane.
+    ///
+    /// The query-correctness groups are the only users. Upstream's harness makes four
+    /// assertions per query (`rx-storage-query-correctness.test.ts:204-340`):
+    ///
+    /// | # | assertion | needs | runs here |
+    /// | --- | --- | --- | --- |
+    /// | 1 | in-memory statics (`getQueryMatcher` + `getSortComparator`) | `dxdb-query` | no |
+    /// | 2 | planner's `selectorSatisfiedByIndex` | `dxdb-query` | no |
+    /// | 3 | `RxStorageInstance.query()` vs `expectedResultDocIds` | nothing extra | **yes** |
+    /// | 4 | `count()` when the query has no skip/limit | nothing extra | **yes** |
+    ///
+    /// Assertions 3 and 4 are the storage half and they are the half this crate owns, so
+    /// calling a group `NeedsQueryCrate` — as if nothing ran — understates the work, and
+    /// calling it `Exercised` would claim assertions 1 and 2 pass. `is_exercised` returns
+    /// true for this status because a regression *will* fail the group; the report prints
+    /// the two counts separately so the claim stays precise.
+    PartiallyExercised,
     /// Declared only: the case body is not written. Used where the case needs
     /// something no crate in the workspace provides at all.
     TextOnly,
@@ -171,6 +190,7 @@ impl PortStatus {
     pub fn as_str(self) -> &'static str {
         match self {
             PortStatus::Exercised => "Exercised",
+            PortStatus::PartiallyExercised => "PartiallyExercised",
             PortStatus::TextOnly => "TextOnly",
             PortStatus::NeedsQueryCrate => "NeedsQueryCrate",
             PortStatus::NeedsMultiInstance => "NeedsMultiInstance",
@@ -180,8 +200,20 @@ impl PortStatus {
         }
     }
 
-    /// True when the case runs today.
+    /// True when a regression in the storage would fail this case today.
+    ///
+    /// [`PortStatus::PartiallyExercised`] counts: the storage half of a correctness group
+    /// runs, so a storage that returns the wrong documents fails it. What does not run is
+    /// the *oracle* half, which is a different claim and is reported separately.
     pub fn is_exercised(self) -> bool {
+        matches!(self, PortStatus::Exercised | PortStatus::PartiallyExercised)
+    }
+
+    /// True when *all* of the upstream case runs, oracle included.
+    ///
+    /// The distinction from [`PortStatus::is_exercised`] is the one number a reader is
+    /// most likely to inflate, so it is a separate question with a separate answer.
+    pub fn is_fully_exercised(self) -> bool {
         matches!(self, PortStatus::Exercised)
     }
 }
@@ -246,8 +278,10 @@ pub struct Coverage {
     pub by_status: BTreeMap<&'static str, usize>,
     /// Total declared.
     pub total_declared: usize,
-    /// Total exercised.
+    /// Total exercised, counting a partially-exercised case as exercised.
     pub total_exercised: usize,
+    /// Total *fully* exercised, where every upstream assertion runs.
+    pub total_fully_exercised: usize,
 }
 
 impl Coverage {
@@ -261,6 +295,9 @@ impl Coverage {
             if case.status.is_exercised() {
                 coverage.total_exercised += 1;
                 *coverage.exercised.entry(kind).or_default() += 1;
+            }
+            if case.status.is_fully_exercised() {
+                coverage.total_fully_exercised += 1;
             }
             *coverage.by_status.entry(case.status.as_str()).or_default() += 1;
         }

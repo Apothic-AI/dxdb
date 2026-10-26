@@ -153,6 +153,7 @@ KINDS = [
 #: one status, the most specific blocker, so the summary counts are disjoint.
 class PortStatus:
     EXERCISED = "Exercised"
+    PARTIALLY_EXERCISED = "PartiallyExercised"
     TEXT_ONLY = "TextOnly"
     NEEDS_QUERY_CRATE = "NeedsQueryCrate"
     NEEDS_MULTI_INSTANCE = "NeedsMultiInstance"
@@ -516,10 +517,15 @@ def build_qc_cases(root: Path) -> list[Case]:
                 upstream_line=title_line,
                 title=title,
                 kind="Query",
-                status=PortStatus.NEEDS_QUERY_CRATE,
+                # Partially, not fully: assertions 3 and 4 of upstream's harness
+                # (storage query, count) run here; 1 and 2 (the in-memory statics and the
+                # planner's selectorSatisfiedByIndex) need dxdb-query. See the
+                # `PortStatus::PartiallyExercised` docs for the table.
+                status=PortStatus.PARTIALLY_EXERCISED,
                 note=(
-                    "declared; data and expected ids committed; assertions need "
-                    "dxdb-query's prepare_query to build a PreparedQuery"
+                    "storage query() and count() run against the committed data; the "
+                    "in-memory statics and the planner's selectorSatisfiedByIndex need "
+                    "dxdb-query"
                     + ("; upstream skips this group for dexie storages" if not_run else "")
                 ),
                 section="testCorrectQueries",
