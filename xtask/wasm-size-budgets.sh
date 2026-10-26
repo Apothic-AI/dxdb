@@ -35,11 +35,24 @@ mkdir -p "$OUT" || exit 2
 # The budget rows from PLAN.md 5.3, in KiB, and the feature that builds each bundle.
 # opfs is listed with its budget but no feature: the crate does not exist, and a row
 # that says "not measurable: storage not implemented" is a true third state.
+# Two families, deliberately measured together:
+#
+#   *:320 / *:900 / *:400  -- a storage linked to the binding floor. These say how small
+#                              the binding layer is. They are NOT the budget test.
+#   engine-*               -- the schema validator, query planner and index-string
+#                              encoder linked in as well. THIS is the budget test: it is
+#                              the first measurement where PLAN.md 5.3's numbers are a
+#                              real constraint rather than a formality.
 BUNDLES=(
   "core:250:wasm-size-fixtures"
   "memory:320:memory-bundle"
   "sqlite:900:sqlite-bundle"
   "opfs:400:opfs-bundle"
+  "engine-memory:320:engine-memory-bundle"
+  "engine-sqlite:900:engine-sqlite-bundle"
+  "full-engine-memory:320:full-engine-memory-bundle"
+  "schema-only:0:schema-only-bundle"
+  "regress-only:0:regress-only-bundle"
 )
 
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -87,6 +100,8 @@ printf '{\n  "bundles": [\n' >> "$OUT/results.json"
 for row in "${BUNDLES[@]}"; do
   IFS=: read -r label budget_kib feature <<< "$row"
   budget_bytes=$((budget_kib * 1024))
+  # budget 0 marks an attribution fixture: measured for the breakdown, with no budget.
+  [ "$budget_kib" = "0" ] && attribution=1 || attribution=0
   raw="$OUT/$label.raw.wasm"
   log="$OUT/$label.build.log"
 
@@ -124,11 +139,19 @@ for row in "${BUNDLES[@]}"; do
            "$wasm" "$budget_bytes" "$label" 2>>"$log" | tail -1)
   json=$(cargo run --release -q --package dxdb-bench --features wasm-size --bin wasm-size -- \
            "$wasm" "$budget_bytes" "$label" 2>>"$log" | head -1)
-  echo "  $line"
+  if [ "$attribution" = "1" ]; then
+    # Attribution fixtures have no budget: they exist to split a cost, not to pass.
+    bytes=$(printf '%s' "$json" | sed 's/.*"brotli_q11_bytes":\([0-9]*\).*/\1/')
+    printf '  %-18s (attribution, no budget): %s B brotli\n' "$label" "$bytes"
+  else
+    echo "  $line"
+  fi
   printf '    %s,\n' "$json" >> "$OUT/results.json"
-  case "$json" in
-    *'"status":"EXCEEDED"'*) FAILED=1 ;;
-  esac
+  if [ "$attribution" != "1" ]; then
+    case "$json" in
+      *'"status":"EXCEEDED"'*) FAILED=1 ;;
+    esac
+  fi
   SEEN_STATUS=$((SEEN_STATUS + 1))
 done
 

@@ -2549,12 +2549,46 @@ pub async fn run_exercised_case<S: RxStorage>(storage: &S, upstream_line: u32) {
     }
 }
 
+/// The panic strategy this build was compiled with, as a string a caller can assert on.
+///
+/// `"unwind"` means [`run_all`] catches per-case panics and reports every failure;
+/// `"abort"` means the first panic terminates the process and only one case is reported.
+/// Exposed because the difference changes the *result* of a gate, not just its style.
+pub const PANIC_STRATEGY: &str = if cfg!(panic = "unwind") {
+    "unwind"
+} else {
+    "abort"
+};
+
+/// Whether [`run_all`]'s catch-a-panic-per-case behaviour actually applies in this build.
+pub const fn catch_unwind_works() -> bool {
+    cfg!(panic = "unwind")
+}
+
 /// Runs every exercised case against `storage`, returning the upstream lines that
 /// failed.
 ///
-/// A gate wants all failures rather than the first, because a storage with three bugs
-/// should be told about three. A panic in one case is caught so it does not hide the
-/// rest.
+/// # The panic strategy caveat, measured
+///
+/// This function catches a panic per case so one broken case does not hide the rest.
+/// **That only works when the panic strategy is `unwind`.** The workspace release
+/// profile sets `panic = "abort"` (PLAN.md 5.3), and `catch_unwind` cannot catch an
+/// abort: verified directly, the same program under `--release` terminates instead of
+/// reaching the line after `catch_unwind`, while under the dev profile it catches.
+///
+/// So the contract of this function is strategy-dependent, which is exactly the kind of
+/// difference that makes a harness report green or red depending on how it was built.
+/// Two things guard against that:
+///
+/// * [`PANIC_STRATEGY`] is exposed so a caller can assert which behaviour it is getting
+///   rather than assume.
+/// * A caller that needs all-failures reporting in a release artifact must not use this
+///   function; it should run cases individually (as `dxdb-wasi`'s M5 runner does) so an
+///   abort names the case via the last `RUN <id>` it printed.
+///
+/// `cargo test` uses the dev profile, so every in-repo caller gets the catching
+/// behaviour. That is why this has never produced a wrong answer in CI — but it is a
+/// latent trap for the first caller that runs it in a release build.
 pub async fn run_all<S: RxStorage>(storage: &S) -> Vec<u32> {
     let mut failures = Vec::new();
     for case in crate::decl::exercised_cases() {
@@ -2567,4 +2601,33 @@ pub async fn run_all<S: RxStorage>(storage: &S) -> Vec<u32> {
         }
     }
     failures
+}
+
+#[cfg(test)]
+mod panic_strategy_tests {
+    use super::*;
+
+    #[test]
+    fn the_strategy_constant_matches_the_compiler() {
+        // If these disagree, the constant is lying and a caller's assertion is worthless.
+        let compiler_says = if cfg!(panic = "unwind") {
+            "unwind"
+        } else {
+            "abort"
+        };
+        assert_eq!(PANIC_STRATEGY, compiler_says);
+        assert_eq!(catch_unwind_works(), PANIC_STRATEGY == "unwind");
+    }
+
+    #[test]
+    fn cargo_test_gets_the_catching_behaviour() {
+        // `cargo test` uses the dev profile, so every in-repo caller of `run_all` gets
+        // per-case catching. If this ever fails, `make test` has started building with a
+        // profile that aborts, and every all-failures harness in the repo silently
+        // changed meaning.
+        assert!(
+            catch_unwind_works(),
+            "cargo test must run under unwind or run_all's contract changes silently"
+        );
+    }
 }
