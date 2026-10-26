@@ -40,11 +40,10 @@
 //! ```
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
 
 use dxdb_storage::{
-    BulkWriteRow, DocumentData, DocumentWriteData, DynRxStorageInstance, Operation, RxStorage,
-    RxStorageInstance, StorageSchema, WriteError,
+    BulkWriteRow, DocumentData, DocumentWriteData, DynRxStorageInstance, RxStorage,
+    RxStorageInstance, WriteError,
 };
 use serde_json::{json, Map, Value};
 
