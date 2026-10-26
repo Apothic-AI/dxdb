@@ -10,6 +10,7 @@ description = "dxdb plugin: periodic purging of tombstones under a shared retent
 [dependencies]
 serde_json.workspace = true
 thiserror.workspace = true
+dxdb-core = { path = "../../dxdb-core" }
 
 [dev-dependencies]
 serde_json.workspace = true

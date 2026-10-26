@@ -21,7 +21,7 @@
 //! crate docs as not ported, with the reason, rather than claimed.
 
 use dxdb_plugin_migration_schema::{
-    leadership_decision, previous_versions, Error, Leadership, LeaderTiming, Migration,
+    leadership_decision, previous_versions, Error, LeaderTiming, Leadership, Migration,
     MigrationPhase, MigrationStatus, MigrationStrategies, Outcome,
 };
 use serde_json::{json, Value};

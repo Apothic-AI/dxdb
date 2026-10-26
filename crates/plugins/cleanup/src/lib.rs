@@ -372,3 +372,104 @@ mod tests {
         assert!(!should_purge(&document, &CleanupPolicy::default(), 1e12).expect("rule"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// The plugin, on the core registry
+// ---------------------------------------------------------------------------
+
+/// The hooks this plugin registers, in upstream's order.
+///
+/// Upstream's `RxDBCleanupPlugin` has exactly one hooks block
+/// (`src/plugins/cleanup/index.ts:30-41`):
+///
+/// ```text
+/// createRxCollection: { after: i => startCleanupForRxCollection(i.collection) }
+/// createRxState:      { after: i => startCleanupForRxState(i.state) }
+/// ```
+///
+/// Both are `after`, which is why [`CleanupPlugin`] registers at
+/// [`dxdb_core::Order::After`]: cleanup must observe a *finished* collection, not one
+/// whose schema is half-built. This is the ordering claim worth testing, and the
+/// migration of this plugin onto the registry is what proves the registry is usable for
+/// a plugin that actually hooks in.
+pub const HOOKS: &[dxdb_core::HookName] = &[
+    dxdb_core::HookName::CreateRxCollection,
+    dxdb_core::HookName::CreateRxState,
+];
+
+/// What the plugin does when a collection appears: remembers that it needs cleanup.
+///
+/// Upstream starts a background loop (`startCleanupForRxCollection`). This port records
+/// the collection in a shared [`CleanupRegistry`] and leaves the *scheduling* to the
+/// caller, because a timer is a platform binding. The hook is still the right seam: it is
+/// where "a collection exists, so it is a cleanup candidate" is decided.
+#[derive(Clone, Debug, Default)]
+pub struct CleanupRegistry {
+    /// Collection names seen by the `createRxCollection` hook, in creation order.
+    pub collections: std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+}
+
+impl CleanupRegistry {
+    /// The collection names registered so far.
+    pub fn collections(&self) -> Vec<String> {
+        self.collections.borrow().clone()
+    }
+}
+
+/// The `RxDBCleanupPlugin` equivalent.
+///
+/// Install with `database.add_plugin(CleanupPlugin::new(registry))?`; the registry is how
+/// a caller observes which collections the hooks saw. Each instance owns its own
+/// registry, which is the point of a per-database plugin set: two databases in one
+/// process get independent cleanup bookkeeping.
+#[derive(Clone, Debug, Default)]
+pub struct CleanupPlugin {
+    registry: CleanupRegistry,
+}
+
+impl CleanupPlugin {
+    /// A plugin that records into `registry`.
+    pub fn new(registry: CleanupRegistry) -> Self {
+        CleanupPlugin { registry }
+    }
+
+    /// The registry this plugin writes to.
+    pub fn registry(&self) -> &CleanupRegistry {
+        &self.registry
+    }
+}
+
+impl dxdb_core::Plugin for CleanupPlugin {
+    fn name(&self) -> &'static str {
+        // `src/plugins/cleanup/index.ts:10`.
+        "cleanup"
+    }
+
+    fn install(
+        &self,
+        registrations: &mut dxdb_core::Registrations,
+        _overwritables: &mut dxdb_core::Overwritables,
+    ) -> std::result::Result<(), dxdb_core::PluginError> {
+        // `createRxCollection: { after: ... }`
+        let collections = std::rc::Rc::clone(&self.registry.collections);
+        registrations.on_ordered(
+            dxdb_core::HookName::CreateRxCollection,
+            dxdb_core::Order::After,
+            move |payload| {
+                if let dxdb_core::HookPayload::Collection { name, .. } = payload {
+                    collections.borrow_mut().push(name.clone());
+                }
+                dxdb_core::HookOutcome::Continue
+            },
+        );
+        // `createRxState: { after: ... }`. Upstream runs the same state-collection
+        // cleanup; there is no `RxState` in this crate yet, so the handler exists to keep
+        // the registration list honest and does nothing.
+        registrations.on_ordered(
+            dxdb_core::HookName::CreateRxState,
+            dxdb_core::Order::After,
+            |_payload| dxdb_core::HookOutcome::Continue,
+        );
+        Ok(())
+    }
+}

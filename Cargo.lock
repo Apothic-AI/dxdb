@@ -516,6 +516,7 @@ dependencies = [
 name = "dxdb-plugin-cleanup"
 version = "0.0.0"
 dependencies = [
+ "dxdb-core",
  "serde_json",
  "thiserror",
 ]
@@ -569,6 +570,7 @@ dependencies = [
 name = "dxdb-plugin-query-builder"
 version = "0.0.0"
 dependencies = [
+ "dxdb-core",
  "dxdb-json",
  "dxdb-storage",
  "serde_json",
@@ -579,6 +581,7 @@ dependencies = [
 name = "dxdb-plugin-update"
 version = "0.0.0"
 dependencies = [
+ "dxdb-core",
  "dxdb-jsnum",
  "dxdb-json",
  "dxdb-jsstr",
