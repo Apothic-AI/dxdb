@@ -21,14 +21,27 @@ thiserror.workspace = true
 # unaffected. See `src/layout.rs` and `docs/lanes/m5-port-plan.md` 2.6.
 redb = { version = "4.4.0", features = ["experimental-multiprocess"] }
 
-# Only for the key-order tests: `tempfile` gives a directory that is cleaned up,
-# which is the difference between a test suite and a pile of stray .redb files.
+# The storage trait and the verified pure helpers it needs. This crate became a real
+# storage rather than a redb layout layer, so the trait is a hard dependency now, not
+# a dev-only contract check.
+dxdb-storage = { path = "../../dxdb-storage" }
+# Selector matching, sorting and index strings. A storage consumes the query layer; it
+# does not author encodings.
+dxdb-query = { path = "../../dxdb-query" }
+futures.workspace = true
+# Stored documents are ordered JSON, and the trait's `DocumentData` is built from a
+# `serde_json::Value`.
+serde_json.workspace = true
+
 [dev-dependencies]
+# The shared conformance suite. A dev-dependency: the storage itself must not depend on
+# the testkit, which is the oracle rather than a production concern.
+dxdb-testkit = { path = "../../dxdb-testkit" }
+# Only for the key-order tests: `tempfile` gives a directory that is cleaned up, which
+# is the difference between a test suite and a pile of stray .redb files.
 tempfile = "3"
 
-# Contract checks against the published dxdb-storage surface. Dev-only: the
-# storage implementation itself takes these types from its dependent, not here.
-dxdb-storage = { path = "../../dxdb-storage" }
+# Contract checks against the published dxdb-storage surface.
 dxdb-json = { path = "../../dxdb-json" }
 serde_json.workspace = true
 

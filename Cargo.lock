@@ -398,7 +398,10 @@ name = "dxdb-filesystem"
 version = "0.0.0"
 dependencies = [
  "dxdb-json",
+ "dxdb-query",
  "dxdb-storage",
+ "dxdb-testkit",
+ "futures",
  "redb",
  "serde_json",
  "tempfile",
