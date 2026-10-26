@@ -82,10 +82,7 @@ pub struct BulkWriteRowProcessed {
 impl BulkWriteRowProcessed {
     /// Builds a processed row.
     pub fn new(previous: Option<DocumentData>, document: DocumentData) -> Self {
-        BulkWriteRowProcessed {
-            previous,
-            document,
-        }
+        BulkWriteRowProcessed { previous, document }
     }
 }
 
@@ -283,7 +280,10 @@ mod tests {
         }]);
         let written = response.written_documents("id", &rows);
         assert_eq!(
-            written.iter().map(|(id, _)| id.as_str()).collect::<Vec<_>>(),
+            written
+                .iter()
+                .map(|(id, _)| id.as_str())
+                .collect::<Vec<_>>(),
             vec!["a", "c"]
         );
     }

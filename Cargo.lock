@@ -566,6 +566,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-reactivity"
+version = "0.0.0"
+dependencies = [
+ "dxdb-jsnum",
+ "dxdb-json",
+ "dxdb-jsstr",
+ "dxdb-query",
+ "dxdb-schema",
+ "dxdb-storage",
+ "futures",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-replication"
 version = "0.0.0"
 dependencies = [
@@ -624,6 +640,7 @@ dependencies = [
  "dxdb-jsnum",
  "dxdb-json",
  "dxdb-jsstr",
+ "dxdb-vectors",
  "dynosaur",
  "futures",
  "serde",

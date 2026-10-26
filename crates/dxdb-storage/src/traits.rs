@@ -290,11 +290,8 @@ pub trait RxStorageInstance {
         async move {
             let primary_path = self.schema().primary_path.clone();
             let start = checkpoint.clone().unwrap_or_else(Checkpoint::beginning);
-            let mut prepared = crate::crate_changed_documents_since_query(
-                &primary_path,
-                &start,
-                limit,
-            );
+            let mut prepared =
+                crate::crate_changed_documents_since_query(&primary_path, &start, limit);
             // The range is exact, so the plan may assert both properties and the
             // storage may skip per-document filtering entirely.
             prepared.query_plan.selector_satisfied_by_index = true;
@@ -392,10 +389,7 @@ pub fn crate_changed_documents_since_query(
 ) -> PreparedQuery {
     use crate::query::{MangoQuery, PlanKey, QueryPlan, SortDirection, SortPart};
 
-    let index = vec![
-        "_meta.lwt".to_string(),
-        primary_path.to_string(),
-    ];
+    let index = vec!["_meta.lwt".to_string(), primary_path.to_string()];
     let query = MangoQuery {
         // The range carries the whole predicate, so the selector is empty. It is
         // still an object, because a normalised selector always is.

@@ -73,9 +73,9 @@ pub fn create_revision(database_instance_token: &str, previous_revision: Option<
 /// Accepts multi-digit heights and splits on the *first* `-`, so a token that
 /// itself contains `-` (some storages use uuids-with-dashes) survives.
 pub fn parse_revision(revision: &str) -> Result<ParsedRevision<'_>, RevisionError> {
-    let dash = revision.find('-').ok_or_else(|| {
-        RevisionError::MissingSeparator(revision.to_string())
-    })?;
+    let dash = revision
+        .find('-')
+        .ok_or_else(|| RevisionError::MissingSeparator(revision.to_string()))?;
     let height = parse_height(&revision[..dash]).ok_or_else(|| RevisionError::BadHeight {
         revision: revision.to_string(),
     })?;
@@ -98,9 +98,8 @@ pub fn parse_revision(revision: &str) -> Result<ParsedRevision<'_>, RevisionErro
 ///
 /// Panics if `revision` is malformed.
 pub fn get_height_of_revision(revision: &str) -> u32 {
-    try_get_height_of_revision(revision).unwrap_or_else(|| {
-        panic!("malformatted revision: {revision:?}")
-    })
+    try_get_height_of_revision(revision)
+        .unwrap_or_else(|| panic!("malformatted revision: {revision:?}"))
 }
 
 /// The revision height, or `None` if the revision is malformed.
@@ -152,10 +151,7 @@ mod tests {
                 token: "abc"
             }
         );
-        assert_eq!(
-            parse_revision("123-abc").expect("valid").height,
-            123
-        );
+        assert_eq!(parse_revision("123-abc").expect("valid").height, 123);
         assert_eq!(get_height_of_revision("4294967295-x"), u32::MAX);
     }
 
@@ -184,9 +180,6 @@ mod tests {
         // borrow into the input, so no copy happens.
         let revision = String::from("12-some-token");
         let parsed = parse_revision(&revision).expect("valid");
-        assert!(std::ptr::eq(
-            parsed.token.as_ptr(),
-            revision[3..].as_ptr()
-        ));
+        assert!(std::ptr::eq(parsed.token.as_ptr(), revision[3..].as_ptr()));
     }
 }
