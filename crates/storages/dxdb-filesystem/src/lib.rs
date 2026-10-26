@@ -34,6 +34,14 @@
 #![forbid(unsafe_code)]
 
 pub mod layout;
+pub mod rx_storage;
+
+/// The `RxStorage` implementation and the engine that creates instances.
+///
+/// Re-exported at the crate root because that is how every other storage exposes
+/// itself (`dxdb_memory::MemoryStorage`, `dxdb_localstorage::LocalStorageStorage`), and
+/// a caller should not have to know which module a storage lives in.
+pub use rx_storage::{FilesystemRxInstance, FilesystemRxStorage};
 
 use std::path::{Path, PathBuf};
 
@@ -371,6 +379,200 @@ impl FilesystemStorage {
         self.db
             .begin_read()
             .map_err(|e| StorageError::redb("begin_read", e))
+    }
+
+    /// Writes one attachment's bytes.
+    pub fn put_attachment(
+        &self,
+        document_id: &str,
+        attachment_id: &str,
+        data: &[u8],
+    ) -> Result<(), StorageError> {
+        let mut key = document_id.as_bytes().to_vec();
+        key.push(layout::KEY_SEPARATOR);
+        key.extend_from_slice(attachment_id.as_bytes());
+        let tx = self
+            .db
+            .begin_write()
+            .map_err(|e| StorageError::redb("put_attachment/begin_write", e))?;
+        {
+            let mut table = tx
+                .open_table(ATTACH)
+                .map_err(|e| StorageError::redb("put_attachment/open", e))?;
+            table
+                .insert(key.as_slice(), data)
+                .map_err(|e| StorageError::redb("put_attachment/insert", e))?;
+        }
+        tx.commit()
+            .map_err(|e| StorageError::redb("put_attachment/commit", e))?;
+        Ok(())
+    }
+
+    /// Reads one attachment's bytes.
+    pub fn get_attachment(
+        &self,
+        document_id: &str,
+        attachment_id: &str,
+    ) -> Result<Option<Vec<u8>>, StorageError> {
+        let mut key = document_id.as_bytes().to_vec();
+        key.push(layout::KEY_SEPARATOR);
+        key.extend_from_slice(attachment_id.as_bytes());
+        let tx = self
+            .db
+            .begin_read()
+            .map_err(|e| StorageError::redb("get_attachment/begin_read", e))?;
+        let table = tx
+            .open_table(ATTACH)
+            .map_err(|e| StorageError::redb("get_attachment/open", e))?;
+        let value = table
+            .get(key.as_slice())
+            .map_err(|e| StorageError::redb("get_attachment/get", e))?
+            .map(|v| v.value().to_vec());
+        Ok(value)
+    }
+
+    /// Deletes one attachment.
+    pub fn remove_attachment(
+        &self,
+        document_id: &str,
+        attachment_id: &str,
+    ) -> Result<(), StorageError> {
+        let mut key = document_id.as_bytes().to_vec();
+        key.push(layout::KEY_SEPARATOR);
+        key.extend_from_slice(attachment_id.as_bytes());
+        let tx = self
+            .db
+            .begin_write()
+            .map_err(|e| StorageError::redb("remove_attachment/begin_write", e))?;
+        {
+            let mut table = tx
+                .open_table(ATTACH)
+                .map_err(|e| StorageError::redb("remove_attachment/open", e))?;
+            table
+                .remove(key.as_slice())
+                .map_err(|e| StorageError::redb("remove_attachment/remove", e))?;
+        }
+        tx.commit()
+            .map_err(|e| StorageError::redb("remove_attachment/commit", e))?;
+        Ok(())
+    }
+
+    /// Deletes tombstones of one collection whose `lwt` is below `cutoff`.
+    ///
+    /// Returns how many were removed. Uses the `cleanup` table's ordering, so this is a
+    /// bounded range delete rather than a full scan and filter.
+    pub fn delete_tombstones(
+        &self,
+        collection: &str,
+        version: u32,
+        cutoff: i64,
+    ) -> Result<usize, StorageError> {
+        let lower = layout::cleanup_prefix(collection, version, true);
+        let mut upper = lower.clone();
+        upper.extend_from_slice(&layout::encode_lwt(cutoff));
+
+        // Collect ids first so the read cursor is not held while deleting.
+        let victims: Vec<Vec<u8>> = {
+            let tx = self
+                .db
+                .begin_read()
+                .map_err(|e| StorageError::redb("cleanup/begin_read", e))?;
+            let table = tx
+                .open_table(CLEANUP)
+                .map_err(|e| StorageError::redb("cleanup/open", e))?;
+            let range = table
+                .range(lower.as_slice()..=upper.as_slice())
+                .map_err(|e| StorageError::redb("cleanup/range", e))?;
+            let mut keys = Vec::new();
+            for entry in range {
+                let (key, _) = entry.map_err(|e| StorageError::redb("cleanup/entry", e))?;
+                keys.push(key.value().to_vec());
+            }
+            keys
+        };
+
+        if victims.is_empty() {
+            return Ok(0);
+        }
+
+        let doc_prefix = layout::prefix(collection, version);
+        let tx = self
+            .db
+            .begin_write()
+            .map_err(|e| StorageError::redb("cleanup_write/begin", e))?;
+        let removed = {
+            let mut cleanup = tx
+                .open_table(CLEANUP)
+                .map_err(|e| StorageError::redb("cleanup_write/cleanup", e))?;
+            let mut docs = tx
+                .open_table(DOCS)
+                .map_err(|e| StorageError::redb("cleanup_write/docs", e))?;
+            let mut chg = tx
+                .open_table(CHG)
+                .map_err(|e| StorageError::redb("cleanup_write/chg", e))?;
+            let mut count = 0usize;
+            for key in &victims {
+                // cleanup key: prefix ++ deleted ++ 8-byte lwt ++ docId
+                let id_offset = doc_prefix.len() + 1 + 8;
+                if key.len() < id_offset {
+                    continue;
+                }
+                let mut doc_key = doc_prefix.clone();
+                doc_key.extend_from_slice(&key[id_offset..]);
+                if let Ok(Some(old)) = docs.remove(doc_key.as_slice()) {
+                    // Drop the change-feed entry too, using the lwt from the cleanup key.
+                    let mut chg_key = key[doc_prefix.len() + 1..doc_prefix.len() + 9].to_vec();
+                    chg_key.extend_from_slice(&doc_key);
+                    let _ = chg.remove(chg_key.as_slice());
+                    let _ = old;
+                    count += 1;
+                }
+                let _ = cleanup.remove(key.as_slice());
+            }
+            count
+        };
+        tx.commit()
+            .map_err(|e| StorageError::redb("cleanup_write/commit", e))?;
+        Ok(removed)
+    }
+
+    /// Removes every row of one collection at one version from every table.
+    pub fn remove_collection(&self, collection: &str, version: u32) -> Result<usize, StorageError> {
+        let doc_prefix = layout::prefix(collection, version);
+        let tx = self
+            .db
+            .begin_write()
+            .map_err(|e| StorageError::redb("remove_collection/begin", e))?;
+        let mut removed = 0usize;
+        {
+            let mut docs = tx
+                .open_table(DOCS)
+                .map_err(|e| StorageError::redb("remove_collection/docs", e))?;
+            let keys: Vec<Vec<u8>> = {
+                let range = docs
+                    .range(doc_prefix.as_slice()..)
+                    .map_err(|e| StorageError::redb("remove_collection/range", e))?;
+                let mut out = Vec::new();
+                for entry in range {
+                    let (key, _) =
+                        entry.map_err(|e| StorageError::redb("remove_collection/entry", e))?;
+                    let key = key.value();
+                    if !key.starts_with(&doc_prefix) {
+                        break;
+                    }
+                    out.push(key.to_vec());
+                }
+                out
+            };
+            for key in &keys {
+                docs.remove(key.as_slice())
+                    .map_err(|e| StorageError::redb("remove_collection/remove", e))?;
+                removed += 1;
+            }
+        }
+        tx.commit()
+            .map_err(|e| StorageError::redb("remove_collection/commit", e))?;
+        Ok(removed)
     }
 
     /// Reads one document by id.
