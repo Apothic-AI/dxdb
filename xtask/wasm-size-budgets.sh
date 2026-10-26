@@ -39,6 +39,7 @@ BUNDLES=(
   "core:250:wasm-size-fixtures"
   "memory:320:memory-bundle"
   "sqlite:900:sqlite-bundle"
+  "opfs:400:opfs-bundle"
 )
 
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -75,8 +76,8 @@ if [ "${1:-}" = "--no-opfs-note" ]; then :; fi
 echo "wasm size budgets (PLAN.md 5.3)"
 echo "  out: $OUT"
 
-# opfs: recorded as a third state rather than skipped silently.
-echo "  opfs      : not measurable: storage not implemented (crates/storages/dxdb-opfs absent)"
+# Every row now has a crate behind it: opfs landed and passes 49/49 conformance, so its
+# budget is measurable rather than a third state.
 
 FAILED=0
 SEEN_STATUS=0
@@ -131,7 +132,6 @@ for row in "${BUNDLES[@]}"; do
   SEEN_STATUS=$((SEEN_STATUS + 1))
 done
 
-printf '    {"label":"opfs","status":"not-measurable","reason":"storage not implemented"}\n' >> "$OUT/results.json"
 printf '  ]\n}\n' >> "$OUT/results.json"
 
 echo
@@ -143,6 +143,6 @@ if [ $FAILED -ne 0 ]; then
   echo "wasm-size-budgets: at least one bundle EXCEEDED its budget or failed to build"
   exit 1
 fi
-echo "wasm-size-budgets OK: every measurable bundle within budget; opfs not measurable"
+echo "wasm-size-budgets OK: every bundle within budget"
 echo "  results: $OUT/results.json"
 exit 0

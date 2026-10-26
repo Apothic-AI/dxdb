@@ -79,6 +79,17 @@ pub fn dxdb_size_fixture_probe(input: &str) -> String {
         touched += storage.name().len();
     }
 
+    #[cfg(feature = "opfs-bundle")]
+    {
+        // Reach through the storage's own generics and its wasm-bindgen bindings so
+        // neither web-sys nor the file layout can be eliminated. Deliberately not a
+        // constructed instance: OPFS needs a browser and a worker, and the size artifact
+        // must not require either. `WebFiles` is the concrete `FileStore` the browser
+        // path uses, so naming it is what pulls the web-sys surface in.
+        touched += std::mem::size_of::<dxdb_opfs::OpfsStorage<dxdb_opfs::web::WebFiles>>();
+        touched += dxdb_opfs::web::path_report().len();
+    }
+
     #[cfg(feature = "sqlite-bundle")]
     {
         // A driver handle rather than a database: constructing a `Connection` needs a

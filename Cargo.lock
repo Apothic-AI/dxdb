@@ -394,6 +394,7 @@ dependencies = [
  "dxdb-filesystem",
  "dxdb-js",
  "dxdb-memory",
+ "dxdb-opfs",
  "dxdb-schema",
  "dxdb-sqlite",
  "dxdb-storage",
