@@ -67,7 +67,10 @@ fn the_family_has_its_documented_case_count() {
     // Every document needs the id the cases reference.
     for document in &family.corpus {
         assert!(
-            document.get("id").and_then(serde_json::Value::as_str).is_some(),
+            document
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
             "every corpus document needs an id: {document}"
         );
     }
@@ -84,8 +87,24 @@ fn the_registered_operator_set_is_closed_and_small() {
         .collect();
 
     let documented: BTreeSet<&str> = [
-        "$and", "$elemMatch", "$eq", "$exists", "$gt", "$gte", "$in", "$lt", "$lte", "$mod",
-        "$ne", "$nin", "$nor", "$not", "$or", "$regex", "$size", "$type",
+        "$and",
+        "$elemMatch",
+        "$eq",
+        "$exists",
+        "$gt",
+        "$gte",
+        "$in",
+        "$lt",
+        "$lte",
+        "$mod",
+        "$ne",
+        "$nin",
+        "$nor",
+        "$not",
+        "$or",
+        "$regex",
+        "$size",
+        "$type",
     ]
     .into_iter()
     .collect();
@@ -99,11 +118,25 @@ fn the_registered_operator_set_is_closed_and_small() {
 
     // Each operator MongoDB has and RxDB does not must be refused, not implemented.
     for absent in [
-        "$all", "$bitsAllClear", "$bitsAllSet", "$bitsAnyClear", "$bitsAnySet", "$comment",
-        "$expr", "$geoIntersects", "$geoWithin", "$jsonSchema", "$near", "$nearSphere", "$text",
+        "$all",
+        "$bitsAllClear",
+        "$bitsAllSet",
+        "$bitsAnyClear",
+        "$bitsAnySet",
+        "$comment",
+        "$expr",
+        "$geoIntersects",
+        "$geoWithin",
+        "$jsonSchema",
+        "$near",
+        "$nearSphere",
+        "$text",
         "$where",
     ] {
-        assert!(!registered.contains(absent), "{absent} must not be registered");
+        assert!(
+            !registered.contains(absent),
+            "{absent} must not be registered"
+        );
         let error = Matcher::new(&serde_json::json!({"field": {absent: [1]}}))
             .expect_err(&format!("{absent} must be refused"));
         assert_eq!(
@@ -168,7 +201,11 @@ fn selectors_match_and_non_match_upstream_oracle() {
             if did_match != should_match {
                 failures.push(format!(
                     "{why}: document {id} {} but upstream says it {}. selector {}",
-                    if did_match { "matched" } else { "did not match" },
+                    if did_match {
+                        "matched"
+                    } else {
+                        "did not match"
+                    },
                     if should_match { "does" } else { "does not" },
                     case.selector
                 ));
@@ -202,7 +239,10 @@ fn selectors_match_and_non_match_upstream_oracle() {
         "a positives-only run would pass for a matcher that returns true for everything"
     );
     assert_eq!(positive_assertions, id_assertions);
-    assert!(matching_cases >= 50, "expected 60 matching cases, got {matching_cases}");
+    assert!(
+        matching_cases >= 50,
+        "expected 60 matching cases, got {matching_cases}"
+    );
 }
 
 /// The three cases upstream refuses must be **errors**, not `false`.
@@ -258,9 +298,7 @@ fn refused_selectors_are_errors_not_false_negatives() {
         // inside a field's object and `$where` is a top-level key, and the error must name the
         // position — that is what a caller needs in order to fix the query.
         let expected_code = match case.upstream_behaviour.class.as_str() {
-            "upstream-rejects-negative-logical-operator" => {
-                QueryErrorCode::UnknownTopLevelOperator
-            }
+            "upstream-rejects-negative-logical-operator" => QueryErrorCode::UnknownTopLevelOperator,
             "upstream-does-not-register-operator" => {
                 if case
                     .selector

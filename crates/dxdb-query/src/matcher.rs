@@ -891,12 +891,14 @@ fn modulus_matches(value: Option<&Value>, divisor: f64, remainder: f64) -> bool 
         Some(other) => vec![other],
         None => Vec::new(),
     };
-    candidates.iter().any(|candidate| match js_to_number(candidate) {
-        // `%` with the sign of the dividend, which Rust's f64 `%` also uses.
-        Some(number) => number % divisor == remainder,
-        // `NaN % n === NaN`, and `NaN === remainder` is false for every remainder.
-        None => false,
-    })
+    candidates
+        .iter()
+        .any(|candidate| match js_to_number(candidate) {
+            // `%` with the sign of the dividend, which Rust's f64 `%` also uses.
+            Some(number) => number % divisor == remainder,
+            // `NaN % n === NaN`, and `NaN === remainder` is false for every remainder.
+            None => false,
+        })
 }
 
 /// JavaScript's `ToNumber` for a JSON value.
@@ -914,7 +916,10 @@ fn js_to_number(value: &Value) -> Option<f64> {
             if trimmed.is_empty() {
                 return Some(0.0);
             }
-            trimmed.parse::<f64>().ok().filter(|value| value.is_finite())
+            trimmed
+                .parse::<f64>()
+                .ok()
+                .filter(|value| value.is_finite())
         }
         // `Array.isArray(a) ? ... : [a]` happens before this, so a nested array only
         // reaches here as an element; `Number([])` is 0 and `Number([1])` is 1, but a
@@ -1324,10 +1329,12 @@ fn resolve_path<'a>(document: &'a Value, path: &str, depth: &mut usize) -> Resol
         // `current.get("0")` on an array is `None` — which silently made every array-index
         // path (`tags.0`, `tags.1`) resolve to absent. Found by the differential fuzz corpus.
         let next = match current {
-            Value::Array(items) if is_index => match field.parse::<usize>().ok().and_then(|i| items.get(i)) {
-                Some(value) => value,
-                None => return Resolved::Absent,
-            },
+            Value::Array(items) if is_index => {
+                match field.parse::<usize>().ok().and_then(|i| items.get(i)) {
+                    Some(value) => value,
+                    None => return Resolved::Absent,
+                }
+            }
             _ => match current.get(field) {
                 Some(value) => value,
                 None => return Resolved::Absent,

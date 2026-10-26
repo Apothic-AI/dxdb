@@ -75,7 +75,11 @@ fn the_corpus_is_the_documented_size_and_provenance() {
         "the corpus must be large enough to be a fuzz corpus; got {}",
         documents.len()
     );
-    assert!(cases.len() >= 200, "selector count too small: {}", cases.len());
+    assert!(
+        cases.len() >= 200,
+        "selector count too small: {}",
+        cases.len()
+    );
 
     // Provenance: the expectations came from the pinned upstream commit.
     assert_eq!(
@@ -239,7 +243,11 @@ fn generated_selectors_agree_with_the_upstream_oracle() {
                 divergences.push(format!(
                     "{why}: document {id} {} but upstream says it {}\n  selector: {}\n  \
                      document: {}",
-                    if did_match { "matched" } else { "did not match" },
+                    if did_match {
+                        "matched"
+                    } else {
+                        "did not match"
+                    },
                     if should_match { "does" } else { "does not" },
                     case["selector"],
                     shape
@@ -269,7 +277,10 @@ fn generated_selectors_agree_with_the_upstream_oracle() {
         divergences.join("\n")
     );
 
-    assert!(comparable >= 200, "expected 240 selectors, compared {comparable}");
+    assert!(
+        comparable >= 200,
+        "expected 240 selectors, compared {comparable}"
+    );
     assert_eq!(
         comparable + refusals,
         corpus["caseCount"].as_u64().unwrap_or_default() as u32,

@@ -105,9 +105,7 @@ fn plan_key(key: &normalised_queries::PlanKey) -> PlanKey {
         }
         normalised_queries::PlanKey::Text(text) => PlanKey::String(text.clone()),
         normalised_queries::PlanKey::Bool(flag) => PlanKey::Bool(*flag),
-        normalised_queries::PlanKey::Number(number)
-            if *number == dxdb_query::INDEX_MIN as f64 =>
-        {
+        normalised_queries::PlanKey::Number(number) if *number == dxdb_query::INDEX_MIN as f64 => {
             PlanKey::IndexMin
         }
         normalised_queries::PlanKey::Number(number) => PlanKey::Number(*number),
@@ -159,24 +157,31 @@ fn normalised_queries_and_plans_match_upstream_oracle() {
     let mut failures = Vec::new();
 
     for case in &family.cases {
-        let (schema_name, why, query_json, expected_normalized, expected_plan, plan_json, round_trip) =
-            match case {
-                normalised_queries::Case::Planned(case) => (
-                    &case.schema,
-                    &case.why,
-                    &case.query,
-                    &case.normalized_query,
-                    &case.plan,
-                    &case.plan_json,
-                    case.plan_round_trip_equal,
-                ),
-                // A case upstream failed to normalise is asserted by
-                // `schemas_upstream_cannot_plan_are_rejected_here`.
-                normalised_queries::Case::Rejected(_) => {
-                    rejected += 1;
-                    continue;
-                }
-            };
+        let (
+            schema_name,
+            why,
+            query_json,
+            expected_normalized,
+            expected_plan,
+            plan_json,
+            round_trip,
+        ) = match case {
+            normalised_queries::Case::Planned(case) => (
+                &case.schema,
+                &case.why,
+                &case.query,
+                &case.normalized_query,
+                &case.plan,
+                &case.plan_json,
+                case.plan_round_trip_equal,
+            ),
+            // A case upstream failed to normalise is asserted by
+            // `schemas_upstream_cannot_plan_are_rejected_here`.
+            normalised_queries::Case::Rejected(_) => {
+                rejected += 1;
+                continue;
+            }
+        };
 
         let schema = filled(schema_name, &lookup);
         let primary_key = dxdb_schema::primary_field_of_primary_key(&schema).expect("primary key");
@@ -185,14 +190,18 @@ fn normalised_queries_and_plans_match_upstream_oracle() {
         let query = match MangoQuery::from_json(query_json) {
             Ok(query) => query,
             Err(error) => {
-                failures.push(format!("{schema_name} {why}: query does not parse: {error}"));
+                failures.push(format!(
+                    "{schema_name} {why}: query does not parse: {error}"
+                ));
                 continue;
             }
         };
         let normalized = match normalize_mango_query(&query, &primary_key, &indexes, false) {
             Ok(normalized) => normalized,
             Err(error) => {
-                failures.push(format!("{schema_name} {why}: normalisation failed: {error}"));
+                failures.push(format!(
+                    "{schema_name} {why}: normalisation failed: {error}"
+                ));
                 continue;
             }
         };
@@ -264,7 +273,10 @@ fn normalised_queries_and_plans_match_upstream_oracle() {
         "every case must be either checked ({checked}) or a recorded upstream failure ({rejected})"
     );
     assert_eq!(rejected, family.failures.len(), "failure count");
-    assert!(checked >= 700, "expected at least 700 comparable cases, got {checked}");
+    assert!(
+        checked >= 700,
+        "expected at least 700 comparable cases, got {checked}"
+    );
 }
 
 /// Rebuilds a plan from parsed JSON text so it can be serialised again, which is the round-trip
@@ -369,7 +381,11 @@ fn schemas_upstream_cannot_plan_are_rejected_here() {
         failures.len(),
         failures.join("\n")
     );
-    assert_eq!(checked, family.failures.len(), "every failure case asserted");
+    assert_eq!(
+        checked,
+        family.failures.len(),
+        "every failure case asserted"
+    );
 }
 
 /// `orderings`: the sort comparator against the family's fixed document set.
@@ -395,17 +411,15 @@ fn sort_orderings_match_upstream_oracle() {
                 let map = &part.0;
                 Value::Object(
                     map.iter()
-                        .map(|(field, direction)| {
-                            (field.clone(), Value::String(direction.clone()))
-                        })
+                        .map(|(field, direction)| (field.clone(), Value::String(direction.clone())))
                         .collect(),
                 )
             })
             .collect();
         let query = serde_json::json!({"selector": {}, "sort": sort});
         let parsed = MangoQuery::from_json(&query).expect("query parses");
-        let normalized = normalize_mango_query(&parsed, &primary_key, &indexes, false)
-            .expect("normalizes");
+        let normalized =
+            normalize_mango_query(&parsed, &primary_key, &indexes, false).expect("normalizes");
         assert_eq!(
             normalized.to_json()["sort"],
             Value::Array(sort.clone()),

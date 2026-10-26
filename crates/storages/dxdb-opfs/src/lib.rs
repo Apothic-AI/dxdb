@@ -466,7 +466,7 @@ impl<S: FileStore + 'static> RxStorageInstance for OpfsInstance<S> {
                     .find(|(existing, _)| *existing == encoded)
                 {
                     Some((_, primaries)) => {
-                        if !primaries.iter().any(|primary| *primary == id) {
+                        if !primaries.contains(&id) {
                             primaries.push(id.clone());
                             primaries.sort();
                         }
@@ -648,7 +648,7 @@ impl<S: FileStore + 'static> RxStorageInstance for OpfsInstance<S> {
         let doc = self
             .read_doc(&document_id)
             .await?
-            .ok_or_else(|| StorageError::MissingAttachment(format!("{document_id}")))?;
+            .ok_or_else(|| StorageError::MissingAttachment(document_id.to_string()))?;
         let stored = doc
             .get_object_path("_attachments")
             .and_then(|a| a.get(&attachment_id))

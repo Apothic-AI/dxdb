@@ -140,7 +140,10 @@ fn index_strings_match_upstream_oracle() {
         failures.len(),
         failures.join("\n")
     );
-    assert!(checked >= 400, "expected at least 400 cases, checked {checked}");
+    assert!(
+        checked >= 400,
+        "expected at least 400 cases, checked {checked}"
+    );
 }
 
 /// `kind: "index-string-length"` — the fixed width of an index.
@@ -178,7 +181,10 @@ fn index_string_lengths_match_upstream_oracle() {
         failures.len(),
         failures.join("\n")
     );
-    assert!(checked >= 80, "expected at least 80 length cases, got {checked}");
+    assert!(
+        checked >= 80,
+        "expected at least 80 length cases, got {checked}"
+    );
 }
 
 /// `kind: "bounds"` — the lower and upper bound strings for one probe value.
@@ -219,16 +225,21 @@ fn bounds_match_upstream_oracle() {
         let mut bound_values: Vec<BoundValue> = Vec::with_capacity(index.len());
         for candidate in &index {
             let part = dxdb_schema::schema_part_by_object_path(&schema, candidate);
-            bound_values.push(match part.and_then(|part| part.get("type")).and_then(Value::as_str) {
-                Some("number") | Some("integer") => {
-                    let minimum = part
-                        .and_then(|part| part.get("minimum"))
-                        .and_then(Value::as_f64);
-                    BoundValue::Number(minimum.unwrap_or(0.0))
-                }
-                Some("boolean") => BoundValue::Bool(false),
-                _ => BoundValue::String(String::new()),
-            });
+            bound_values.push(
+                match part
+                    .and_then(|part| part.get("type"))
+                    .and_then(Value::as_str)
+                {
+                    Some("number") | Some("integer") => {
+                        let minimum = part
+                            .and_then(|part| part.get("minimum"))
+                            .and_then(Value::as_f64);
+                        BoundValue::Number(minimum.unwrap_or(0.0))
+                    }
+                    Some("boolean") => BoundValue::Bool(false),
+                    _ => BoundValue::String(String::new()),
+                },
+            );
         }
         bound_values[field_position] = probe_bound(case);
 
@@ -262,13 +273,15 @@ fn bounds_match_upstream_oracle() {
         failures.len(),
         failures.join("\n")
     );
-    assert!(checked >= 300, "expected at least 300 bound cases, checked {checked}");
+    assert!(
+        checked >= 300,
+        "expected at least 300 bound cases, checked {checked}"
+    );
     // The clamping branch must actually be exercised, or the most dangerous case is untested.
     assert!(
-        family
-            .cases
-            .iter()
-            .any(|case| matches!(case, index_strings::Case::Bounds(b) if b.why.contains("out-of-range"))),
+        family.cases.iter().any(
+            |case| matches!(case, index_strings::Case::Bounds(b) if b.why.contains("out-of-range"))
+        ),
         "the corpus must still probe the clamping boundary"
     );
 }

@@ -24,7 +24,9 @@
 
 use serde_json::Value;
 
-use dxdb_schema::{create_rx_schema, fill_with_default_settings, normalize_rx_json_schema, sha256_hex};
+use dxdb_schema::{
+    create_rx_schema, fill_with_default_settings, normalize_rx_json_schema, sha256_hex,
+};
 use dxdb_vectors::{schema_hashes, VectorFamily, Vectors};
 
 fn load() -> schema_hashes::Vectors {
@@ -64,7 +66,12 @@ fn the_family_has_its_documented_case_count() {
         );
     }
     assert!(
-        family.cases.iter().filter(|case| !case.is_fixture()).count() >= 8,
+        family
+            .cases
+            .iter()
+            .filter(|case| !case.is_fixture())
+            .count()
+            >= 8,
         "the synthetic cases are what let a failing port bisect across defaulting steps"
     );
 }

@@ -97,7 +97,10 @@ fn full_scan() -> PreparedQuery {
             index: vec!["_meta.lwt".into(), "key".into()],
             sort_satisfied_by_index: false,
             selector_satisfied_by_index: true,
-            start_keys: vec![PlanKey::Number(dxdb_storage::INDEX_MIN), PlanKey::index_min()],
+            start_keys: vec![
+                PlanKey::Number(dxdb_storage::INDEX_MIN),
+                PlanKey::index_min(),
+            ],
             end_keys: vec![PlanKey::index_max(), PlanKey::index_max()],
             inclusive_start: true,
             inclusive_end: true,
@@ -276,5 +279,9 @@ fn a_quota_failure_is_reported_on_both_paths() {
         }
         errors
     });
-    assert_eq!(errors, vec![true, true], "a quota failure must surface on both paths");
+    assert_eq!(
+        errors,
+        vec![true, true],
+        "a quota failure must surface on both paths"
+    );
 }
