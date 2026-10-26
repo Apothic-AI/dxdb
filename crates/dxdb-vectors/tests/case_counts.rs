@@ -52,7 +52,7 @@ fn every_family_loads_and_has_the_expected_case_count() {
         total += count;
     }
 
-    assert_eq!(total, 2177, "total corpus size changed: {total} cases");
+    assert_eq!(total, 2178, "total corpus size changed: {total} cases");
 }
 
 #[test]
@@ -271,14 +271,18 @@ fn schema_hash_relations_resolve_and_are_self_consistent() {
 
         // The relation's own hashes must be the cases' hashes, not something else.
         assert_eq!(
-            relation.hash_a, a.hash,
+            Some(relation.hash_a.as_str()),
+            a.hash.as_deref(),
             "relation {} recorded hashA that is not case {}'s hash",
-            relation.why, relation.a
+            relation.why,
+            relation.a
         );
         assert_eq!(
-            relation.hash_b, b.hash,
+            Some(relation.hash_b.as_str()),
+            b.hash.as_deref(),
             "relation {} recorded hashB that is not case {}'s hash",
-            relation.why, relation.b
+            relation.why,
+            relation.b
         );
 
         // And the `equal` flag must agree with those hashes.
@@ -336,6 +340,10 @@ fn schema_hash_relations_resolve_and_are_self_consistent() {
         baseline.hash, permuted.hash,
         "a key-order permutation changed the hash"
     );
+    assert!(
+        baseline.hash.is_some(),
+        "the key-order baseline must have hashed, not been rejected"
+    );
     // The two inputs must be the same schema, so the difference between them is only
     // insertion order. `serde_json` with `preserve_order` keeps the original order in
     // `Value`, so the key orders can be compared directly.
@@ -370,5 +378,53 @@ fn schema_hash_relations_resolve_and_are_self_consistent() {
         baseline.input, permuted.input,
         "the key-order case differs in a VALUE, not just in key order, so it is a \
          different schema and proves nothing about order-insensitivity"
+    );
+}
+
+#[test]
+fn every_schema_name_used_by_another_family_resolves_to_a_fixture_input() {
+    // `index-strings` and `normalised-queries` refer to a schema by name per case
+    // instead of repeating it. This family is where those names resolve, so a name
+    // that does not resolve forces a consumer to hand-copy the schema literal — which
+    // is what two downstream test files used to do, including a hand-written
+    // `averageSchema`.
+    let vectors = Vectors::discover();
+    let hashes = vectors
+        .load::<dxdb_vectors::schema_hashes::Vectors>(VectorFamily::SchemaHashes)
+        .unwrap();
+    let fixtures = hashes.fixture_inputs();
+
+    let mut checked = 0;
+    for family in [VectorFamily::IndexStrings, VectorFamily::NormalisedQueries] {
+        let text = std::fs::read_to_string(vectors.path(family)).unwrap();
+        let doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let cases = doc["cases"].as_array().expect("cases array");
+        for case in cases {
+            let Some(name) = case["schema"].as_str() else {
+                continue;
+            };
+            assert!(
+                fixtures.contains_key(name),
+                "{} names the schema {name:?}, which is not a resolvable fixture in the \
+                 schema-hashes family. A consumer would have to copy that schema by hand, \
+                 which is the drift this accessor exists to remove. If it is a function \
+                 export upstream (like `averageSchema`), it must be emitted as a case.",
+                family
+            );
+            checked += 1;
+        }
+    }
+    assert!(
+        checked > 0,
+        "no cross-family schema references were found to check"
+    );
+
+    // The specific case that used to be missing: a function export whose `title` embeds
+    // `randomString(5)`, which the old object-only enumeration filtered out.
+    assert!(
+        fixtures.contains_key("averageSchema"),
+        "`averageSchema` must be a case: `normalised-queries` refers to it, and its only \
+         alternative is a hand-copied literal. Its random title is stable because the \
+         generator seeds Math.random."
     );
 }
