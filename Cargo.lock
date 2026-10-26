@@ -381,6 +381,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-vectors"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "dxdb-wasi"
 version = "0.0.0"
 
