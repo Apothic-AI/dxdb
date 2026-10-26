@@ -54,7 +54,7 @@ mod support;
 use std::rc::Rc;
 
 use dxdb_testkit::harness::{fill_with_default_settings, Harness, InstanceSpec};
-use dxdb_storage::{RxStorage, RxStorageInstance};
+use dxdb_storage::RxStorage;
 use serde_json::{json, Value};
 use support::reference_storage::ReferenceStorage;
 
