@@ -67,8 +67,9 @@ crate, so they get the plain name in `crates/cleanroom/`:
 | B1 | `dxdb-logger` | [`logger.md`](./logger.md) — implemented, gated |
 | B2 | `dxdb-encryption` | [`encryption.md`](./encryption.md) — spec ready, implementation gated on `dxdb-core` |
 | B2 | `dxdb-filesystem` (wrapper) | `filesystem-tier.md` — not written |
-| B3 | `dxdb-indexeddb` (wrapper), `dxdb-opfs` (wrapper), `dxdb-worker` | `browser-storage-tier.md`, `worker.md` — not written |
-| B4 | `dxdb-sqlite` (wrapper), `dxdb-memory-tier`, `dxdb-sharding`, `dxdb-meta-cache` | [`sharding.md`](./sharding.md), [`meta-cache.md`](./meta-cache.md) — specs ready, implementation gated; `sqlite-tier.md`, `memory-tier.md` not written |
+| B3 | `dxdb-indexeddb` (wrapper), `dxdb-opfs` (wrapper) | `browser-storage-tier.md` — not written |
+| B3 | `dxdb-worker` | [`worker.md`](./worker.md) — spec ready, implementation not started |
+| B4 | `dxdb-sqlite` (wrapper), `dxdb-memory-tier`, `dxdb-sharding`, `dxdb-meta-cache` | [`sharding.md`](./sharding.md) — **implemented and gated**; [`meta-cache.md`](./meta-cache.md) — spec ready, implementation gated; `sqlite-tier.md`, `memory-tier.md` not written |
 | B5 | `dxdb-fulltext`, `dxdb-query-optimizer`, `dxdb-server` | `fulltext.md`, `query-optimizer.md`, `server.md` — not written |
 
 Only the stages with a spec file exist as work. A crate with no spec is not
