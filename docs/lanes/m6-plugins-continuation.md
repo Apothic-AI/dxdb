@@ -1,210 +1,335 @@
 # Lane H (m6-plugins) — continuation
 
-Written to be pasted verbatim into a fresh session. Dense on purpose; the repo and
-`docs/lanes/m6-port-plan.md` carry the rest.
+Overwrite of the previous brief; that one described a state three tranches old. Dense on
+purpose — `docs/DECISIONS.md`, `docs/STATUS.md` and `docs/lanes/m6-port-plan.md` carry
+everything else.
 
 ## 0. Orientation
 
-- Worktree: `/home/bitnom/Code/dxdb-worktrees/m6-plugins`, branch `lane/m6-plugins`.
-- Own: `crates/plugins/` (including `crates/plugins/README.md`) and
-  `docs/lanes/m6-port-plan.md`. Never merge to master; the leader does.
-- Never edit leader-owned files (`Cargo.toml`, `Makefile`, `docs/PLAN.md`,
-  `docs/STATUS.md`, `docs/WORKTREES.md`, `.github/`). The one exception was already
-  taken: the `members` glob line, now
-  `members = ["crates/dxdb-*", "crates/storages/*", "crates/plugins/*", "xtask"]`
-  with **no** `exclude` (leader's `d7f632b` removed it).
-- Build discipline: `make check|clippy|test|wasm` only. Never build locally. Never
-  wrap a make target in `flock` — the Makefile uses a reentrant
-  `xtask/with-build-lock.sh` and an outer flock deadlocked the fleet for 75 minutes
-  once. A route fallback (`xtask/remote-route.sh` → `flyctl proxy`) is automatic; if
-  you see "No route to host" / "connection refused" / `rsync exited with 255`, do not
-  debug it, do not build locally, do not skip the gate — report it and do non-build
-  work.
-- Never `cargo fmt --all` (reformats other lanes' crates). Use
-  `rustfmt --edition 2021 <your files>`.
-- Commit each plugin as it goes green. Never add `Co-Authored-By`.
+- Worktree `/home/bitnom/Code/dxdb-worktrees/m6-plugins`, branch `lane/m6-plugins`.
+- Own `crates/plugins/`, `crates/plugins/README.md`, `docs/lanes/m6-port-plan.md`.
+- **Never merge to master** — the leader does. Never edit leader-owned files
+  (`Cargo.toml`, `Makefile`, `docs/PLAN.md`, `docs/STATUS.md`, `.github/`). The one
+  exception, the `members` glob line, was taken long ago and is settled.
+- Build only via `make check|clippy|test|wasm`. Never build locally. Never wrap a make
+  target in `flock` (the Makefile's `xtask/with-build-lock.sh` is reentrant; an outer
+  flock deadlocked the fleet for 75 minutes once). A route fallback is automatic; on
+  "No route to host" / "connection refused" / `rsync exited with 255`, report it and do
+  non-build work.
+- Never `cargo fmt --all`. Use `rustfmt --edition 2021 <files>`.
+- **Stage only `crates/plugins/` plus `Cargo.lock`** — never `git add -A` (leader's
+  instruction this tranche).
+- Commit one plugin per commit, as it goes green. No `Co-Authored-By` ever.
 
-## 1. Completed and merged to master
+## 1. Merged to master
 
-Merged (leader verified): tranche 1 (classification + Hooks design + first two crate
-skeletons), tranche 2 (query-builder, update), tranche 3 (key-compression,
-migration-schema, migration-storage).
+All of this lane's work is **merged**. Verified with
+`git merge-base --is-ancestor <sha> master` for each — every one `MERGED`:
 
-Committed on `lane/m6-plugins`, **not yet merged** (master is `986d02c`, my HEAD has
-these on top):
+| commit | what |
+| --- | --- |
+| `b59f18c` | workspace member glob + first two skeletons + `docs/lanes/m6-port-plan.md` |
+| `856c514`, `d3e8fe1` | docs corrections (counted figures; workspace-line history) |
+| `8fc7c0e` | query-builder + update (69 tests) |
+| `66db5ac`, `0881a76` | Cargo.lock; gate results in the plan |
+| `e4bdf72` | key-compression |
+| `91bbd7b` | migration-schema |
+| `6358c9f` | migration-storage |
+| `68629d3` | local-documents |
+| `523aa15` | leader-election |
+| `6fff9b4` | cleanup |
+| `e2223ab` | **core: plugin model + hook ordering tiers** |
+| `907c19f`, `2bdb35c` | migrate query-builder/update/cleanup onto the registry; count fix |
+| `2e3250e` | state |
+| `5ebc851` | pipeline |
+| `76647c9` | json-dump |
+| `63b7da0` | backup |
+| `61ebd56` | crdt |
 
-| commit | crate | upstream lines | tests |
-| --- | --- | ---: | ---: |
-| `68629d3` | `local-documents` | 776 | 21 (3 lib + 18 integration) |
-| `523aa15` | `leader-election` | 132 + `broadcast-channel@7` | 26 (3 + 23) |
-| `6fff9b4` | `cleanup` | 291 | 17 (3 + 14) |
+`master` was at `d1dcaea` when this was written; `git merge --no-edit master` is clean.
 
-All three were green on `check`/`clippy`/`test`/`wasm` before being committed.
+**14 plugin crates** on disk, all merged except dev-mode (below):
+query-builder (33 tests), update (44), key-compression (18), migration-schema (25),
+migration-storage (16), local-documents (21), leader-election (26), cleanup (23), state
+(26), pipeline (18), json-dump (19), backup (15), crdt (31) — plus `dev-mode` (29) in
+progress.
 
-Earlier lane commits still on the branch and already merged by the leader:
-`b59f18c` (workspace glob), `856c514`, `d3e8fe1` (docs corrections), `8fc7c0e`
-(query-builder+update), `66db5ac` (Cargo.lock), `0881a76` (gate results in docs),
-`e4bdf72` (key-compression), `91bbd7b` (migration-schema), `6358c9f`
-(migration-storage).
+## 2. In progress: `dev-mode`, uncommitted, one verification step short
 
-Crates on disk in `crates/plugins/`: `query-builder`, `update`, `key-compression`,
-`migration-schema`, `migration-storage`, `local-documents`, `leader-election`,
-`cleanup`, plus `README.md`. **192 tests total** (lib + integration).
+`crates/plugins/dev-mode/` — `Cargo.toml`, `src/lib.rs`, `tests/dev_mode_rules.rs`. Untracked.
+`git status`: ` M Cargo.lock` and `?? crates/plugins/dev-mode/` only.
 
-## 2. In progress: nothing
+**What is known green and what is not:**
 
-`git status --short` is clean. The working tree compiles and all four gates are green
-on HEAD (`6fff9b4`): check 0, clippy 0, test 0, wasm 0.
+- `make check` = 0, `make test` = 0 (`/tmp/dm-gates.log`: 23 integration tests + 6 lib
+  tests passed). That was the state **before** three cosmetic edits.
+- Since then, **unverified by a compiler**: two `clippy::collapsible_match` rewrites in
+  `src/lib.rs` (the `Value::Array(fields)` arm of the SC13 check and the `Some("string")`
+  arm of the SC34 check, both converted to guards), three doc-comment indentation fixes
+  (`//!    ` → `//!  ` on continuation lines — `clippy::doc_overindented_list_items`),
+  and removing an unused `Plugin`/`HookName` import from the test file.
+- **clippy has never been green for dev-mode.** `make clippy` was `Killed` twice
+  (box-side, mid-run) and the collapsible-match fixes were applied last, unverified.
 
-The only uncommitted-at-time-of-writing artefact is this file.
+So: `dev-mode` almost certainly passes; it needs one `make check && make clippy &&
+make test && make wasm` before committing. If any of the three cosmetic edits broke
+something it will be a compile error, not a behavioural one.
 
 ## 3. Exact next task
 
-**Write the sequenced remainder table into `docs/lanes/m6-port-plan.md`** (the user
-called it "the more important ask"), then report.
+**Step 1 — verify and commit `dev-mode`** (after RESUME):
 
-It goes as a new section after §6, titled roughly
-`## 7. The portable remainder, sequenced`. Columns, one row per crate:
-**crate name | upstream lines | hard dependencies (crate that must exist first) |
-what makes it non-trivial**. Make the sequence defensible and state *why* the order
-is what it is (unblocking value vs risk), and say plainly how many are gated on other
-lanes versus buildable now.
+```
+cd /home/bitnom/Code/dxdb-worktrees/m6-plugins
+git merge --no-edit master            # pick up d1dcaea or later
+( for t in check clippy test wasm; do echo "=== $t ==="; make $t; echo "=== $t EXIT=$? ==="; done ) >/tmp/dm-verify.log 2>&1
+grep -E "=== .* EXIT=" /tmp/dm-verify.log
+```
 
-The 13 portable modules left in scope (measured with
-`find <dir> -name '*.ts' | xargs cat | wc -l` at `3b763ee17`):
+On four greens: `git add crates/plugins/dev-mode Cargo.lock` then commit with the
+message drafted at the bottom of this file (§7). If only clippy fails on more
+`collapsible_match`/`doc_overindented` lints, fix them and re-run — they are the same two
+lint families, nothing structural.
 
-| module | lines | notes for the table |
+**Step 2 — update the sequenced table** in `docs/lanes/m6-port-plan.md` (todo #37, the
+last open item from the previous instruction). Section `## 7. The portable remainder,
+sequenced` does **not exist yet** — §1–§6 do. Add it with one row per remaining module:
+crate name, upstream lines, hard dependency, what makes it non-trivial, and a Done column.
+Current truth to encode:
+
+| module | lines | state |
 | --- | ---: | --- |
-| `dev-mode` | 3,088 | Largest. Registers **10** of the 24 hooks (`preCreateRxDatabase`, `preCreateRxCollection`, `preCreateRxSchema`, `preCreateRxQuery`, `prePrepareRxQuery`, `prePrepareQuery`, `preStorageWrite`, `createRxDatabase`, `createRxCollection`, `createRxDocument`). Owns the overwritables `isDevMode`/`deepFreezeWhenDevMode`/`tunnelErrorMessage`. Also holds `check-migration-strategies.ts` (the COL11/12/13 validators) and `check-orm.ts` (COL14). Non-trivial: needs almost every other crate, and the overwritable seam must be designed (Rust has no `Object.assign` on a module-level object). |
-| `crdt` | 577 | Needs a CRDT op log, `_meta` handling, and it **patches `incrementalPatch`** (`crdt/index.ts:393`) which is `local-documents`' method — so it depends on local-documents landing first. Two hooks, two prototypes. |
-| `state` | 577 | `RxState` with a `$` stream, `createRxState` hook, and a `_cleanup()` that the cleanup plugin's state path calls (`cleanup-state.ts`). Touches the cleanup crate. |
-| `pipeline` | 497 | `addPipeline` on collections, filters on `eventBulks$` with `!bulk.isLocal` (`rx-pipeline.ts:89,305`) — i.e. it consumes the same `isLocal` distinction local-documents established. Needs the collection event stream (lane D). |
-| `backup` | 413 | Two hooks (`preCloseRxDatabase` cancel). Needs a storage-agnostic dump plus a re-import path; flag the encryption/compressed-schema interaction. |
-| `json-dump` | 236 | `db.dump()` / import. Needs the document cache and a storage read; overlaps `backup` — state the difference so a reader is not confused by two dump plugins. |
-| `attachments-compression` | 236 | Storage wrapper over `dxdb-storage` traits; needs a compressor that works on wasm (`CompressionStream` via `web-sys`) and native (`flate2`), behind a feature. Pairs with lane E's `dxdb-attachments` (data model), which is theirs. |
-| `encryption-crypto-js` | 233 | Storage wrapper. **Cipher decision already recorded**: upstream uses crypto-js AES (`EVP_BytesToKey`, MD5, 1 iteration, AES-256-CBC); PLAN.md §9 picks chacha20poly1305 + argon2. So it is a deliberate parity break — upstream ciphertext will not be readable by dxdb. Needs a `dxdb-plugin-encryption` name (not `-crypto-js`, which would promise interop we do not have). |
-| `validate-ajv` | 70 | Collapse to one `validate` crate with a `precompiled` feature — see §6.5 of the plan; needs the user's decision. |
-| `validate-ajv-standalone` | 126 | Same crate, `precompiled` feature. |
-| `validate-z-schema` | 58 | Omit — the difference is which JS library compiles the schema, and there is one engine here (`jsonschema` 0.60.1). |
-| `validate-is-my-json-valid` | 30 | Omit, same reason as above. |
-| `vector` | 37 | Three distance functions (`euclidean`, `manhattan`, `cosineSimilarity`); depends only on `dxdb-jsnum`. **Buildable right now, unblocked.** |
+| query-builder | 749 | **done** |
+| update | 83 | **done** |
+| key-compression | 249 | **done** |
+| migration-schema | 1,187 | **done** |
+| migration-storage | 255 | **done** |
+| local-documents | 776 | **done** |
+| leader-election | 132 | **done** |
+| cleanup | 291 | **done** |
+| state | 577 | **done** |
+| pipeline | 497 | **done** |
+| json-dump | 236 | **done** |
+| backup | 413 | **done** |
+| crdt | 577 | **done** |
+| dev-mode | 3,088 | **done** (once §3 step 1 lands) |
+| vector | 37 | remaining — 3 distance fns, only `dxdb-jsnum`, **no lane dependency, buildable now** |
+| attachments-compression | 236 | remaining — storage wrapper; blocked on `DynRxStorageInstance` |
+| encryption-crypto-js | 233 | remaining — storage wrapper; same blocker + cipher decision (§5) |
+| validate-ajv | 70 | remaining — the collapse decision (§5) |
+| validate-ajv-standalone | 126 | remaining — same crate, `precompiled` feature |
+| validate-z-schema | 58 | remaining — recommend **omit** |
+| validate-is-my-json-valid | 30 | remaining — recommend **omit** |
 
-Key sequencing facts to state honestly:
-- `vector` and the `validate` collapse are the only two with **no lane dependency**.
-- `dev-mode` is the long pole and gates the "full ported test corpus" gate in M6, but it
-  depends on nearly everything else, so it must come **last**.
-- `crdt` depends on `local-documents` (already done) and on `state`-style `_meta` flows.
-- `pipeline` and `state` both need lane D's collection event stream.
-- `attachments-compression` and `encryption` are storage wrappers and share a blocker:
-  `dxdb_storage::RxStorageInstance` is **not dyn-compatible** (`impl Future` in 8
-  methods), so no wrapper can exist until lane D ships the `DynRxStorageInstance` twin
-  (PLAN.md §3.3, `dynosaur`). State this once, prominently — it blocks three plugins.
+So the honest number is **14 of 21 done** (dev-mode makes 14), with 7 left: 1 free
+(`vector`), 2 blocked on the dyn twin, 4 that are really 1 crate plus 2 omissions.
 
-Then report to the user: the three tranche-4 plugins' ported test counts with upstream
-citations, gate statuses, deliberately-unreproduced upstream behaviours, and the table.
+**Step 3 — then, in order:** `vector` (unblocked, tiny, pick it up any time), then
+`attachments-compression` and `encryption` together once lane D ships
+`DynRxStorageInstance`, then the `validate` collapse.
 
-## 4. Not written down in the repo — traps and learned facts
+## 4. Not written down in the repo — traps, upstream behaviours, decisions
 
-**Upstream behaviours that surprised me (all verified against the pinned checkout):**
+**The dyn twin is the single biggest unblocker for this lane.** `dxdb_storage::
+RxStorageInstance` uses `impl Future` in eight methods and is therefore not
+dyn-compatible. A storage *wrapper* returns `Box<dyn RxStorageInstance>` by definition, so
+no wrapper plugin can exist until lane D adds the `DynRxStorageInstance` twin (PLAN §3.3,
+`dynosaur`). That gates `key-compression`'s wrapper (already written and waiting),
+`encryption`, and `attachments-compression` — two of the seven remaining. Say this
+prominently whenever it is asked why 21 is not 21.
 
-- **local-documents isolation is structural, not a flag.** Local docs live in a
-  separate storage instance named `plugin-local-documents-<collection>`
+**Upstream behaviours that surprised me, all verified at `3b763ee17`:**
+
+- **local-documents isolation is structural, not a flag.** Local docs live in a separate
+  storage instance named `plugin-local-documents-<collection>`
   (`local-documents-helper.ts:80-82`; empty name for a database parent, `:22`).
   Replication binds to a collection's storage instance `changeStream()`
-  (`replication-protocol/index.ts:200`, `upstream.ts:95`), so it cannot see that
-  instance. `isLocal: true` (`rx-local-document.ts:366,374`) serves a *different*
-  consumer: it keeps events out of the change-event buffer (`change-event-buffer.ts:54`)
-  and out of pipelines. Do not conflate the two.
+  (`replication-protocol/index.ts:200`, `upstream.ts:95`), so it cannot see that instance.
+  `isLocal: true` serves a *different* consumer: it keeps events out of the change-event
+  buffer (`change-event-buffer.ts:54`) and out of pipelines. Do not conflate them.
 - **A fresh local document has `_rev: ''` on purpose** (`utils-document.ts:34-40`) so a
-  storage that forgets to assign a revision throws. It therefore *fails* the
-  `minLength: 1` schema check before the write and passes after. A test must assert
-  both stages.
+  storage that forgets to assign a revision throws. It *fails* `minLength: 1` before the
+  write and passes after. A test must assert both stages.
 - **leader-election has no liveness check.** A suspended tab never calls `die()`, so
-  `is_leader` stays true and others elect a replacement: two leaders on resume. Upstream
-  only mitigates via `responseTime * 4` on fallback rounds, documented as making
-  duplicates "less likely". The port reproduces this and adds opt-in
-  `resume_after_suspension` / `observe_foreign_claim`.
-- **leader-election's listener is edge-triggered**: attached inside a round and removed
-  after (`leader-election.js:145,168`), so a message sent between rounds is never seen.
-  A buffering transport must clear at round start or a stale `apply` from a dead peer
-  makes every survivor stand down. This was a real bug in my first port.
-- **In a synchronous harness, rounds do not overlap**, so three sequential rounds elect
-  three leaders. That is the transport's job (`drain_messages_within` must actually
-  wait). Contention has to be modelled by injecting on the *first in-round drain*.
-- **migration-schema's delete sentinel is `null`, not `false`.** `migrateDocumentData` is
-  documented "return final object or null if migrationStrategy deleted it"
-  (`migration-helpers.ts:58`), converted at `rx-migration-state.ts:600-604`. `false` has
-  no meaning anywhere. Also: `_deleted`/`_meta` are stripped before the first strategy
-  and restored after, and the restore is unguarded so a document with no `_deleted`
-  gains an explicit `null`.
+  `is_leader` stays true while others elect a replacement: two leaders on resume. Upstream
+  only mitigates with `responseTime * 4` on fallback rounds.
+- **leader-election's listener is edge-triggered** — attached inside a round and removed
+  after (`leader-election.js:145,168`). A buffering transport must clear at round start, or
+  a stale `apply` from a dead peer makes every survivor stand down. This was a real bug in
+  my first port.
+- **In a synchronous harness rounds do not overlap**, so N sequential rounds elect N
+  leaders. `Transport::drain_messages_within` exists for that; contention is modelled by
+  injecting on the first *in-round* drain.
+- **migration-schema's delete sentinel is `null`, not `false`**
+  (`migration-helpers.ts:58`, `rx-migration-state.ts:600-604`). `false` has no meaning.
+  `_deleted`/`_meta` are stripped before the first strategy and restored after, unguarded,
+  so a document with no `_deleted` gains an explicit `null`.
 - **`preMigrateDocument` / `postMigrateDocument` have no call site anywhere in `src/`.**
-  They are declared (`hooks.ts:72,76`) and registered by attachments
-  (`attachments/index.ts:306`) but never fired. A faithful port registers and never
-  fires them. `createRxQuery` is in the typings but not in `HOOKS` — registering it
-  would throw. Do not add a 25th hook.
-- **Hook ordering is asymmetric**: `after` is pushed (FIFO), `before` is unshifted
-  (LIFO among befores) (`plugin.ts:103-114`). Async hooks run sequentially on purpose
-  (`hooks.ts:112-116`).
-- **key-compression: `keyCompression` is part of the schema hash**, so enabling it on an
-  existing collection changes identity and is **DB6**, not a migration
-  (`rx-database.ts:481`). Verified by hashing the same schema with the flag flipped.
-  Also: names of length ≤ 3 are never compressed; the primary field and
-  `_rev/_attachments/_deleted/_meta` are ignored; the composite `primaryKey` shape is
-  `{key, fields, separator}`, **not** an array.
-- **migration-storage swallows new-storage write conflicts** — the check at `:185-188`
-  is a commented-out TODO. A re-run after a crash between copy and tombstone therefore
-  "succeeds" silently with duplicates. The progress tally counts them so a caller can
-  see it. The batch query's `_deleted: false` filter is load-bearing: progress comes from
-  tombstones, never from a growing `skip`.
+  Declared (`hooks.ts:72,76`) and registered by attachments, never fired. A faithful port
+  registers and never fires. `createRxQuery` is in the typings but not in `HOOKS`.
+- **key-compression: `keyCompression` is part of the schema hash**, so enabling it later
+  changes identity and is **DB6**, not a migration (`rx-database.ts:481`). Names of length
+  ≤ 3 never compress; the composite `primaryKey` is `{key, fields, separator}`, not an
+  array.
+- **migration-storage swallows new-storage write conflicts** — the check at `:185-188` is a
+  commented-out TODO. The batch query's `_deleted: false` filter is load-bearing: progress
+  comes from tombstones, never a growing `skip`.
 - **cleanup's boundary is strict**: `lwt < now - retention`, so a tombstone aged exactly
-  the retention survives, and `minimumDeletedTime: 0` does **not** purge a tombstone
-  deleted at exactly `now`.
+  the retention survives, and `minimumDeletedTime: 0` does not purge one deleted at `now`.
+  `saturating_sub` is wrong here (clamps at 0 where JS goes negative) — the safe form is
+  `last >= first + 5`.
+- **state is an append-only op log**, not a map: id = zero-padded counter, so ordering is
+  *string* ordering and the 14-digit padding is the whole reason ids are strings. 100 `set`
+  calls coalesce into one row. `cleanup_needed`'s upstream comment is off by one against
+  its code; the code is the contract.
+- **pipeline's re-entrancy detection is a JS stack-trace hack** (`flagged-functions.ts:3-27`,
+  20 marker functions matched by prefix; its own comment calls it "the most hacky thing we
+  do"). Unportable and unnecessary — this port passes an explicit `PipelineToken`. Strictly
+  better, and it covers the two-pipelines-one-destination case the hack was retrofitted for.
+- **crdt's `operations` is an array of arrays**, one inner array per write, and the merge
+  pairs **by index**. A flat list collapses concurrent writes instead of uniting them. The
+  hash covers **creators only**, not bodies. Upstream's `.updateCRDT()` describe block is
+  preceded by a bare `return;` (`:329`), so those two cases do not run upstream either.
+- **json-dump and backup handle attachments differently on purpose**: base64 inline for a
+  dump (must be one JSON document) versus raw bytes for a backup (a folder tree). Not an
+  inconsistency.
+- **backup clears a document's folder before rewriting** (`index.ts:50`); without it a
+  dropped attachment survives on disk and a restore attaches bytes the document no longer
+  references.
 
-**Port-specific decisions:**
+**Dev-mode: my answer to the recorded divergence — I agree, with a sharper reason, and I
+found evidence the boundary had never been audited.**
 
-- **No dependency on a storage crate from a plugin crate** — only `dxdb-storage` traits.
-  Where a wrapper was impossible I said so and left the transformation layer complete
-  and tested (key-compression's `KeyCompressionStorage`, migration-storage's
-  `MigrationSource`/`MigrationSink`).
-- **`update` ports all 14 mingo operators directly** rather than depending on a patcher.
-  Nothing off the shelf reproduces `$mul`-missing→0, `$inc` skipping a non-numeric
-  *target* but erroring on a non-numeric *argument*, `$unset` writing `null` into
-  arrays, or `$push`'s `$slice` keeping first-N/last-N. `$setOnInsert` is an **error**
-  (mingo 7.2.5 never shipped it despite upstream's typings).
-- **`CleanupGroup` is an addition, not a port** — max retention across collections
-  sharing a storage. It is opt-in so the default path stays upstream's.
-- **Test provenance convention**: `upstream_<line>_<slug>` for cases ported from an
-  upstream test file; `mingo_*` for behaviour pinned from a dependency's source;
-  everything else names the upstream file:line it asserts in a doc comment or the test
-  body. Where a Rust type makes an upstream negative case unrepresentable (e.g.
-  migration COL11/COL13 array/non-function strategies), the test says which upstream
-  case it stands in for rather than claiming coverage.
+The recorded decision is "dev-mode is a deliberate divergence". I agree it should not be
+ported wholesale, but the argument is not "it is a JS-ism". It is that **most of its schema
+checks are already unconditional in `dxdb-schema`**, so re-implementing them would be two
+implementations of one rule — which is how they drift. I enumerated 12 such codes (SC1's
+neighbours, SC7, SC8, SC18–SC20, SC24, SC29, SC30, SC32, SC33, CI1, CI2) and made each a
+test that asserts `dxdb-schema` rejects the schema, so if a rule ever moves, the test fails.
 
-**Brief errata already found and reported** (do not re-litigate, but do not silently
-"fix" the brief either): query-builder has no `.remove()`; update has no
-`incrementalPatch`/`incrementalModify`/`atomicUpdate`; upstream uses `mingo`, not
-`modifyjs`.
+That audit turned up **three codes `dxdb-schema` declares in `SchemaErrorCode` but never
+raises**:
 
-## 5. Blocked / questions for the user
+- **`SC1`** (field-name pattern) — `Sc1` is in the catalogue and `as_str` renders it, but
+  nothing constructs it. A schema with field `"Bad Name"` passes `create_rx_schema`.
+- **`SC11`** (missing/invalid `version`) — `version` is *defaulted* to 0 (`lib.rs:332,416`)
+  and neither a string nor a negative value is rejected.
+- **`SC39`** — enforced, but **lazily**: raised by `Schema::primary_key_max_length()`
+  (`lib.rs:834`), not at creation. Fine, but it means "creation validates SC39" is false.
 
-Nothing hard-blocks the worktree: HEAD is green and committed.
+`SC1` therefore lives in `dev-mode` as `Error::FieldNamePattern` (plus `SC23`,
+`properties` as a field name), and there is a test,
+`dxdb_schema_declares_sc1_but_cannot_raise_it`, that asserts `dxdb-schema` still accepts a
+bad name — so the day it is fixed, the test fails and the rule moves. **This is worth
+telling the leader: it is a defect in lane D's crate, found from this lane, not something
+I should fix from here.**
 
-Carried questions that need a **decision**, listed as §6.3–6.5 of
-`docs/lanes/m6-port-plan.md`:
+The genuinely portable dev-mode rules that are *not* in `dxdb-schema`, and which are
+therefore what the crate implements: `SC10` (_rev declared), `SC13` (primary in indexes,
+including the compound form), `SC14` (primary `unique`), `SC15` (primary encrypted), `SC16`
+(primary not a string), `SC17` (field shadows an RxDocument member), `SC34`/`SC35` (indexed
+field bounds), `DB2` (`_`-prefixed collection name), `COL12` (strategy count).
 
-1. **`attachments` path ownership** — the lane brief lists it first in the build order,
-   but `docs/WORKTREES.md` assigns `crates/dxdb-attachments/` to lane E. I am treating
-   E as authoritative and have not created the crate. Confirm.
-2. **Encryption cipher divergence** — chacha20poly1305 + argon2 (PLAN.md §9) instead of
-   upstream's crypto-js AES means upstream ciphertext is unreadable. Confirm that is
-   acceptable; if not, an `upstream-compat` feature needs a written justification in
-   PLAN.md §9 because it deliberately uses a weak KDF.
-3. **Collapse the four validator plugins to one** `validate` crate + `precompiled`
-   feature, omitting `validate-z-schema` and `validate-is-my-json-valid` (they differ
-   only in which JS library compiles the schema). Confirm that is the intended reading
-   of "port behaviour, not structure".
+Also not ported from dev-mode, recorded: `deepFreezeWhenDevMode` (a Rust value cannot be
+frozen after the fact; `Document::ensure_revision` is the equivalent guarantee, and the
+`Overwritables` flag is deliberately left false rather than promised), `dev-mode-tracking.ts`
+(iframe beacon), the 1,433-line error-message table (the *mechanism* is kept as
+`expanded_error_message`, 12 codes of rule-statements rather than upstream's prose), and
+`check-orm.ts` (no object-literal methods to check).
 
-Also worth telling the user when reporting: **the `dyn` twin is the single biggest
-unblocker for this lane** — it gates `key-compression`'s wrapper (already written,
-waiting), `encryption`, and `attachments-compression`, i.e. three of the remaining
-thirteen.
+**Test-provenance convention, applied throughout:** `upstream_<line>_<slug>` for a case
+ported from an upstream test file; `mingo_*` for behaviour pinned from a dependency's
+source; `source_<line or code>_<slug>` where upstream has **no** test file for the plugin
+or the case. Three plugins have no upstream test file at all — **json-dump, backup-less
+parts, and dev-mode** — and their crates say so explicitly and **claim no ported count**.
+If a plugin has no ported tests, say so; do not label inferred tests as ported.
+
+## 5. Blocked / questions
+
+1. **`validate-*`: my recommendation is one crate plus two omissions, and I would argue
+   against porting any backend mechanically.** The four plugins differ only in *which JS
+   library compiles the JSON Schema*: `ajv` (+`ajv-formats`), ajv precompiled, `is-my-json-
+   valid`, `z-schema`. dxdb has one engine (`jsonschema` 0.60.1, chosen in PLAN §9) and
+   already uses it in `dxdb-schema`. So:
+   - `validate` — one crate: the `wrappedValidateStorageFactory` shape from
+     `plugin-helpers.ts:55`, which strips the read-only/meta properties before validation
+     and reports `RxStorageWriteError` 422s. This has behaviour worth having independent
+     of the engine (it is how a storage reports a validation failure).
+   - `validate` with a `precompiled` feature — the analogue of `validate-ajv-standalone`:
+     compile the schema once at build time instead of per instance. Real behaviour (bundle
+     size, start cost).
+   - **Omit `validate-z-schema` and `validate-is-my-json-valid`.** Their only difference is
+     the library; there is no second engine here, so porting them would produce two crates
+     that call the same function. If the leader wants them for parity of *name*, say so and
+     they become two one-line re-exports over `validate`.
+   **Question: confirm the collapse, and confirm the two omissions.**
+
+2. **`encryption` cipher divergence** (still open from two tranches ago). Upstream is
+   crypto-js AES with `EVP_BytesToKey`/MD5/1 iteration. PLAN §9 picks chacha20poly1305 +
+   argon2, so upstream ciphertext would be unreadable by dxdb. I intend to name the crate
+   `dxdb-plugin-encryption`, not `-crypto-js`, so the name does not promise interop we do
+   not have. **Confirm the divergence is acceptable**, or ask for an `upstream-compat`
+   feature (which needs a written justification in PLAN §9 because it deliberately uses a
+   weak KDF).
+
+3. **`attachments` path ownership**, carried but now settled in practice — lane E built
+   `crates/dxdb-attachments`. `attachments-compression` (the storage wrapper) is mine and
+   waits on the dyn twin; no action needed unless the leader disagrees.
+
+4. **`DynRxStorageInstance`** — not a question, a dependency: ask lane D for it whenever it
+   is cheap to ask. It converts two of the seven remaining modules from blocked to trivial.
+
+## 6. Standing verification recipe
+
+```
+( for t in check clippy test wasm; do echo "=== $t ==="; make $t; echo "=== $t EXIT=$? ==="; done ) >/tmp/<name>-gates.log 2>&1
+grep -E "=== .* EXIT=" /tmp/<name>-gates.log
+```
+
+A `Killed` with no compiler output is the box, not the code (seen twice this tranche).
+`rsync exited with 255` / "No route to host" is the route, not the code. Report either;
+never work around them.
+
+## 7. Drafted commit message for dev-mode
+
+```
+plugins: dev-mode, scoped to the rules dxdb-schema does not enforce
+
+dxdb-plugin-dev-mode: src/plugins/dev-mode/ (3088 lines). 29 tests (6 lib, 23 integration).
+
+I agree with the recorded divergence, but for a sharper reason than "it is a JS-ism":
+MOST of dev-mode's schema checks are already UNCONDITIONAL in dxdb-schema, because
+upstream gates them behind dev mode and dxdb validates always. Re-implementing them would
+be two implementations of one rule, which is how they drift. Twelve codes are therefore
+deliberately NOT ported (SC7, SC8, SC18-20, SC24, SC29, SC30, SC32, SC33, CI1, CI2 and
+their neighbours), and each has a test asserting dxdb-schema rejects the schema on its own
+-- so if a rule ever moves, the test fails and this crate adopts it.
+
+That audit found three codes dxdb-schema DECLARES BUT NEVER RAISES:
+- SC1 (field-name pattern): SchemaErrorCode::Sc1 exists and as_str renders it, but nothing
+  constructs it. A schema with a field named "Bad Name" passes create_rx_schema.
+- SC11 (version): version is defaulted to 0 (lib.rs:332,416) and neither a string nor a
+  negative value is rejected.
+- SC39: enforced, but LAZILY by Schema::primary_key_max_length (lib.rs:834), not at
+  creation.
+SC1 therefore lives here (with SC23, `properties` as a field name), and there is a test --
+dxdb_schema_declares_sc1_but_cannot_raise_it -- that asserts dxdb-schema still accepts a
+bad name, so the day it is fixed the test fails and the rule moves. Reported as a defect
+in lane D's crate found from this lane, not fixed from here.
+
+Ported, because genuinely unenforced: SC10 (_rev declared), SC13 (primary in indexes,
+including the compound form), SC14 (primary unique), SC15 (primary encrypted), SC16
+(primary not a string), SC17 (field shadows an RxDocument member), SC34/SC35 (indexed
+field bounds), DB2 (underscore collection name), COL12 (strategy count).
+
+Not ported, recorded with reasons: deepFreezeWhenDevMode (a Rust value cannot be frozen
+after the fact; Document::ensure_revision is the guarantee, and the Overwritables flag is
+left false rather than promised), dev-mode-tracking.ts (iframe beacon), the 1433-line
+error-message table (the MECHANISM is kept as expanded_error_message with 12 codes of
+rule-statements rather than new prose), check-orm.ts (no object-literal methods to check).
+
+Upstream has no test/unit/dev-mode.test.ts: the plugin is installed globally in
+test/helper/parallel-setup.ts:27, so its checks run as a precondition of every other suite
+and a regression would surface elsewhere or not at all. Tests are therefore labelled by
+source line (source_sc13_...) and this crate claims no ported-test count.
+```

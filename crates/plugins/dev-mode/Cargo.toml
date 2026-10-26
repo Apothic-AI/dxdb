@@ -1,0 +1,17 @@
+[package]
+name = "dxdb-plugin-dev-mode"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "dxdb plugin: development-time validation and expanded diagnostics (RxDB src/plugins/dev-mode)"
+
+[dependencies]
+serde_json.workspace = true
+thiserror.workspace = true
+dxdb-core = { path = "../../dxdb-core" }
+dxdb-schema = { path = "../../dxdb-schema" }
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -627,6 +627,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dxdb-plugin-dev-mode"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-schema",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "dxdb-plugin-json-dump"
 version = "0.0.0"
 dependencies = [
@@ -723,6 +733,26 @@ dependencies = [
  "dxdb-jsstr",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-validate"
+version = "0.0.0"
+dependencies = [
+ "dxdb-core",
+ "dxdb-json",
+ "dxdb-schema",
+ "dxdb-storage",
+ "jsonschema",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "dxdb-plugin-vector"
+version = "0.0.0"
+dependencies = [
+ "dxdb-jsnum",
 ]
 
 [[package]]
