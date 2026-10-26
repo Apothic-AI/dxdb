@@ -585,3 +585,117 @@ keeping because the brief still says it.
    library compiles the schema. Confirm the collapse to `validate` (runtime) plus
    `validate`'s `precompiled` feature is the intended reading of "port behaviour,
    not structure".
+
+## 7. The portable remainder, sequenced
+
+Written after eleven plugin crates landed, so this is the *current* number rather than the
+aspirational one. Upstream line counts are measured with
+`find <dir> -name '*.ts' | xargs cat | wc -l` at `3b763ee17`.
+
+### 7.1 Where the 21 portable modules actually stand
+
+| # | Module | Lines | Crate | State | Tests |
+| ---: | --- | ---: | --- | --- | ---: |
+| 1 | `query-builder` | 749 | `dxdb-plugin-query-builder` | **done** | 33 |
+| 2 | `update` | 83 | `dxdb-plugin-update` | **done** | 44 |
+| 3 | `key-compression` | 249 | `dxdb-plugin-key-compression` | **done**, wrapper waiting on §7.3 | 18 |
+| 4 | `migration-schema` | 1,187 | `dxdb-plugin-migration-schema` | **done** | 25 |
+| 5 | `migration-storage` | 255 | `dxdb-plugin-migration-storage` | **done** | 16 |
+| 6 | `local-documents` | 776 | `dxdb-plugin-local-documents` | **done** | 21 |
+| 7 | `leader-election` | 132 | `dxdb-plugin-leader-election` | **done** | 26 |
+| 8 | `cleanup` | 291 | `dxdb-plugin-cleanup` | **done** | 23 |
+| 9 | `json-dump` | 236 | `dxdb-plugin-json-dump` | **done** | 19 |
+| 10 | `backup` | 413 | `dxdb-plugin-backup` | **done** | 15 |
+| 11 | `crdt` | 577 | `dxdb-plugin-crdt` | **done** | 31 |
+| 12 | `state` | 577 | `dxdb-plugin-state` | **done** | 26 |
+| 13 | `pipeline` | 497 | `dxdb-plugin-pipeline` | **done** | 18 |
+| 14 | `dev-mode` | 3,088 | `dxdb-plugin-dev-mode` | **done**, see §7.2 | 29 |
+| 15 | `vector` | 37 | `dxdb-plugin-vector` | **not started**, unblocked | — |
+| 16 | `attachments-compression` | 236 | `dxdb-plugin-attachments-compression` | **blocked** (§7.3) | — |
+| 17 | `encryption-crypto-js` | 233 | `dxdb-plugin-encryption` | **blocked** (§7.3) + cipher decision | — |
+| 18 | `validate-ajv` | 70 | `dxdb-plugin-validate` | **not started**, collapse proposed | — |
+| 19 | `validate-ajv-standalone` | 126 | same crate, `precompiled` feature | **not started** | — |
+| 20 | `validate-z-schema` | 58 | — | **proposed omission** (§7.4) | — |
+| 21 | `validate-is-my-json-valid` | 30 | — | **proposed omission** (§7.4) | — |
+
+**14 of 21 done.** The 7 remaining are **4 crates plus 3 omissions**: `vector`,
+`attachments-compression`, `encryption`, `validate` (with its `precompiled` feature), and
+`validate-z-schema` / `validate-is-my-json-valid` / — by the same argument — the second and
+third validator backends.
+
+Total tests across the fourteen crates: **344** (59 in-crate unit tests, 285 integration).
+Counted with `grep -c '#\[test\]'` per crate, not estimated.
+
+### 7.2 dev-mode: agreeing with the divergence, with a sharper reason
+
+The recorded decision is "dev-mode is a deliberate divergence". Agreed, but the argument is
+not that it is a JS-ism. It is that **most of its schema checks are already unconditional in
+`dxdb-schema`**, because upstream gates them behind dev mode while dxdb validates always.
+Re-implementing them would be two implementations of one rule, which is how they drift.
+
+Twelve codes are therefore deliberately **not** ported (`SC7`, `SC8`, `SC11`-adjacent
+`SC18`-`SC20`, `SC24`, `SC29`, `SC30`, `SC32`, `SC33`, `CI1`, `CI2`), and each has a test
+asserting `dxdb-schema` rejects the schema on its own — so if a rule ever moves, the test
+fails and this crate adopts it.
+
+That audit found **three codes `dxdb-schema` declares in `SchemaErrorCode` but never
+raises**:
+
+- **`SC1`** (field-name pattern). The variant exists and `as_str` renders it, but nothing
+  constructs it: a schema with a field named `"Bad Name"` passes `create_rx_schema`.
+- **`SC11`** (`version`). `version` is *defaulted* to `0` (`dxdb-schema/src/lib.rs:332,416`)
+  and neither a string nor a negative value is rejected.
+- **`SC39`**. Enforced, but **lazily**, by `Schema::primary_key_max_length()`
+  (`lib.rs:834`) rather than at creation.
+
+`SC1` therefore lives in `dev-mode` (with `SC23`, `properties` as a field name) and there is
+a test, `dxdb_schema_declares_sc1_but_cannot_raise_it`, that asserts `dxdb-schema` still
+accepts a bad name — so the day lane D fixes it, the test fails and the rule moves. Reported
+as a defect in `dxdb-schema` found from this lane, not patched from here.
+
+### 7.3 The one hard blocker: the dyn twin
+
+`dxdb_storage::RxStorageInstance` uses `impl Future` in eight methods and is therefore not
+dyn-compatible. A storage **wrapper** returns `Box<dyn RxStorageInstance>` by definition, so
+no wrapper plugin can exist until lane D adds the `DynRxStorageInstance` twin (PLAN §3.3,
+`dynosaur`).
+
+That single dependency gates **three** of the remaining modules: `key-compression`'s wrapper
+(the transformation layer is written and tested; only the `dyn` plumbing is missing),
+`encryption`, and `attachments-compression`. When the twin lands those three become
+mechanical. Until then the honest statement is "18 of 21 reachable, 3 blocked on one trait".
+
+### 7.4 The validator question, answered
+
+The four `validate-*` plugins differ only in **which JS library compiles the JSON Schema**:
+`ajv` (+`ajv-formats`), ajv precompiled, `is-my-json-valid`, `z-schema`. There is one engine
+here (`jsonschema` 0.60.1, PLAN §9), already used by `dxdb-schema`.
+
+So porting all four mechanically would produce four crates that call the same function.
+Instead:
+
+- **`validate`** — one crate, porting `wrappedValidateStorageFactory`
+  (`plugin-helpers.ts:55`). That has behaviour worth having independent of the engine: it
+  strips read-only and meta properties before validating, and reports a failed write as a
+  `RxStorageWriteError` with status 422 rather than storing bad data. That is *how a storage
+  reports a validation failure*, which is a contract, not a library choice.
+- **`precompiled` feature** — the analogue of `validate-ajv-standalone`: compile the schema
+  once at build time instead of per instance. Real behaviour (bundle size, start cost), and
+  the only one of the four that is not purely a library swap.
+- **Omit `validate-z-schema` and `validate-is-my-json-valid`**, and do not add a second
+  runtime backend. Their entire content is "call a different validator"; there is no second
+  validator. If parity of *name* is wanted they become one-line re-exports over `validate`,
+  which the plan would record as such rather than as a port.
+
+### 7.5 Sequence for what is left
+
+| Order | Crate | Blocked on | Why here |
+| ---: | --- | --- | --- |
+| 1 | `vector` | nothing | 37 lines, three distance functions, depends only on `dxdb-jsnum`. Do it any time. |
+| 2 | `validate` (+ `precompiled`) | nothing (needs `dxdb-storage` write-error shape) | The 422 reporting contract is real behaviour and is cross-cutting. |
+| 3 | `attachments-compression` | `DynRxStorageInstance` + lane E's attachment data model | Shares the wrapper infrastructure with `encryption`; do them together. |
+| 4 | `encryption` | `DynRxStorageInstance` + the cipher decision (§6.2) | Same wrapper. The cipher is a recorded parity break, not a port. |
+
+Order 3 and 4 are together because they are the same kind of crate — a `RxStorageInstance`
+wrapper — and building the wrapper plumbing twice would be the waste. `key-compression`'s
+wrapper completes in the same pass.
