@@ -37,18 +37,72 @@ Budgets are aspirational until measured; they get revised with numbers, not vibe
 Measure the release profile already in `Cargo.toml` (`opt-level="s"`, `lto="fat"`,
 `codegen-units=1`, `panic="abort"`), then brotli.
 
-| Artifact | Budget (brotli) | Measured | Date | Status |
-| --- | --- | --- | --- | --- |
-| `dxdb-js` core only, no storages | 250 KiB | 5.3 KiB floor / 13.6 KiB with async plumbing | 2026-10-25 | measured, budget barely engaged |
-| `dxdb-js` + memory storage | 320 KiB | not yet measured | — | pending M4 |
-| `dxdb-js` + OPFS storage | 400 KiB | not yet measured | — | pending M4 |
-| `dxdb-js` + SQLite storage | 900 KiB | not yet measured | — | pending M4 |
+### Measurement 2026-10-26: all four budget rows, and the caveat that dominates them
 
-Full method and the three-engine verification are in
-`docs/lanes/m4-browser-plan.md` section 6.
+```
+box:        fly open-surrealdb-ds-builder 87477e0cd01748
+            8 cores, AMD EPYC, shared
+toolchain:  rustc 1.95.0 (59807616e 2026-04-14), workspace release profile
+idle:       yes  (make busy -> IDLE)
+date:       2026-10-26
+artifact:   xtask/wasm-size-budgets.sh --out <dir>
+            (builds remotely with the release profile, post-processes with the
+             wasm-bindgen CLI 0.2.129, brotli -q 11, round trip verified)
+ran on:     the box; only the artifact is fetched back for compression
 
-A budget that is exceeded gets revised **with the measured number and a reason**,
-or the bundle gets smaller. It does not get quietly ignored.
+| Bundle | Brotli q11 | Budget | Δ vs budget |
+| --- | ---: | ---: | ---: |
+| `dxdb-js` + smoke surface (base fixture) | **6,735 B** (6.6 KiB) | 250 KiB (256,000 B) | **−243.4 KiB (within by 95.1%)** |
+| + `dxdb-memory` | **6,759 B** (6.6 KiB) | 320 KiB (327,680 B) | **−313.4 KiB (within by 97.9%)** |
+| + `dxdb-opfs` | — | 400 KiB | **not measurable: storage not implemented** |
+| + `dxdb-sqlite` | **283,011 B** (276.4 KiB) | 900 KiB (921,600 B) | **−623.6 KiB (within by 69.2%)** |
+
+All three measured rows are **within budget**. That is the good news, and it is also
+where the honest reporting has to start.
+
+#### The caveat that matters more than the numbers
+
+**These bundles do not contain the engine, so "within budget" does not yet mean the
+budget is achievable.** `crates/dxdb-js` today links exactly one workspace crate,
+`dxdb-storage`, plus `wasm-bindgen`/`wasm-bindgen-futures`. It does **not** link:
+
+| Crate | Source lines | In the measured bundle? |
+| --- | ---: | --- |
+| `dxdb-core` | 3,189 | no |
+| `dxdb-schema` | 1,947 | no |
+| `dxdb-query` | 4,484 | no |
+| `dxdb-reactivity` | 1,662 | no |
+
+`dxdb-js`'s own module docs say the same: the exported database/collection surface
+"arrives once `dxdb-storage` publishes the traits". Those traits now exist, so the
+wiring is *possible* and simply not done. Until it is, the memory row's 6,759 B is the
+cost of the binding layer plus a storage, not the cost of a usable database — the
+schema, planner and reactivity code that a real bundle needs is 11,282 source lines
+away. The 250 KiB budget is therefore still barely engaged, exactly as the 2026-10-25
+row said, and remains unproven rather than proven.
+
+**What the numbers do establish**, which is worth having:
+
+- **`wasm-bindgen` + the async plumbing is ~2.6% of the 250 KiB core budget.** The
+  binding layer is not the size risk; the engine is.
+- **SQLite costs ~276 KiB brotli on top of the binding floor** (283,011 − 6,735),
+  which is **30.7% of its own 900 KiB budget** before a single byte of engine code. That
+  is the useful constraint: the SQLite bundle has ~637 KiB left for the engine, and the
+  engine is at least `dxdb-core` + `dxdb-schema` + `dxdb-query`. If those three land
+  above 637 KiB brotli, the 900 KiB budget is exceeded and the SQLite row is the one
+  that breaks first. That is a prediction this file can now be held to.
+- **Adding a storage to the binding floor is nearly free when the storage is small**
+  (memory added 26 B brotli; the memory storage's own code is already in the tree at
+  46/48 conformance) and expensive when it embeds a C database (sqlite, +276 KiB).
+
+#### Reproducing
+
+The fixture entry point in `crates/dxdb-bench/src/lib.rs` exists to stop a specific
+failure: a `cdylib` whose storage code is never referenced gets dead-code-eliminated, so
+the artifact would measure `dxdb-js` alone while the row claims to include a storage.
+`dxdb_size_fixture_probe` reaches through the storage features so the linker cannot drop
+them, which is why the raw sizes differ at all (41,372 → 42,679 → 881,224 before
+bindgen). A number measured without that root would be flattering and wrong.
 
 ### Measurement 2026-10-25: the wasm-bindgen floor
 
@@ -164,11 +218,85 @@ column. Neither is "faster" without naming the operation and the durability sett
 
 | Storage | bulk insert | find-by-id | query (scan) | count (scan) | changed_since | Date |
 | --- | --- | --- | --- | --- | --- | --- |
-| memory | pending M2 | | | | | |
+| memory | 23,915 docs/s | 168,585 ids/s | 47 queries/s | 1,149 queries/s | 61/s | 2026-10-26 |
 | filesystem (redb) | 96,816 docs/s | 96,772 ids/s | 218 queries/s | 1,066 queries/s | 42,553/s | 2026-10-26 |
-| indexeddb | pending M4 | | | | | |
-| opfs | pending M4 | | | | | |
+| indexeddb | not measurable on the build box | | | | | — |
+| opfs | not measurable on the build box | | | | | — |
 | sqlite | 256,524 docs/s | 188,041 ids/s | 160 queries/s | 534 queries/s | 9,099/s | 2026-10-26 |
+
+### Measurement 2026-10-26: memory, the reference implementation
+
+```
+box:        fly open-surrealdb-ds-builder 87477e0cd01748, 8 cores, AMD EPYC, shared
+toolchain:  1.95.0 (rustc 59807616e 2026-04-14), release profile
+idle:       yes  (make busy -> IDLE; /proc/loadavg 0.00 0.08 0.29)
+date:       2026-10-26
+artifact:   xtask/bench-storages.sh --only memory --runs 5 --out <dir>
+            -> <dir>/memory.json + <dir>/metadata.json
+ran on:     the box (script rsyncs, builds and runs remotely)
+```
+
+| Operation | memory | filesystem | sqlite |
+| --- | ---: | ---: | ---: |
+| `bulk_insert` (3000 docs, 6 batches) | 125.44 ms — 23,915/s | 30.99 ms — 96,816/s | 11.69 ms — 256,524/s |
+| `insert_serial` (50 docs) | 2.57 ms — 19,435/s | 25.31 ms — 1,976/s | 2.91 ms — 17,209/s |
+| `find_by_id_bulk` (3000 ids) | 17.80 ms — 168,585/s | 31.00 ms — 96,772/s | 15.95 ms — 188,041/s |
+| `find_by_id_serial` (50 ids) | 0.25 ms — 198,020/s | 0.50 ms — 99,463/s | 0.28 ms — 178,699/s |
+| `query_sorted` (3050 rows) | 21.13 ms — 47/s | 4.58 ms — 218/s | 6.24 ms — 160/s |
+| `query_parallel` (4 selectors) | 22.58 ms — 177/s | 4.66 ms — 858/s | 7.72 ms — 518/s |
+| `count` (4 counts) | 3.48 ms — 1,149/s | 3.75 ms — 1,066/s | 7.49 ms — 534/s |
+| `changed_since` (limit 100) | 16.37 ms | 0.02 ms | 0.11 ms |
+
+**This row is not the same measurement as the other two, and reading it as "memory is
+slowest" would be wrong.** The filesystem and sqlite benches drive a *driver API*
+(`put_document`, `StatementId::InsertDocument`); this one drives the real
+`RxStorageInstance` trait, because that is what `dxdb-memory` is. So its numbers include
+`categorize_bulk_write_rows`, document cloning, `Matcher` evaluation, event emission and
+change-feed dispatch — the full storage contract. The other two skip all of that.
+
+Two consequences, both visible in the table and both worth stating rather than
+explaining away:
+
+- **`bulk_insert` looks far worse for memory (23,915/s vs 96,816/s) and that is not a
+  memory-storage weakness.** It is the cost of the contract layer: every row goes through
+  the categoriser and produces change events. A filesystem `bulk_write` written against
+  the trait (rather than against the driver) would pay the same cost. The honest
+  comparison for "which engine is faster" is driver-to-driver, and that comparison does
+  not include memory at all.
+- **`query_sorted` and `changed_since` look far worse (47/s, 16.37 ms) and here the
+  ordering is real.** Memory's `query` sorts an owned `Vec` through the query crate's
+  comparator and its `changed_since` runs the trait's documented fallback (a full
+  ordered query, because upstream's memory storage does not implement a native change
+  feed either). filesystem's `changed_since` rides the `chg` table and is 800× faster at
+  0.02 ms. That is a genuine advantage of the redb key layout, and it is the one place
+  in this table where the specialised storage beats the reference implementation by an
+  order of magnitude on a contract operation.
+
+**What the memory row is for:** it is the baseline a *new* storage should meet on the
+operations where memory is competitive — point lookups and count — because memory has no
+I/O to hide behind, and it is the ceiling a new storage should beat on the operations
+where memory is structurally weak (`changed_since`, where an ordered index wins).
+
+### Why indexeddb and opfs are "not measurable on the build box"
+
+These are not unfinished rows; they are rows that cannot be filled by this harness at
+all, and the distinction matters because "pending" implies someone will get to it.
+
+- **`indexeddb`** needs a browser `IndexedDB` implementation. The crate exists
+  (`crates/storages/dxdb-indexeddb`, 46/48 conformance) and has a `MemoryKv`-style
+  backing for native tests, but that backing is in-memory: benchmarking it would measure
+  the backing map, not IndexedDB, and the number would be meaningless as an IndexedDB
+  figure. A real measurement needs the `demo/` browser harness driving Chromium over the
+  same operation mix, reporting the same JSON shape.
+- **`opfs`** needs a dedicated worker and `FileSystemSyncAccessHandle`, which exists
+  only in a browser worker context. The storage is not implemented yet
+  (`crates/storages/dxdb-opfs` does not exist), so there is nothing to run even if the
+  harness existed.
+
+Both are therefore recorded as **not measurable on the build box; requires the `demo/`
+browser harness**, which is lane F's territory. Recording a native proxy number instead
+would be worse than an empty cell: it would look comparable to the rows above it while
+measuring something else.
 
 ## Upstream's published claims, as targets rather than facts
 
