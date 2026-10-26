@@ -1320,3 +1320,158 @@ it, and are the things to watch for in the first two M6 adapters:
   incomplete rather than merely exercised.
 - If **drive** turns out to need less than a week, the two big directories were plumbing after
   all and **onedrive** can be started in parallel rather than sequentially.
+
+### 15.6 A defect in `dxdb-filesystem`, found by running the master contract over it
+
+Section 12 asks for the ported suite green "against in-memory and filesystem endpoints". Doing
+that turned up a real storage bug, so it is recorded here rather than in a commit message: the
+owning lane needs the mechanism, not the symptom.
+
+**Symptom.** A replication pull never sees a document update if the insert and the update fall
+inside the same millisecond. The document is not corrupted; it is simply never delivered, and
+the pull reports "nothing changed". Silent data loss wearing a passing test's clothes.
+
+**Mechanism.** `dxdb-filesystem` keys its change feed as
+`BE(flip(lwt.round() as i64)) ++ prefix ++ id` (`layout::encode_lwt`,
+`FilesystemStorage::put_documents`). The `.round()` discards the hundredths that D4 says are
+load-bearing:
+
+> "`lwt` is milliseconds plus `k * 0.01` for `k` in 1..=99 … A whole-millisecond clock produces
+> ties that the ordering logic relies on being broken." — `docs/DECISIONS.md` D4
+
+Two writes to one document inside one millisecond therefore collapse onto a single key
+position, and `get_changed_documents_since`'s exclusivity rule
+
+```text
+lwt > start.lwt || (lwt == start.lwt && id > start.id)
+```
+
+excludes the updated document: its rounded `lwt` *equals* the checkpoint's and its `id` is
+*equal*, not greater. So a checkpoint the storage itself handed back is not resumable past it.
+
+**Observed arithmetic**, from a clock starting at `1_800_000_000_000.0` stepping `+0.01`:
+
+| write | `lwt` | rounded key |
+| --- | --- | --- |
+| insert `u` | `1800000000000.01` | `1800000000000` |
+| update `u` | `1800000000000.02` | `1800000000000` |
+
+**Why the tests did not catch it.** The shared conformance suite's `lwt` fixture is
+`base + n` for integer `n` (`dxdb-testkit/src/suite.rs::lwt`), so every fixture value is a whole
+millisecond and rounding is lossless for it. Our replication fixtures use the same whole-ms
+shape, and the `dxdb-filesystem` suite inherits it. The bug is reachable only with a
+D4-shaped clock, which is exactly what the protocol uses in production.
+
+**Why this matters beyond one storage.** `dxdb-memory` compares on the exact `f64`, so the same
+replication is correct over memory and lossy over filesystem. That is a divergence between two
+storages implementing one trait, and the trait's own doc comment for
+`get_changed_documents_since` promises documents "changed after `checkpoint`, in
+`(_meta.lwt, primary)` order" — which the rounded key cannot honour.
+
+**Fix, for the owning lane.** Key and compare on hundredths throughout:
+`(lwt * 100).round() as i64` in `layout::encode_lwt`/`decode_lwt` and in
+`FilesystemStorage::put_documents`'s `i64` parameter, dividing on decode; `delete_tombstones`'s
+`cutoff` needs the same unit change, and its `<=` bound then becomes correctly inclusive of
+`cutoff`. Byte order stays equal to numeric order and the `(lwt, id)` tie-breaker is preserved.
+`docs/STATUS.md`'s filesystem row claims 48/48 of the shared suite, which stays true — the suite
+does not exercise sub-millisecond `lwt`.
+
+**What is checked in, and where.** Two things, and neither is a change to the other lane's
+crate:
+
+1. `crates/dxdb-replication/tests/master.rs::a_sub_millisecond_update_is_invisible_to_the_change_feed`
+   — the repro at the replication level, `#[ignore]`d with the reason and the §15.6 pointer so
+   `make test` stays green and honest. Run it with `-- --ignored` to watch it fail today and to
+   confirm the fix later.
+2. `TestClock` in the same file steps a whole millisecond, with the reasoning in its doc
+   comment. That is not hiding the defect: it keeps
+   `the_master_contract_holds_over_a_filesystem_endpoint` testing the storage contract the
+   storage actually has, and confines the divergence to the one test that asserts it.
+
+### 15.7 A pre-compile review of `master.rs`, and what it caught
+
+`src/master.rs` was written during a remote-build maintenance window, so it could not be
+compiled when it was written. Reviewing it against upstream line by line first was worth doing
+for its own sake: it found three defects that a compile would not have, and it removed ~80 lines
+of unnecessary code.
+
+**Caught by review, not by a compiler:**
+
+1. **Two context strings, not one.** Upstream passes `rxStorageInstanceToReplicationHandler-
+   masterWrite` to `conflictHandler.isEqual` (`index.ts:295`) and `replication-master-write` to
+   `instance.bulkWrite` (`index.ts:311`). My first draft used the first string for both. A
+   compiler is happy with either; a caller reading a `WriteError::Conflict::context` is not.
+   Both are now named constants, with the difference documented as deliberate so a future
+   reader does not "tidy" them together.
+2. **`impl Trait + use<>` in a 2021-edition crate.** `use<>` precision syntax is Rust 2024;
+   this workspace is edition 2021, so the test helper's return type was invalid. Replaced with
+   the concrete `StorageMaster<MemoryStorage>`.
+3. **A dropped temp directory in an ignored test.** `Endpoint::filesystem().instance` moved the
+   instance out and dropped the guard, deleting the redb file's directory before the test used
+   it. The endpoint is now bound to a named local.
+
+**Removed rather than fixed.** The tests hand-wrote a `RxStorageInstance` forwarding shim twice
+(~80 lines) to adapt a `&impl RxStorageInstance` and a `Box<DynRxStorageInstance>` to
+`StorageMaster<S>`. Both are unnecessary: `dxdb-storage` declares
+`#[dynosaur(pub DynRxStorageInstance = dyn(box) RxStorageInstance)]`, and dynosaur's default
+bridge emits `impl<T: ?Sized + RxStorageInstance> RxStorageInstance for Box<T>` — checked in
+`dynosaur_derive-0.3.1/src/lib.rs::mk_box_blanket_impl`. So `Box<DynRxStorageInstance>` *is* an
+`RxStorageInstance` and can be handed to `StorageMaster` directly. A hand-maintained duplicate of
+eleven forwarding methods is also how a trait method silently stops being forwarded, so deleting
+it is a correctness win, not only a size one.
+
+**Verified statically before compiling** (each against its definition, not by memory):
+`StorageSchema::from_value(&Value)`, `DocumentData::from_value(Value)`, `Checkpoint::from_json(&Value)`,
+`Checkpoint::to_json() -> Value`, `DynRxStorageInstance::new_box`, `WriteError::status()`/
+`document_id()`, `DocumentWriteData::with_payloads`, `bulk_write` returning
+`BulkWriteResponse { error }`, and that `conformance::human_schema` is public.
+
+**What the compiler then found, and what review had missed.** The first build produced three
+errors, all in code the review had read and believed correct:
+
+1. **`?` in a closure that returns `Option`.** `stream::unfold`'s closure yields
+   `Option<(item, state)>`, so the two `?`s inside it could not propagate a `StorageError`. The
+   fix was not mechanical: the right answer was to extract the fallible mapping into
+   `map_one_bulk -> Result<Option<..>>` and let the closure *decide* to stop the stream, because
+   `PullStreamItem` has no error channel. Doing that also made the fallible half separately
+   testable. Clippy then rejected the resulting `match` as `manual_unwrap_or_default`, so the
+   collapse is now `unwrap_or(None)` with a comment on why it is not `unwrap_or_default()`.
+2. **`impl Trait + use<>`** — edition-2024 syntax, caught by review, not the compiler, because
+   the file had not been built yet.
+3. **A partial move in the ignored test**: `Rc::new(endpoint.instance)` moved the field, then a
+   later `let _ = endpoint` used the partly-moved value. Destructuring `Endpoint { instance,
+   temp: _temp }` is the fix, and it is what keeps the temp-directory guard alive.
+
+**And the most instructive one, which no compiler and no amount of source-reading found:** after
+fixing the compile errors, the filesystem contract test still failed — *with the same assertion*
+that had first exposed the `lwt` rounding defect. The cause was that the earlier fix to the test
+clock (`+0.01` → `+1.0`) had silently not applied: a text replacement targeted prose that had
+since changed, and I never verified the edit landed. I had written a confident paragraph in this
+section explaining a defect as the cause of a failure that was in fact caused by my own
+un-applied edit. Both were real — the storage defect is genuine and reproducible — but the
+attribution was wrong, and only running it showed that.
+
+The lesson worth carrying: verifying an edit landed is not optional when the edit is what makes a
+test pass, and "the source says this should fail" is a hypothesis about a build, not evidence
+about one.
+
+
+**Second review pass, after the first one's findings.** Two more things, one of them a real gap
+rather than a tidiness fix:
+
+4. **`master_change_stream` returned an empty stream, and that was a gap, not a design choice.**
+   Upstream's `masterChangeStream$` is `instance.changeStream()` piped through the *same*
+   `writeDocToDocState` + `fillWriteDataForAttachmentsChange(.., None)` steps as the pull
+   (`index.ts:200-226`). Returning `stream::empty()` made live replication fall back to polling,
+   which converges but is exactly the "correct but not optimal" trade D3 says should be opt-in
+   rather than the default. Now implemented with `stream::unfold` over `poll_fn(stream.poll_next)`
+   — a stream, not an `async next()` loop, so D2's push-delivery batching is preserved.
+5. **`PullStreamItem` has no `Err` variant.** A storage failure while mapping a bulk therefore
+   ends the stream instead of surfacing as an item. That is now documented as deliberate rather
+   than left to be discovered: upstream's `mergeMap` routes a rejection to `error$`, and this
+   layer's error channel is `master_changes_since`. A transport that wants the error subscribes
+   to `instance.change_stream()` directly.
+
+The attachment rule now lives in one `client_view` helper used by both the pull and the stream,
+because the two applying different attachment rules is the kind of divergence that shows up as a
+client which converges on a poll and never on a push.
