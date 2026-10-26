@@ -20,10 +20,19 @@ let hashes = vectors
 
 for case in &hashes.cases {
     // `input` is the schema as upstream's fixture declares it, key order preserved.
-    let filled = dxdb_schema::fill_with_default_settings(&case.input).unwrap();
-    assert_eq!(filled.hash(), case.hash.as_deref().unwrap(), "{}", case.name);
+    // Skip a schema upstream refused to create: it has `rejected` instead of `hash`.
+    let Some(expected) = case.hash.as_deref() else {
+        assert!(case.was_rejected(), "{}: no hash and not rejected", case.name);
+        continue;
+    };
+    // Fill and hash with your own implementation, then compare against `expected`.
+    let _ = (case, expected);
 }
 ```
+
+`hash` is `Option` because a schema upstream refuses (`rejected`) has no hash. Do not
+`unwrap()` it: `was_rejected()` tells the two cases apart, and the count test in
+`tests/case_counts.rs` asserts they still add up.
 
 `Vectors::discover()` resolves the directory from *this* crate's manifest dir, so it
 works from any consumer crate at any nesting depth. Do not build the path yourself;
